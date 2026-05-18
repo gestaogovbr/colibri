@@ -32,4 +32,4 @@ def carregar_segredo(
 
 
 if __name__ == "__main__":
-    carregar_segredo(nome_segredo="")
+    print(carregar_segredo())
