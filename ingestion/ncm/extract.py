@@ -1,49 +1,71 @@
-from datetime import datetime
+import hashlib
+import io
 import json
-from pathlib import Path
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import boto3
+
 import shared.carregar_json_da_url as cju
-import shared.salvar_arquivo as sa
+from shared.carregar_segredo import carregar_segredo
 
 
-NCM_URL = (
-    "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
-)
+NCM_URL = "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
+PREFIXO_RAW = "raw/ncm/"
 
 
-def main():
+def _criar_cliente(nome_segredo: str):
+    config = carregar_segredo(nome_segredo)
+    return boto3.client(
+        "s3",
+        endpoint_url=config["endpoint"],
+        aws_access_key_id=config["access_key"],
+        aws_secret_access_key=config["secret_key"],
+        region_name="auto",
+    )
+
+
+def _calcular_hash(dados: dict) -> str:
+    conteudo = json.dumps(dados, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(conteudo.encode()).hexdigest()
+
+
+def _buscar_dados_anteriores(cliente, bucket: str) -> dict | None:
+    resposta = cliente.list_objects_v2(Bucket=bucket, Prefix=PREFIXO_RAW)
+    objetos = resposta.get("Contents", [])
+    if not objetos:
+        return None
+    ultimo = max(objetos, key=lambda o: o["LastModified"])
+    buffer = io.BytesIO()
+    cliente.download_fileobj(bucket, ultimo["Key"], buffer)
+    buffer.seek(0)
+    return json.loads(buffer.read().decode("utf-8"))["dados"]
+
+
+# Baixar os dados de NCM
+def main(bucket: str, nome_segredo: str) -> dict | None:
     dados = cju.carregar_json_da_url(NCM_URL)
-    timestamp = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime(
-        "%Y-%m-%dT%H:%M:%S"
-    )
-    timestamp_limpo = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime(
-        "%Y-%m-%d-%H%M%S"
-    )
-    metadados = {
-        "hora_da_extracao": timestamp,
-        "url": NCM_URL,
-    }
+    hash_atual = _calcular_hash(dados)
+
+    cliente = _criar_cliente(nome_segredo)
+    dados_anteriores = _buscar_dados_anteriores(cliente, bucket)
+
+    if dados_anteriores is not None and _calcular_hash(dados_anteriores) == hash_atual:
+        print("Sem mudanças nos dados de NCM. Pipeline encerrado.")
+        return None
+
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
     json_final = {
-        "metadados": metadados,
+        "metadados": {
+            "hora_da_extracao": agora.strftime("%Y-%m-%dT%H:%M:%S"),
+            "url": NCM_URL,
+        },
         "dados": dados,
     }
 
-    with open("ncm.json", "w", encoding="utf-8") as f:
-        json.dump(json_final, f, indent=4, ensure_ascii=False)
+    chave = f"{PREFIXO_RAW}ncm_{agora.strftime('%Y-%m-%d-%H%M%S')}.json"
+    buffer = io.BytesIO(json.dumps(json_final, indent=4, ensure_ascii=False).encode("utf-8"))
+    cliente.upload_fileobj(buffer, bucket, chave)
+    print(f"Novo arquivo salvo em: {chave}")
 
-    sa.enviar_com_timestamp(
-        "ncm.json",
-        "colibri-arquivos",
-        "colibri-token-desenvolvedor",
-        timestamp=timestamp_limpo,
-    )
-
-    arquivo = Path("ncm.json")
-
-    if arquivo.exists():
-        arquivo.unlink()
-
-
-if __name__ == "__main__":
-    main()
+    return dados
