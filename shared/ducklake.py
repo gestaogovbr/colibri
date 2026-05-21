@@ -34,6 +34,8 @@ def _baixar_catalogo(cliente, bucket: str, chave: str):
     except ClientError as e:
         if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
             print("[ducklake] Catálogo não existe no R2. Será criado.")
+            if os.path.exists(CATALOGO_LOCAL):
+                os.remove(CATALOGO_LOCAL)
         else:
             raise
 
@@ -44,13 +46,12 @@ def _subir_catalogo(cliente, bucket: str, chave: str):
 
 
 def _checkpoint_catalogo():
-    """Abre o catálogo diretamente como DuckDB e força o merge do WAL no arquivo principal."""
     try:
         con = duckdb.connect(CATALOGO_LOCAL)
         con.execute("FORCE CHECKPOINT")
         con.close()
     except Exception as e:
-        print(f"[ducklake] Aviso: checkpoint do catálogo falhou: {e}")
+        print(f"[ducklake] Aviso: checkpoint falhou: {e}")
 
 
 def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
@@ -86,9 +87,7 @@ def fechar(con: duckdb.DuckDBPyConnection, caminho_meta: str, nome_segredo: str)
     con.close()
     if os.path.exists(_SESSION_DB):
         os.remove(_SESSION_DB)
-
     _checkpoint_catalogo()
-
     config = carregar_segredo(nome_segredo)
     cliente = _cliente_s3(config)
     bucket, chave = _parsear_s3(caminho_meta)

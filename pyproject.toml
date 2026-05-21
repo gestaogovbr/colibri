@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colibri"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3",
+    "click",
+    "duckdb",
+    "pyarrow",
+    "PyYAML",
+    "requests",
+    "pipe",
+    "rich",
+]
+
+[project.scripts]
+colibri = "cli:cli"
+
+[tool.setuptools]
+py-modules = ["cli"]
+
+[tool.setuptools.packages.find]
+where = ["."]
