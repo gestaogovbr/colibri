@@ -154,8 +154,11 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
 def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     """Baixa um arquivo do bucket"""
     s3 = _cliente(segredo)
+    nome_arquivo = os.path.basename(arquivo)
     if destino is None:
         destino = os.path.join(bucket_name, arquivo)
+    elif os.path.isdir(destino):
+        destino = os.path.join(destino, nome_arquivo)
     os.makedirs(os.path.dirname(destino) or ".", exist_ok=True)
     try:
         s3.download_file(bucket_name, arquivo, destino)
