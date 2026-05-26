@@ -10,6 +10,8 @@ dependencies = [
     "boto3",
     "click",
     "duckdb",
+    "numpy",
+    "pandas",
     "pyarrow",
     "PyYAML",
     "requests",
