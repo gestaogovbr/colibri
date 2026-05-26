@@ -69,3 +69,6 @@ def main(bucket: str, nome_segredo: str) -> dict | None:
     print(f"Novo arquivo salvo em: {chave}")
 
     return dados
+
+if __name__ == "__main__":
+    main("colibri-arquivos", "colibri-token-desenvolvedor")
