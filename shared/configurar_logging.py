@@ -31,7 +31,7 @@ def setup_logging():
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
-    file_handler = logging.FileHandler("app.log", encoding="utf-8")
+    file_handler = logging.FileHandler("logs/app.log", encoding="utf-8")
     file_handler.setFormatter(formatter)
 
     root_logger.setLevel(logging.INFO)
