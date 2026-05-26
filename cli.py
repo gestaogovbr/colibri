@@ -62,7 +62,7 @@ def bucket():
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
 @click.option("--prefixo", default="", help="Filtrar por prefixo")
 def listar(bucket_name: str, segredo: str, prefixo: str):
-    """Lista arquivos no bucket."""
+    """Lista arquivos no bucket"""
     s3 = _cliente(segredo)
 
     with Progress(SpinnerColumn(), TextColumn("[cyan]Buscando arquivos..."), transient=True) as p:
@@ -107,7 +107,7 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
 @click.argument("bucket_name")
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
 def deletar(arquivo: str, bucket_name: str, segredo: str):
-    """Remove um arquivo do bucket."""
+    """Remove um arquivo do bucket"""
     s3 = _cliente(segredo)
     try:
         s3.head_object(Bucket=bucket_name, Key=arquivo)
@@ -174,7 +174,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
 @click.option("--chave", default=None, help="Nome no bucket (padrão: nome do arquivo com timestamp)")
 def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | None):
-    """Faz upload de um arquivo para o bucket."""
+    """Faz upload de um arquivo para o bucket"""
     if not os.path.exists(caminho_arquivo):
         console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]")
         return
@@ -209,7 +209,7 @@ def _conectar_lake():
 
 @lake.command("tabelas")
 def tabelas():
-    """Lista as tabelas registradas no catalogo."""
+    """Lista as tabelas registradas no catalogo"""
     con = _conectar_lake()
     rows = con.execute("""
         SELECT t.table_name,

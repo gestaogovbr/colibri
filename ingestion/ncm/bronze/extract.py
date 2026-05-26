@@ -26,7 +26,8 @@ def _criar_cliente(nome_segredo: str):
 
 
 def _calcular_hash(dados: dict) -> str:
-    conteudo = json.dumps(dados, sort_keys=True, ensure_ascii=False)
+    dados_sem_data = {k: v for k, v in dados.items() if k != "Data_Ultima_Atualizacao_NCM"}
+    conteudo = json.dumps(dados_sem_data, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(conteudo.encode()).hexdigest()
 
 

@@ -3,10 +3,11 @@ import pyarrow as pa
 import shared.ducklake as ducklake
 
 
-NOME_TABELA = "ncm_prefixos"
+NOME_TABELA = "ncm_silver"
 
 
-def main(tabela: pa.Table, caminho_meta: str, data_path: str, nome_segredo: str):
+def main(enriquecido: list[dict], caminho_meta: str, data_path: str, nome_segredo: str):
+    tabela = pa.Table.from_pylist(enriquecido)
     con = ducklake.conectar(caminho_meta, data_path, nome_segredo)
     con.register("ncm_temp", tabela)
     con.execute(f"CREATE OR REPLACE TABLE lake.main.{NOME_TABELA} AS SELECT * FROM ncm_temp")
