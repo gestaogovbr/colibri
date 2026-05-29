@@ -4,7 +4,8 @@ import yaml
 import shared.configurar_logging as log
 
 
-CAMINHO_SEGREDOS = ".segredos.yaml"
+_RAIZ_PROJETO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CAMINHO_SEGREDOS = os.path.join(_RAIZ_PROJETO, ".segredos.yaml")
 SEGREDO_PADRAO = "colibri-token-desenvolvedor"
 
 
@@ -32,4 +33,4 @@ def carregar_segredo(
 
 
 if __name__ == "__main__":
-    carregar_segredo(nome_segredo="")
+    print(carregar_segredo())

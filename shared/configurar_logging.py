@@ -2,6 +2,7 @@ import logging
 
 # Templates de mensagens de log
 ARQUIVO_NAO_ENCONTRADO = "Arquivo %s não encontrado."
+ARQUIVO_NAO_ENCONTRADO_NO_BUCKET = "Arquivo '%s' não encontrado no bucket '%s'."
 ARQUIVO_LIDO_COM_SUCESSO = "Arquivo %s lido com sucesso."
 LENDO_ARQUIVO = "Lendo arquivo: %s"
 FORMATO_INVALIDO = "Tipo de arquivo não suportado: %s"

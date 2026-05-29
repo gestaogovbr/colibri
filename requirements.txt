@@ -1,5 +1,11 @@
 boto3==1.42.97
 click==8.3.3
+duckdb
 logging==0.4.9.6
+numpy==2.4.6
+pandas==3.0.3
+pyarrow
 PyYAML==6.0.3
 requests==2.33.1
+pipe==2.2.0
+rich

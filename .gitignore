@@ -183,3 +183,11 @@ cython_debug/
 
 # Segredos
 .segredos.*
+
+# DuckLake local
+meta.ducklake
+meta.ducklake.wal
+ducklake_session.duckdb
+
+# Dados locais
+colibri-arquivos/
