@@ -1,0 +1,12 @@
+version: 1
+
+sources:
+  - name: pncp_comprasgov
+    description: Dados do ComprasGov obtidos a partir do PNCP
+    tables:
+      - name: compras
+        description: Compras realizadas por meio do ComprasGov, extraídas a partir do PNCP
+        columns:
+        # TODO: Descrever colunas (utilizar codegen para preparar o boilerplate code)
+          - name: ano
+            description: Ano do registro
