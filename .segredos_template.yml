@@ -1,0 +1,4 @@
+colibri-token-desenvolvedor:
+  endpoint: "https://<ACCOUNTID>.r2.cloudflarestorage.com"
+  access_key: "<SUA ACCESS KEY>"
+  secret_key: "<SUA SECRET KEY>"

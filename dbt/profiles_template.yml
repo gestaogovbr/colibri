@@ -1,0 +1,24 @@
+colibri:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: <CAMINHO DO REPOSITÓRIO>/dados/lakehouse_dev.duckdb
+      threads: 4
+      extensions:
+        - httpfs
+        - ducklake
+      secrets:
+        - type: s3
+          provider: config
+          key_id: R2_KEY
+          secret: R2_SECRET
+          endpoint: "<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
+          region: auto
+          url_style: path
+          use_ssl: true
+      attach:
+        - path: "ducklake:metadata.ducklake"
+          alias: lake
+          options:
+            data_path: "s3://<R2_BUCKET>/dbt/"

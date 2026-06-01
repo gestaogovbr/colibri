@@ -5,7 +5,7 @@ import shared.configurar_logging as log
 
 
 _RAIZ_PROJETO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CAMINHO_SEGREDOS = os.path.join(_RAIZ_PROJETO, ".segredos.yaml")
+CAMINHO_SEGREDOS = os.path.join(_RAIZ_PROJETO, ".segredos.yml")
 SEGREDO_PADRAO = "colibri-token-desenvolvedor"
 
 
