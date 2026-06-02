@@ -11,10 +11,10 @@ model-paths: ["modelos"]
 models:
   colibri:
     staging:
-      +materialized: view
+      +materialized: table
       +schema: staging
     # prata:
     #   +database: lake
-    #   +materialized: table
+    #   +materialized: view
     # ouro:
     #   +materialized: table
