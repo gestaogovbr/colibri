@@ -37,9 +37,10 @@ logger = logging.getLogger(__name__)
 # Constantes
 
 DATA_INICIO = date(2021, 12, 1)
-DIRETORIO_SAIDA = Path("./dados")
+DIRETORIO_RAIZ         = Path("./dados")
+DIRETORIO_SAIDA_DIARIO = Path("./dados/pncp_comprasgov_diario")
 DIRETORIO_SAIDA_MENSAL = Path("./dados/pncp_comprasgov_mensal")
-DIRETORIO_SAIDA_ANUAL = Path("./dados/pncp_comprasgov_anual")
+DIRETORIO_SAIDA_ANUAL  = Path("./dados/pncp_comprasgov_anual")
 SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 URL_BASE_DIARIO = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
@@ -67,7 +68,7 @@ def construir_url_diario(data: date) -> str:
 
 def construir_caminho_diario(data: date) -> Path:
     nome = TEMPLATE_ARQUIVO_DIARIO.format(ano=data.year, mes=data.month, dia=data.day)
-    return DIRETORIO_SAIDA / str(data.year) / f"{data.month:02d}" / f"{data.day:02d}" / nome
+    return DIRETORIO_SAIDA_DIARIO / str(data.year) / f"{data.month:02d}" / f"{data.day:02d}" / nome
 
 def construir_url_mensal(ano: int, mes: int) -> str:
     nome = TEMPLATE_ARQUIVO_MENSAL.format(ano=ano, mes=mes)
@@ -189,9 +190,9 @@ def processar_arquivo(session: requests.Session, chave: str, url: str, caminho: 
 # Execução 
 
 def executar_ingestao() -> None:
-    for d in (DIRETORIO_SAIDA, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
+    for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
         d.mkdir(parents=True, exist_ok=True)
-    caminho_manifesto = DIRETORIO_SAIDA / NOME_MANIFESTO
+    caminho_manifesto = DIRETORIO_RAIZ / NOME_MANIFESTO
     bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
     try:
