@@ -1,241 +1,271 @@
 """
-Script para baixar dados de compras do governo (PNCP) do repositório de dados abertos.
+Ingestão bruta de dados do ComprasGOV (VW_FT_PNCP_COMPRA) nas três granularidades:
+diário, mensal e anual.
 
-Baixa arquivos dos anos 2021 até o ano anterior ao corrente (2025 em 2026)
-do servidor HTTPS: https://repositorio.dados.gov.br/seges/comprasgov/anual/
+Manifesto incremental (manifesto.csv):
+  Registra metadados de cada arquivo: período, linhas, tamanho, hash SHA-256 e
+  timestamp. Nas execuções seguintes, arquivos com hash local igual ao
+  manifesto são pulados; se divergirem (corrompido ou fonte atualizada),
+  são baixados novamente. A chave do manifesto segue o formato da granularidade:
+  "2021-12-01" (diário), "2021-12" (mensal), "2021" (anual).
+
+Uso:
+  python pncp_comprasgov_diario.py
 """
 
-import click
+import csv
+import hashlib
+import io
 import logging
-from datetime import datetime
+import time
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from shared.baixar_arquivo import baixar_arquivo_do_bucket
+from shared.carregar_segredo import carregar_segredo
+from shared.salvar_arquivo import salvar_arquivo_no_bucket
+
 import requests
 
 import utils.configurar_logging as log
 
 
 log.setup_logging()
+
 logger = logging.getLogger(__name__)
 
 
-def validar_datas(data_inicio_str, data_fim_str):
-    """Valida e converte as datas de string para datetime."""
-    try:
-        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
-        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d')
-        
-        if data_inicio > data_fim:
-            raise ValueError('Data de início não pode ser posterior à data final')
-        
-        return data_inicio, data_fim
-    except ValueError as e:
-        logger.error(f'Erro ao validar datas: {e}')
-        raise
+# Constantes
+
+DATA_INICIO = date(2021, 12, 1)
+DIRETORIO_SAIDA = Path("./dados")
+DIRETORIO_SAIDA_MENSAL = Path("./dados/pncp_comprasgov_mensal")
+DIRETORIO_SAIDA_ANUAL = Path("./dados/pncp_comprasgov_anual")
+SEGREDO_NOME = "colibri-token-desenvolvedor"
+
+URL_BASE_DIARIO = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
+URL_BASE_MENSAL = "https://repositorio.dados.gov.br/seges/comprasgov/mensal"
+URL_BASE_ANUAL = "https://repositorio.dados.gov.br/seges/comprasgov/anual"
+
+TEMPLATE_ARQUIVO_DIARIO = "comprasGOV-diario-VW_FT_PNCP_COMPRA-{ano}-{mes:02d}-{dia:02d}.csv"
+TEMPLATE_ARQUIVO_MENSAL = "comprasGOV-mensal-VW_FT_PNCP_COMPRA-{ano}-{mes:02d}.csv"
+TEMPLATE_ARQUIVO_ANUAL = "comprasGOV-anual-VW_FT_PNCP_COMPRA-{ano}.csv"
+
+NOME_MANIFESTO = "manifesto.csv"
+COLUNAS_MANIFESTO = ["data", "url", "num_linhas", "tamanho_bytes", "num_colunas", "hash_sha256", "extraido_em"]
+
+TIMEOUT_SEGUNDOS = 60
+MAX_TENTATIVAS = 3
+PAUSA_BASE_SEGUNDOS = 5
+SALVAR_MANIFESTO_A_CADA = 50
 
 
-def obter_anos_para_baixar(data_inicio, data_fim):
-    """
-    Determina quais anos devem ter seus arquivos baixados.
-    
-    Retorna os anos de 2021 até o ano anterior ao ano corrente (2025 em 2026),
-    considerando o intervalo de datas fornecido.
-    """
-    ano_corrente = datetime.now().year
-    ano_anterior = ano_corrente - 1
-    
-    # Anos disponíveis começam em 2021 até o ano anterior
-    anos_disponiveis = list(range(2021, ano_anterior + 1))
-    
-    # Filtrar pelos anos que caem no intervalo de datas
-    ano_inicio = data_inicio.year
-    ano_fim = data_fim.year
-    
-    anos_filtrados = [
-        ano for ano in anos_disponiveis 
-        if ano_inicio <= ano <= ano_fim
-    ]
-    
-    logger.info(f'Anos disponíveis para download: 2021-{ano_anterior}')
-    logger.info(f'Anos a serem baixados (filtrados por data): {anos_filtrados}')
-    
-    return anos_filtrados
+# URLs e caminhos
+
+def construir_url_diario(data: date) -> str:
+    nome = TEMPLATE_ARQUIVO_DIARIO.format(ano=data.year, mes=data.month, dia=data.day)
+    return f"{URL_BASE_DIARIO}/{data.year}/{data.month:02d}/{data.day:02d}/{nome}"
+
+def construir_caminho_diario(data: date) -> Path:
+    nome = TEMPLATE_ARQUIVO_DIARIO.format(ano=data.year, mes=data.month, dia=data.day)
+    return DIRETORIO_SAIDA / str(data.year) / f"{data.month:02d}" / f"{data.day:02d}" / nome
+
+def construir_url_mensal(ano: int, mes: int) -> str:
+    nome = TEMPLATE_ARQUIVO_MENSAL.format(ano=ano, mes=mes)
+    return f"{URL_BASE_MENSAL}/{ano}/{mes:02d}/{nome}"
+
+def construir_caminho_mensal(ano: int, mes: int) -> Path:
+    nome = TEMPLATE_ARQUIVO_MENSAL.format(ano=ano, mes=mes)
+    return DIRETORIO_SAIDA_MENSAL / str(ano) / f"{mes:02d}" / nome
+
+def construir_url_anual(ano: int) -> str:
+    nome = TEMPLATE_ARQUIVO_ANUAL.format(ano=ano)
+    return f"{URL_BASE_ANUAL}/{ano}/{nome}"
+
+def construir_caminho_anual(ano: int) -> Path:
+    nome = TEMPLATE_ARQUIVO_ANUAL.format(ano=ano)
+    return DIRETORIO_SAIDA_ANUAL / str(ano) / nome
 
 
-def criar_conexao_https():
-    """Cria uma sessão HTTPS com configurações padrão."""
+# Manifesto 
+
+def carregar_manifesto(caminho: Path) -> dict[str, dict]:
+    """Lê o manifesto CSV e retorna o dicionário correspondente"""
+    if not caminho.exists():
+        return {}
+    with open(caminho, newline="", encoding="utf-8") as f:
+        return {linha["data"]: linha for linha in csv.DictReader(f)}
+
+
+def salvar_manifesto(caminho: Path, manifesto: dict[str, dict]) -> None:
+    """Salva o manifesto em CSV, ordenado por data (do mais antigo ao mais recente)"""
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=COLUNAS_MANIFESTO) # cria objeto pra escrever dicionários com as chaves definidas em COLUNAS_MANIFESTO
+        writer.writeheader() # escreve primeira linha do csv (nomes das colunas)
+        writer.writerows(sorted(manifesto.values(), key=lambda e: e["data"])) # escreve as demais linhas, ordenadas
+
+
+def registrar_entrada(manifesto: dict[str, dict], chave: str, url: str, conteudo: bytes) -> None:
+    linhas = list(csv.reader(io.StringIO(conteudo.decode("utf-8"))))
+    manifesto[chave] = {
+        "data": chave,
+        "url": url,
+        "num_linhas": len(linhas) - 1,
+        "tamanho_bytes": len(conteudo),
+        "num_colunas": len(linhas[0]),
+        "hash_sha256": hashlib.sha256(conteudo).hexdigest(),
+        "extraido_em": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
+# Hash 
+
+def hash_arquivo(caminho: Path) -> str:
+    """Calcula SHA-256 do arquivo em blocos de 64 KB para não estourar memória"""
+    h = hashlib.sha256()
+    with open(caminho, "rb") as f:
+        for bloco in iter(lambda: f.read(65_536), b""):
+            h.update(bloco)
+    return h.hexdigest()
+
+
+# Download 
+
+def criar_sessao() -> requests.Session:
+    """Cria uma sessão HTTP persistente pra todas as requests"""
     session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
-    })
+    session.headers.update({"User-Agent": "colibri-ingestao/1.0"})
     return session
 
 
-def listar_arquivos_ano(session, ano):
-    """Lista os arquivos disponíveis para um determinado ano via HTTPS."""
-    url_base = 'https://repositorio.dados.gov.br/seges/comprasgov/anual/'
-    url_ano = f'{url_base}{ano}/'
-    
-    try:
-        logger.info(f'Listando arquivos de {ano} em {url_ano}')
-        response = session.get(url_ano, timeout=10)
-        response.raise_for_status()
-        
-        # Fazer parsing simples do HTML para extrair nomes de arquivos
-        # Procura por padrões de links de arquivo
-        from html.parser import HTMLParser
-        
-        class LinkParser(HTMLParser):
-            def __init__(self):
-                super().__init__()
-                self.links = []
-            
-            def handle_starttag(self, tag, attrs):
-                if tag == 'a':
-                    for attr, value in attrs:
-                        if attr == 'href' and value and not value.startswith('/') and value != '../':
-                            self.links.append(value)
-        
-        parser = LinkParser()
-        parser.feed(response.text)
-        
-        # Filtrar apenas arquivos (evitar diretórios)
-        arquivos = [link for link in parser.links if link and '.' in link]
-        
-        logger.info(f'Encontrados {len(arquivos)} arquivo(s) em {ano}')
-        return arquivos
-    
-    except requests.exceptions.RequestException as e:
-        logger.warning(f'Erro ao listar arquivos de {ano}: {e}')
-        return []
-
-
-def baixar_arquivo(session, ano, arquivo, diretorio_saida):
-    """Baixa um arquivo específico via HTTPS."""
-    url_base = 'https://repositorio.dados.gov.br/seges/comprasgov/anual/'
-    url_arquivo = f'{url_base}{ano}/{arquivo}'
-    
-    caminho_local = Path(diretorio_saida) / str(ano)
-    caminho_local.mkdir(parents=True, exist_ok=True)
-    
-    caminho_arquivo = caminho_local / arquivo
-    
-    try:
-        logger.info(f'Baixando {arquivo} de {ano}...')
-        
-        response = session.get(url_arquivo, timeout=30, stream=True)
-        response.raise_for_status()
-        
-        tamanho_total = int(response.headers.get('content-length', 0))
-        
-        with open(caminho_arquivo, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        
-        logger.info(f'Arquivo salvo em: {caminho_arquivo} ({tamanho_total / 1024 / 1024:.2f} MB)')
-        return True
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f'Erro ao baixar {arquivo}: {e}')
-        if caminho_arquivo.exists():
-            caminho_arquivo.unlink()
-        return False
-
-
-def executar_downloads(anos, session, diretorio_saida):
-    """Executa o download de todos os arquivos para os anos especificados."""
-    total_arquivos = 0
-    arquivos_baixados = 0
-    
-    for ano in anos:
-        logger.info(f'\n--- Processando ano {ano} ---')
+def baixar(session: requests.Session, url: str) -> bytes | None:
+    """Baixa a URL com até MAX_TENTATIVAS tentativas e retorna o payload em BYTES"""
+    for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
-            arquivos = listar_arquivos_ano(session, ano)
-            
-            if not arquivos:
-                logger.warning(f'Nenhum arquivo encontrado para {ano}')
-                continue
-            
-            logger.info(f'Encontrados {len(arquivos)} arquivo(s) em {ano}')
-            
-            for arquivo in arquivos:
-                total_arquivos += 1
-                if baixar_arquivo(session, ano, arquivo, diretorio_saida):
-                    arquivos_baixados += 1
-        
-        except Exception as e:
-            logger.error(f'Erro ao processar o ano {ano}: {e}')
-            continue
-    
-    return total_arquivos, arquivos_baixados
+            resposta = session.get(url, timeout=TIMEOUT_SEGUNDOS)
+
+            if resposta.status_code == 404:
+                logger.debug(f"404 — sem dados: {url}")
+                return None
+
+            resposta.raise_for_status() # transforma resposta HTTP de erro em exceção do Python
+            return resposta.content
+
+        except requests.exceptions.Timeout:
+            logger.warning(f"Timeout (tentativa {tentativa}/{MAX_TENTATIVAS}): {url}")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}")
+
+        if tentativa < MAX_TENTATIVAS:
+            time.sleep(PAUSA_BASE_SEGUNDOS * tentativa)
+
+    logger.error(f"Falha definitiva: {url}")
+    return None
 
 
-def main(data_inicio, data_fim, diretorio_saida):
-    """Função principal do script."""
+# Processamento
+
+def processar_arquivo(session: requests.Session, chave: str, url: str, caminho: Path, manifesto: dict[str, dict]) -> str:
+    """
+    Baixa um arquivo CSV, se necessário.
+
+    Retorna: "baixado", "atualizado", "ignorado" ou "indisponivel"
+    """
+    entrada = manifesto.get(chave)
+    conteudo = baixar(session, url)
+    if conteudo is None:
+        return "indisponivel"
+    if entrada and caminho.exists() and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest():
+        logger.info(f"{chave}: hash bate com manifesto, pulando")
+        return "ignorado"
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_bytes(conteudo)
+    registrar_entrada(manifesto, chave, url, conteudo)
+    status = "atualizado" if entrada else "baixado"
+    e = manifesto[chave]
+    logger.info(f"{chave}: {status} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)")
+    return status
+
+
+# Execução 
+
+def executar_ingestao() -> None:
+    for d in (DIRETORIO_SAIDA, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
+        d.mkdir(parents=True, exist_ok=True)
+    caminho_manifesto = DIRETORIO_SAIDA / NOME_MANIFESTO
+    bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
+
     try:
-        # Validar datas
-        data_inicio_obj, data_fim_obj = validar_datas(data_inicio, data_fim)
-        logger.info(f'Período de download: {data_inicio_obj.date()} a {data_fim_obj.date()}')
-        
-        # Obter anos para baixar
-        anos = obter_anos_para_baixar(data_inicio_obj, data_fim_obj)
-        
-        if not anos:
-            logger.warning('Nenhum ano disponível para o período especificado')
-            return
-        
-        # Criar diretório de saída
-        Path(diretorio_saida).mkdir(parents=True, exist_ok=True)
-        logger.info(f'Diretório de saída: {diretorio_saida}')
-        
-        # Criar sessão HTTPS e fazer download
-        session = criar_conexao_https()
-        
-        try:
-            total, baixados = executar_downloads(
-                anos, 
-                session, 
-                diretorio_saida
-            )
-            
-            logger.info(f'\n--- Resumo ---')
-            logger.info(f'Total de arquivos encontrados: {total}')
-            logger.info(f'Arquivos baixados com sucesso: {baixados}')
-            logger.info(f'Taxa de sucesso: {(baixados/total*100):.1f}%' if total > 0 else 'N/A')
-        
-        finally:
-            session.close()
-            logger.info('Conexão HTTPS encerrada')
-    
+        baixar_arquivo_do_bucket(NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, str(caminho_manifesto))
+        logger.info(f"Manifesto baixado do bucket: {bucket_nome}/{NOME_MANIFESTO}")
     except Exception as e:
-        logger.error(f'Erro fatal: {e}')
-        raise
+        logger.warning(f"Manifesto não encontrado no bucket, iniciando do zero: {e}")
+
+    manifesto = carregar_manifesto(caminho_manifesto)
+    session = criar_sessao()
+
+    contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0, "indisponivel": 0}
+    manifesto_modificado = False
+    hoje = date.today()
+    logger.info(f"Ingestão: {DATA_INICIO} -> {hoje}")
+
+    try:
+        i = 1
+
+        # Diário
+        data = DATA_INICIO
+        while data <= hoje:
+            status = processar_arquivo(session, data.isoformat(), construir_url_diario(data), construir_caminho_diario(data), manifesto)
+            contadores[status] += 1
+            if status in ("baixado", "atualizado"):
+                manifesto_modificado = True
+            if i % SALVAR_MANIFESTO_A_CADA == 0:
+                salvar_manifesto(caminho_manifesto, manifesto)
+            data += timedelta(days=1)
+            i += 1
+
+        # Mensal
+        ano, mes = DATA_INICIO.year, DATA_INICIO.month
+        while (ano, mes) <= (hoje.year, hoje.month):
+            chave = f"{ano}-{mes:02d}"
+            status = processar_arquivo(session, chave, construir_url_mensal(ano, mes), construir_caminho_mensal(ano, mes), manifesto)
+            contadores[status] += 1
+            if status in ("baixado", "atualizado"):
+                manifesto_modificado = True
+            if i % SALVAR_MANIFESTO_A_CADA == 0:
+                salvar_manifesto(caminho_manifesto, manifesto)
+            mes += 1
+            if mes > 12:
+                mes, ano = 1, ano + 1
+            i += 1
+
+        # Anual
+        for ano in range(DATA_INICIO.year, hoje.year + 1):
+            chave = str(ano)
+            status = processar_arquivo(session, chave, construir_url_anual(ano), construir_caminho_anual(ano), manifesto)
+            contadores[status] += 1
+            if status in ("baixado", "atualizado"):
+                manifesto_modificado = True
+            if i % SALVAR_MANIFESTO_A_CADA == 0:
+                salvar_manifesto(caminho_manifesto, manifesto)
+            i += 1
+
+    finally:
+        session.close()
+        salvar_manifesto(caminho_manifesto, manifesto)
+        logger.info(f"Manifesto: {caminho_manifesto}")
+        if manifesto_modificado:
+            try:
+                salvar_arquivo_no_bucket(str(caminho_manifesto), bucket_nome, SEGREDO_NOME)
+            except Exception as e:
+                logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+
+    logger.info(
+        f"Baixados: {contadores['baixado']}  "
+        f"Atualizados: {contadores['atualizado']}  "
+        f"Ignorados: {contadores['ignorado']}  "
+        f"Indisponíveis: {contadores['indisponivel']}"
+    )
 
 
-@click.command()
-@click.option(
-    '--data-inicio',
-    type=str,
-    default='2021-01-01',
-    required=True,
-    help='Data de início no formato YYYY-MM-DD'
-)
-@click.option(
-    '--data-fim',
-    type=str,
-    required=True,
-    help='Data final no formato YYYY-MM-DD'
-)
-@click.option(
-    '--diretorio-saida',
-    type=str,
-    default='./dados/pncp_comprasgov',
-    help='Diretório para salvar os arquivos baixados (padrão: ./dados/pncp_comprasgov)'
-)
-def cli(data_inicio, data_fim, diretorio_saida):
-    """Baixar dados de compras do governo (PNCP)."""
-    main(data_inicio, data_fim, diretorio_saida)
-
-
-if __name__ == '__main__':
-    cli()
+if __name__ == "__main__":
+    executar_ingestao()
