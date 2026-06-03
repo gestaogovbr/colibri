@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 # Templates de mensagens de log
 ARQUIVO_NAO_ENCONTRADO = "Arquivo %s não encontrado."
@@ -14,6 +15,7 @@ JSON_SUCESSO = "JSON obtido com sucesso de %s"
 SEGREDO_NAO_ENCONTRADO = "Segredo '%s' não encontrado no arquivo YAML."
 SEGREDO_VAZIO = "O nome do segredo não pode ser vazio."
 SEGREDO_CAMPO_AUSENTE = "Campo ausente no segredo '%s': %s"
+DIRETORIO_LOGS = Path("./logs/")
 
 
 def setup_logging():
@@ -28,9 +30,11 @@ def setup_logging():
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
     )
 
+    DIRETORIO_LOGS.mkdir(parents=True, exist_ok=True) 
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
+    
     file_handler = logging.FileHandler("logs/app.log", encoding="utf-8")
     file_handler.setFormatter(formatter)
 

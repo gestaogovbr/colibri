@@ -16,10 +16,14 @@ Uso:
 
 import csv
 import hashlib
+import io
 import logging
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from shared.baixar_arquivo import baixar_arquivo_do_bucket
+from shared.carregar_segredo import carregar_segredo
+from shared.salvar_arquivo import salvar_arquivo_no_bucket
 
 import requests
 
@@ -27,19 +31,21 @@ import shared.configurar_logging as log
 
 
 log.setup_logging()
+
 logger = logging.getLogger(__name__)
 
 
-# Constantes 
+# Constantes
 
 DATA_INICIO = date(2021, 12, 1)
 DIRETORIO_SAIDA = Path("./dados/pncp_comprasgov_diario")
+SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 URL_BASE = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
 TEMPLATE_ARQUIVO = "comprasGOV-diario-VW_FT_PNCP_COMPRA-{ano}-{mes:02d}-{dia:02d}.csv"
 
 NOME_MANIFESTO = "manifesto.csv"
-COLUNAS_MANIFESTO = ["data", "url", "num_linhas", "tamanho_bytes", "hash_sha256", "extraido_em"]
+COLUNAS_MANIFESTO = ["data", "url", "num_linhas", "tamanho_bytes", "num_colunas", "hash_sha256", "extraido_em"]
 
 TIMEOUT_SEGUNDOS = 60
 MAX_TENTATIVAS = 3
@@ -85,12 +91,13 @@ def registrar_entrada(manifesto: dict[str, dict], data: date, url: str, conteudo
     Após baixar e salvar o csv, precisa registrar os metadados no manifesto.
     Pra isso, recebe o conteúdo em bytes e calcula os metadados
     """
+    linhas = list(csv.reader(io.StringIO(conteudo.decode("utf-8"))))
     manifesto[data.isoformat()] = {
         "data": data.isoformat(),
         "url": url,
-        "num_linhas": conteudo.count(b"\n"),
+        "num_linhas": len(linhas) - 1, # exclui cabeçalho
         "tamanho_bytes": len(conteudo),
-        "numero_colunas": conteudo[:conteudo.find(b"\n")].count(b",") + 1, # conta vírgulas na primeira linha (cabeçalho) e soma 1
+        "num_colunas": len(linhas[0]),
         "hash_sha256": hashlib.sha256(conteudo).hexdigest(),
         "extraido_em": datetime.now().isoformat(timespec="seconds"),
     }
@@ -192,8 +199,15 @@ def processar_dia(session: requests.Session, data: date, manifesto: dict[str, di
 # Execução 
 
 def executar_ingestao() -> None:
-    DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True) 
-    caminho_manifesto = DIRETORIO_SAIDA / NOME_MANIFESTO 
+    DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
+    caminho_manifesto = DIRETORIO_SAIDA / NOME_MANIFESTO
+    bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
+
+    # Baixa o manifesto do bucket, se houver
+    try:
+        baixar_arquivo_do_bucket(NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, str(caminho_manifesto))
+    except Exception as e:
+        logger.warning(f"Não foi possível baixar manifesto do bucket: {e}")
 
     # Cria manifesto (csv) vazio se não existir (1ª execução). Se existir, retorna dict equivalente
     # Ex: { "2021-12-01": {"data": "2021-12-01", "url": "...", "num_linhas": "123", ...}, ... }
@@ -203,6 +217,7 @@ def executar_ingestao() -> None:
     session = criar_sessao()
 
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0, "indisponivel": 0}
+    manifesto_modificado = False
     logger.info(f"Ingestão: {DATA_INICIO} -> {date.today()}")
 
     try:
@@ -212,6 +227,9 @@ def executar_ingestao() -> None:
             # Baixa o CSV do dia, se ainda não tiver sido baixado ou se o hash for diferente
             status = processar_dia(session, data, manifesto)
             contadores[status] += 1 # conta quantos arquivos foram ignorados, baixados ou atualizados
+
+            if status in ("baixado", "atualizado"):
+                manifesto_modificado = True
 
             # Salva o manifesto a cada 'SALVAR_MANIFESTO_A_CADA' dias
             if i % SALVAR_MANIFESTO_A_CADA == 0:
@@ -227,6 +245,13 @@ def executar_ingestao() -> None:
         # Salva manifesto atualizado no <<caminho_manifesto>>
         salvar_manifesto(caminho_manifesto, manifesto)
         logger.info(f"Manifesto: {caminho_manifesto}")
+
+        # Faz upload do manifesto no bucket apenas se houve alteração
+        if manifesto_modificado:
+            try:
+                salvar_arquivo_no_bucket(str(caminho_manifesto), bucket_nome, SEGREDO_NOME)
+            except Exception as e:
+                logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
 
     logger.info(
         f"Baixados: {contadores['baixado']}  "
