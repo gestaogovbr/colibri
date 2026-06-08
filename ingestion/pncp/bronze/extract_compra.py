@@ -7,7 +7,7 @@ import shared.ducklake as ducklake
 BASE_URL = "https://repositorio.dados.gov.br/seges/comprasgov/anual"
 
 NOME_TABELA = {
-    "VW_FT_PNCP_COMPRA": "pncp_compra_bronze",
+    "VW_FT_PNCP_COMPRA": "pncp_compras",
 }
 
 

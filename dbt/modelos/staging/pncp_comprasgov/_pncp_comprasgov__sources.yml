@@ -1,12 +1,93 @@
-version: 1
+version: 2
 
 sources:
   - name: pncp_comprasgov
-    description: Dados do ComprasGov obtidos a partir do PNCP
+    description: >
+      Dados brutos de contratações públicas ingeridos diariamente via script Python
+      (extracao/origens/pncp_comprasgov.py). Fotografias das alterações diárias são
+      ingeridas incrementalmente e persistidas em arquivos parquet.
+    schema: main          # schema padrão do DuckDB
     tables:
-      - name: compras
-        description: Compras realizadas por meio do ComprasGov, extraídas a partir do PNCP
+      - name: contratacoes
+        description: >
+          Tabela raw com todos os registros de contratações públicas acumulados
+          desde o início da ingestão. Cada linha representa uma contratação
+          (nova ou atualizada) identificada pelo campo numeroControlePNCP.
+          Colunas com prefixo "_" são metadados de pipeline.
+
+        # O dbt-duckdb permite referenciar um Parquet externo como source
+        # via a propriedade "external_location".
+        external:
+          location: "{{ env_var('RAW_PARQUET_PATH', '../../data/raw/contratacoes.parquet') }}"
+          options:
+            format: parquet
+
         columns:
-        # TODO: Descrever colunas (utilizar codegen para preparar o boilerplate code)
-          - name: ano
-            description: Ano do registro
+          - name: numeroControlePNCP
+            description: Identificador único da contratação no PNCP (chave de negócio).
+            tests:
+              - not_null
+              - unique
+
+          - name: orgaoEntidade
+            description: Nome do órgão ou entidade contratante.
+
+          - name: unidadeOrgao
+            description: Unidade administrativa dentro do órgão.
+
+          - name: modalidadeId
+            description: Código numérico da modalidade de licitação.
+
+          - name: modalidadeNome
+            description: >
+              Descrição da modalidade: Pregão Eletrônico, Concorrência,
+              Dispensa, etc.
+
+          - name: situacaoCompraId
+            description: Código da situação atual da compra.
+
+          - name: situacaoCompraNome
+            description: Descrição da situação atual da compra.
+
+          - name: dataPublicacaoPncp
+            description: Data de publicação da contratação no PNCP (ISO 8601).
+
+          - name: dataAberturaProposta
+            description: Data/hora de abertura das propostas.
+
+          - name: dataEncerramentoProposta
+            description: Data/hora de encerramento das propostas.
+
+          - name: valorTotalEstimado
+            description: Valor total estimado da contratação (R$).
+
+          - name: valorTotalHomologado
+            description: Valor total homologado após o processo (R$).
+
+          - name: objetoCompra
+            description: Descrição do objeto da contratação.
+
+          - name: informacaoComplementar
+            description: Informações adicionais sobre a contratação.
+
+          - name: srp
+            description: Indica se é Sistema de Registro de Preços (S/N).
+
+          - name: codigoUASG
+            description: Código da Unidade Administrativa de Serviços Gerais (UASG).
+
+          - name: ufNome
+            description: Nome do estado (UF) do órgão contratante.
+
+          - name: municipioNome
+            description: Município do órgão contratante.
+
+          - name: _data_carga
+            description: >
+              Timestamp UTC de quando o registro foi carregado pelo pipeline
+              (coluna de controle, gerada pelo script Python).
+
+          - name: _arquivo_origem
+            description: >
+              URL do arquivo CSV de origem do qual o registro foi extraído
+              (coluna de controle, gerada pelo script Python).

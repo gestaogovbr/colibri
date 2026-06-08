@@ -13,6 +13,11 @@ models:
     staging:
       +materialized: view
       +schema: staging
+      pncp:
+        +materialized: table   # acumula versões incrementalmente
+    intermediate:
+      +materialized: view
+      +schema: intermediate
     # prata:
     #   +database: lake
     #   +materialized: table

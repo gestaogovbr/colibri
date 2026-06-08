@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: pncp
+    description: >
+      Dados brutos de compras ingeridos diariamente do Databricks
+      (cotin_dlt_pncp.bronze.vw_agg_compra_bronze) via script Python
+      (extracao/origens/cotin_databricks.py). Cada execução grava um arquivo
+      Parquet com timestamp em s3://colibri-dev/raw/pncp/compras/.
+    schema: main
+    tables:
+      - name: compras
+        description: >
+          Acumulado de todos os deltas extraídos do Databricks. Cada linha representa
+          uma versão de uma compra (nova ou atualizada), identificada pela combinação
+          de id_compra e id_dt_atualizacao.
+        external:
+          location: "s3://colibri-dev/raw/pncp/compras/*.parquet"
+          options:
+            format: parquet
+
+        columns:
+          - name: id_compra
+            description: Identificador único da compra na fonte Databricks.
+            tests:
+              - not_null
+
+          - name: id_dt_atualizacao
+            description: >
+              Timestamp da última atualização do registro na fonte. Usado como
+              marca d'água para extração incremental e como coluna de versionamento
+              no SCD Tipo 2.
+            tests:
+              - not_null

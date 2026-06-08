@@ -288,6 +288,26 @@ def query(sql: str):
 
 
 @cli.group()
+def extracao():
+    """Extrai dados de fontes externas para o lake"""
+    pass
+
+
+@extracao.command("pncp")
+@click.option(
+    "--full-refresh",
+    is_flag=True,
+    default=False,
+    help="Ignora o estado anterior e recarrega todos os registros desde o início.",
+)
+def extracao_pncp(full_refresh: bool):
+    """Extrai compras do PNCP do Databricks (cotin_dlt_pncp) para o lake S3."""
+    from dbt.modelos.origens.pncp_compras import main
+    main(full_refresh=full_refresh)
+    console.print("[green]✓[/green] Extração PNCP concluída.")
+
+
+@cli.group()
 def pipeline():
     """Executa os pipelines de ingestao"""
     pass
