@@ -5,11 +5,12 @@ Empilha todos os arquivos PNCP_ITEM_RESULTADO de diferentes anos
 
 {{ config(
     materialized='view',
-    tags=['bronze', 'pncp', 'comprasgov']
+    tags=['bronze', 'pncp', 'comprasgov'],
+    enabled=false
 ) }}
 
 WITH raw_data AS (
-  {{ pncp_comprasgov_union_compras_por_ano(2021, 2025, 'resultados') }}
+  {{ pncp_comprasgov_union_compras_por_ano() }}
   -- Alteração de schema em 2025.
   -- UNION BY NAME utilizado na macro para contornar o problema.
 )

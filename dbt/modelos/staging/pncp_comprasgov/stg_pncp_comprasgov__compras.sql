@@ -4,12 +4,13 @@ Empilha todos os arquivos PNCP_COMPRA de diferentes anos
 */
 
 {{ config(
-    materialized='view',
+    materialized='table',
+    database='lake',
     tags=['bronze', 'pncp', 'comprasgov']
 ) }}
 
 WITH raw_data AS (
-  {{ pncp_comprasgov_union_compras_por_ano(2021, 2025, 'compras') }}
+  {{ pncp_comprasgov_union_compras_por_ano() }}
 )
 
 SELECT 

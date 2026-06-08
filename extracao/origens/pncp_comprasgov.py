@@ -37,10 +37,10 @@ logger = logging.getLogger(__name__)
 # Constantes
 
 DATA_INICIO = date(2021, 12, 1)
-DIRETORIO_RAIZ         = Path("./dados")
+DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA_DIARIO = Path("./dados/pncp_comprasgov_diario")
 DIRETORIO_SAIDA_MENSAL = Path("./dados/pncp_comprasgov_mensal")
-DIRETORIO_SAIDA_ANUAL  = Path("./dados/pncp_comprasgov_anual")
+DIRETORIO_SAIDA_ANUAL = Path("./dados/pncp_comprasgov_anual")
 SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 URL_BASE_DIARIO = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
@@ -195,8 +195,10 @@ def executar_ingestao() -> None:
     caminho_manifesto = DIRETORIO_RAIZ / NOME_MANIFESTO
     bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
+    manifesto_no_bucket = False
     try:
         baixar_arquivo_do_bucket(NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, str(caminho_manifesto))
+        manifesto_no_bucket = True
         logger.info(f"Manifesto baixado do bucket: {bucket_nome}/{NOME_MANIFESTO}")
     except Exception as e:
         logger.warning(f"Manifesto não encontrado no bucket, iniciando do zero: {e}")
@@ -254,7 +256,7 @@ def executar_ingestao() -> None:
         session.close()
         salvar_manifesto(caminho_manifesto, manifesto)
         logger.info(f"Manifesto: {caminho_manifesto}")
-        if manifesto_modificado:
+        if manifesto_modificado or not manifesto_no_bucket:
             try:
                 salvar_arquivo_no_bucket(str(caminho_manifesto), bucket_nome, SEGREDO_NOME)
             except Exception as e:

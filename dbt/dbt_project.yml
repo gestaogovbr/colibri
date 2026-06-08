@@ -3,8 +3,7 @@ version: '0.1.0'
 profile: colibri
 vars:
   timezone: 'America/Sao_Paulo'
-  ano_inicial_pncp_comprasgov: 2021
-  ano_final_pncp_comprasgov: 2025
+  raiz_dados: '<CAMINHO DO REPOSITÓRIO>/dados'
 
 model-paths: ["modelos"]
 
@@ -13,8 +12,9 @@ models:
     staging:
       +materialized: table
       +schema: staging
-    # prata:
-    #   +database: lake
-    #   +materialized: view
+    intermediate:
+      +database: lake
+      +materialized: table
+      +schema: intermediate
     # ouro:
     #   +materialized: table
