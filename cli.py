@@ -406,25 +406,49 @@ def query(sql: str):
 
 
 @pipeline.command("run")
-@click.option("--apenas", type=click.Choice(["ncm", "pncp"]), default=None, help="Rodar só um pipeline")
+@click.option("--apenas", type=click.Choice(["ncm", "pncp", "pncp-comprasgov"]), default=None, help="Rodar só um pipeline")
 def run(apenas: str | None):
     """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
-    import ingestion.ncm.pipeline as ncm
     import ingestion.pncp.pipeline as pncp
 
-    if apenas == "ncm":
-        console.print(f"[{VERDE}]›[/] [{AZUL}]NCM[/]")
-        ncm.main()
-    elif apenas == "pncp":
+    if apenas == "pncp":
         console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
         pncp.main()
     else:
-        console.print(f"[{VERDE}]›[/] [{AZUL}]NCM[/]")
-        ncm.main()
         console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
         pncp.main()
 
     console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
+
+
+@cli.command("sincronizar")
+@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+def sincronizar(segredo: str):
+    """Baixa o manifesto e o catálogo DuckLake do bucket para a máquina local"""
+    import os
+    from pathlib import Path
+    from shared.ducklake import CATALOGO_LOCAL
+
+    config = carregar_segredo(segredo)
+    bucket = config["bucket_lake"]
+    s3 = _cliente(segredo)
+    raiz = Path(CATALOGO_LOCAL).parent
+
+    itens = [
+        ("manifesto.csv",  str(raiz / "dados" / "manifesto.csv")),
+        ("meta.ducklake",  CATALOGO_LOCAL),
+    ]
+
+    for chave, destino in itens:
+        os.makedirs(os.path.dirname(destino), exist_ok=True)
+        try:
+            with Progress(SpinnerColumn(), TextColumn(f"[cyan]Baixando {chave}..."), transient=True) as p:
+                p.add_task("")
+                s3.download_file(bucket, chave, destino)
+            tamanho = os.path.getsize(destino)
+            console.print(f"[green]✓[/green] {chave} → [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+        except Exception as e:
+            console.print(f"[red]✗[/red] {chave}: {e}")
 
 
 if __name__ == "__main__":
