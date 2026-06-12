@@ -12,6 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
+from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, CATALOGO_LOCAL
 
 from utils.carregar_segredo import carregar_segredo
 
@@ -324,7 +325,6 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
 
 def _conectar_lake():
     import utils.ducklake as dl
-    from ingestion.pncp.pipeline import NOME_SEGREDO, CAMINHO_META, DATA_PATH
     return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
 
 
@@ -406,17 +406,16 @@ def query(sql: str):
 
 
 @pipeline.command("run")
-@click.option("--apenas", type=click.Choice(["ncm", "pncp", "pncp-comprasgov"]), default=None, help="Rodar só um pipeline")
+@click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov"]), default=None, help="Rodar só um pipeline")
 def run(apenas: str | None):
     """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
-    import ingestion.pncp.pipeline as pncp
 
-    if apenas == "pncp":
-        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-        pncp.main()
-    else:
-        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-        pncp.main()
+    #if apenas == "pncp":
+    #    console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
+    #    pncp.main()
+    #else:
+    #    console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
+    #    pncp.main()
 
     console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
 
@@ -427,7 +426,6 @@ def sincronizar(segredo: str):
     """Baixa o manifesto e o catálogo DuckLake do bucket para a máquina local"""
     import os
     from pathlib import Path
-    from shared.ducklake import CATALOGO_LOCAL
 
     config = carregar_segredo(segredo)
     bucket = config["bucket_lake"]
@@ -449,6 +447,31 @@ def sincronizar(segredo: str):
             console.print(f"[green]✓[/green] {chave} → [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
         except Exception as e:
             console.print(f"[red]✗[/red] {chave}: {e}")
+
+
+@cli.command("docs")
+@click.option("--sem-servidor", is_flag=True, help="Gera a documentação sem abrir o servidor")
+def docs(sem_servidor: bool):
+    """Gera e exibe a documentação automática do dbt"""
+    import subprocess
+    from pathlib import Path
+
+    dbt_dir = Path(__file__).resolve().parent / "dbt"
+
+    console.print("[cyan]>>> Gerando documentação...[/cyan]")
+    subprocess.run(
+        ["dbt", "docs", "generate", "--project-dir", str(dbt_dir), "--profiles-dir", str(dbt_dir)],
+        cwd=str(dbt_dir),
+        check=True,
+    )
+
+    if not sem_servidor:
+        console.print("[cyan]>>> Servindo documentação em http://localhost:8080[/cyan]")
+        subprocess.run(
+            ["dbt", "docs", "serve", "--project-dir", str(dbt_dir), "--profiles-dir", str(dbt_dir)],
+            cwd=str(dbt_dir),
+            check=True,
+        )
 
 
 if __name__ == "__main__":
