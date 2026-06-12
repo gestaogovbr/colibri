@@ -5,12 +5,11 @@ from pathlib import Path
 import boto3
 import duckdb
 
-from extracao.origens.pncp_comprasgov import executar_ingestao
+from ingestion.pncp_comprasgov.extract import executar_ingestao
 from shared.carregar_segredo import carregar_segredo
 
 _RAIZ = Path(__file__).resolve().parent.parent.parent
 _DBT_DIR = _RAIZ / "dbt"
-_RAIZ_DADOS = _RAIZ / "dados"
 _CATALOGO_LOCAL = _RAIZ / "meta.ducklake"
 _CHAVE_CATALOGO = "meta.ducklake"
 _SEGREDO_NOME = "colibri-token-desenvolvedor"
@@ -58,15 +57,15 @@ def main():
     _baixar_ou_criar_catalogo(config, bucket)
     executar_ingestao()
 
-    raiz_dados = str(_RAIZ_DADOS).replace("\\", "/")
     subprocess.run(
         [
             "dbt", "run",
-            "--select", "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras",
-            "--vars", f"{{raiz_dados: '{raiz_dados}'}}",
+            "--select",
+            "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov__resumo_anual",
             "--project-dir", str(_DBT_DIR),
             "--profiles-dir", str(_DBT_DIR),
         ],
+        cwd=str(_DBT_DIR),
         check=True,
     )
     _subir_catalogo(config, bucket)

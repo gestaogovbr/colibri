@@ -3,7 +3,6 @@ version: '0.1.0'
 profile: colibri
 vars:
   timezone: 'America/Sao_Paulo'
-  raiz_dados: '<CAMINHO DO REPOSITÓRIO>/dados'
 
 model-paths: ["modelos"]
 
@@ -16,5 +15,7 @@ models:
       +database: lake
       +materialized: table
       +schema: intermediate
-    # ouro:
-    #   +materialized: table
+    marts:
+      +database: lake
+      +materialized: table
+      +schema: marts

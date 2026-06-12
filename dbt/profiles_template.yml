@@ -3,7 +3,7 @@ colibri:
   outputs:
     dev:
       type: duckdb
-      path: <CAMINHO DO REPOSITÓRIO>/dados/lakehouse_dev.duckdb
+      path: ../dados/lakehouse_dev.duckdb
       threads: 4
       extensions:
         - httpfs
@@ -18,7 +18,7 @@ colibri:
           url_style: path
           use_ssl: true
       attach:
-        - path: "ducklake:metadata.ducklake"
+        - path: "ducklake:../meta.ducklake"
           alias: lake
           options:
             data_path: "s3://<R2_BUCKET>/dbt/"

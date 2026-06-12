@@ -9,6 +9,7 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3",
     "click",
+    "dbt-duckdb==1.10.1",
     "duckdb",
     "numpy",
     "pandas",
