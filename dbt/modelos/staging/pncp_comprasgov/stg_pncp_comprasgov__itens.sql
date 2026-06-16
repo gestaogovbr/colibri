@@ -5,7 +5,9 @@ renomeadas com sufixo _pncp (alteração de schema em 2025).
 */
 
 {{ config(
-    materialized='table',
+    materialized='incremental',
+    incremental_strategy='delete+insert',
+    unique_key=['granularidade', 'periodo'],
     database='lake',
     tags=['staging', 'pncp', 'comprasgov']
 ) }}
@@ -37,3 +39,19 @@ SELECT
     COALESCE(data_inclusao,        data_inclusao_pncp)        AS data_inclusao,
     CAST(COALESCE(data_atualizacao, data_atualizacao_pncp) AS DATE) AS data_atualizacao
 FROM bronze
+
+{# Em runs incrementais, insere só as linhas dos arquivos que o extract baixou/atualizou nesta
+   execução (arquivo gerado por extract.py, que sempre roda antes do dbt no pipeline). O
+   delete+insert por (granularidade, periodo) cobre reprocessamento de arquivos; a
+   deduplicação por id_compra_item entre períodos fica pra camada intermediate (silver). #}
+{% if is_incremental() %}
+WHERE (granularidade, periodo) IN (
+    SELECT granularidade, periodo
+    FROM read_csv(
+        '../dados/pncp_comprasgov_alteracoes.csv',
+        header = true,
+        columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
+    )
+    WHERE view = 'VW_FT_PNCP_COMPRA_ITEM'
+)
+{% endif %}

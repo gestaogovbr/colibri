@@ -47,6 +47,10 @@ models:
         description: Número sequencial do item dentro da compra.
       - name: data_atualizacao
         description: Data da última atualização do registro (usada para versionamento SCD2).
+      - name: granularidade
+        description: Granularidade do arquivo de origem (diario, mensal ou anual).
+      - name: periodo
+        description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
 
   - name: stg_pncp_comprasgov__resultados
     description: >

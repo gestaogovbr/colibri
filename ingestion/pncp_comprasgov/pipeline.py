@@ -16,7 +16,7 @@ _SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 NOME_SEGREDO = _SEGREDO_NOME
 CAMINHO_META  = f"s3://colibri-dev/{_CHAVE_CATALOGO}"
-DATA_PATH     = "s3://colibri-dev/dbt/"
+DATA_PATH     = "s3://colibri-dev/lake/"
 
 
 def _cliente_s3(config: dict):
@@ -35,10 +35,11 @@ def _baixar_ou_criar_catalogo(config: dict, bucket: str) -> None:
         s3.download_file(bucket, _CHAVE_CATALOGO, str(_CATALOGO_LOCAL))
         print(f"[ducklake] Catálogo baixado de s3://{bucket}/{_CHAVE_CATALOGO}")
     except Exception:
+        _CATALOGO_LOCAL.unlink(missing_ok=True)
         con = duckdb.connect()
         con.install_extension("ducklake")
         con.load_extension("ducklake")
-        con.execute(f"ATTACH 'ducklake:{_CATALOGO_LOCAL}' AS lake (DATA_PATH 's3://{bucket}/dbt/')")
+        con.execute(f"ATTACH 'ducklake:{_CATALOGO_LOCAL}' AS lake (DATA_PATH 's3://{bucket}/lake/')")
         con.close()
         print(f"[ducklake] Novo catálogo criado em {_CATALOGO_LOCAL}")
 
@@ -61,13 +62,14 @@ def main():
         [
             "dbt", "run",
             "--select",
-            "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov__resumo_anual",
+            "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov__resumo_anual stg_pncp_comprasgov__itens int_pncp_comprasgov__itens",
             "--project-dir", str(_DBT_DIR),
             "--profiles-dir", str(_DBT_DIR),
         ],
         cwd=str(_DBT_DIR),
         check=True,
     )
+
     _subir_catalogo(config, bucket)
 
 

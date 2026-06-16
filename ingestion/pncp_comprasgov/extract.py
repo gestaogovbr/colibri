@@ -48,8 +48,8 @@ URL_BASE_DIARIO = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
 URL_BASE_MENSAL = "https://repositorio.dados.gov.br/seges/comprasgov/mensal"
 URL_BASE_ANUAL = "https://repositorio.dados.gov.br/seges/comprasgov/anual"
 
-# Views extraídas: por ora, só compras (itens e resultados ficam pra depois)
-VIEWS = ["VW_FT_PNCP_COMPRA"]
+# Views extraídas: compras e itens (resultados ficam pra depois)
+VIEWS = ["VW_FT_PNCP_COMPRA", "VW_FT_PNCP_COMPRA_ITEM"]
 VIEW_PADRAO = VIEWS[0]
 
 TEMPLATE_ARQUIVO_DIARIO = "comprasGOV-diario-{view}-{ano}-{mes:02d}-{dia:02d}.csv"
