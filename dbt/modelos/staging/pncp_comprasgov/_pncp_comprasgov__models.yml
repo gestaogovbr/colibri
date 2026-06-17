@@ -54,9 +54,9 @@ models:
 
   - name: stg_pncp_comprasgov__resultados
     description: >
-      Resultados (fornecedores vencedores) dos itens de compras do ComprasGOV/PNCP,
-      unificando arquivos diário/mensal/anual e harmonizando colunas renomeadas com
-      sufixo _pncp (alteração de schema em 2025).
+      Resultados (fornecedores vencedores) dos itens de compras do ComprasGOV/PNCP
+      (VW_DM_PNCP_ITEM_RESULTADO), unificando arquivos diário/mensal/anual.
+      Schema estável entre anos (sem variantes _pncp).
     columns:
       - name: id_compra_item
         description: Identificador do item da compra ao qual o resultado se refere.
@@ -66,6 +66,10 @@ models:
         description: Data da última atualização do registro (usada para versionamento SCD2).
       - name: data_resultado
         description: Data em que o resultado foi registrado.
+      - name: granularidade
+        description: Granularidade do arquivo de origem (diario, mensal ou anual).
+      - name: periodo
+        description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
 
   - name: int_pncp_comprasgov__compras
     description: >

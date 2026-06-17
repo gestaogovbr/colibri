@@ -62,7 +62,7 @@ def main():
         [
             "dbt", "run",
             "--select",
-            "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov__resumo_anual stg_pncp_comprasgov__itens int_pncp_comprasgov__itens",
+            "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov__resumo_anual stg_pncp_comprasgov__itens int_pncp_comprasgov__itens stg_pncp_comprasgov__resultados int_pncp_comprasgov__resultados",
             "--project-dir", str(_DBT_DIR),
             "--profiles-dir", str(_DBT_DIR),
         ],

@@ -42,14 +42,15 @@ DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA_DIARIO = Path("./dados/pncp_comprasgov_diario")
 DIRETORIO_SAIDA_MENSAL = Path("./dados/pncp_comprasgov_mensal")
 DIRETORIO_SAIDA_ANUAL = Path("./dados/pncp_comprasgov_anual")
+DIRETORIO_MANIFESTOS = DIRETORIO_RAIZ / "manifestos"
+DIRETORIO_ALTERACOES_DIR = DIRETORIO_RAIZ / "alteracoes"
 SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 URL_BASE_DIARIO = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
 URL_BASE_MENSAL = "https://repositorio.dados.gov.br/seges/comprasgov/mensal"
 URL_BASE_ANUAL = "https://repositorio.dados.gov.br/seges/comprasgov/anual"
 
-# Views extraídas: compras e itens (resultados ficam pra depois)
-VIEWS = ["VW_FT_PNCP_COMPRA", "VW_FT_PNCP_COMPRA_ITEM"]
+VIEWS = ["VW_FT_PNCP_COMPRA", "VW_FT_PNCP_COMPRA_ITEM", "VW_DM_PNCP_ITEM_RESULTADO"]
 VIEW_PADRAO = VIEWS[0]
 
 TEMPLATE_ARQUIVO_DIARIO = "comprasGOV-diario-{view}-{ano}-{mes:02d}-{dia:02d}.csv"
@@ -215,10 +216,10 @@ def processar_arquivo(session: requests.Session, view: str, chave: str, url: str
 # Execução
 
 def executar_ingestao() -> None:
-    for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
+    for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL, DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES_DIR):
         d.mkdir(parents=True, exist_ok=True)
-    caminho_manifesto = DIRETORIO_RAIZ / NOME_MANIFESTO
-    caminho_alteracoes = DIRETORIO_RAIZ / NOME_ALTERACOES
+    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
+    caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
     bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
     manifesto_no_bucket = False

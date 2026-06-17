@@ -6,8 +6,7 @@ renomeadas com sufixo _pncp (alteração de schema em 2025).
 
 {{ config(
     materialized='incremental',
-    incremental_strategy='delete+insert',
-    unique_key=['granularidade', 'periodo'],
+    incremental_strategy='append',
     database='lake',
     tags=['staging', 'pncp', 'comprasgov']
 ) }}
@@ -48,7 +47,7 @@ FROM bronze
 WHERE (granularidade, periodo) IN (
     SELECT granularidade, periodo
     FROM read_csv(
-        '../dados/pncp_comprasgov_alteracoes.csv',
+        '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
         header = true,
         columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
     )

@@ -1,11 +1,12 @@
 /*
-Modelo Staging: Consolidação de todos os resultados de itens de compras públicas
-Empilha todos os arquivos PNCP_ITEM_RESULTADO de diferentes anos e harmoniza colunas
-renomeadas com sufixo _pncp (alteração de schema em 2025).
+Modelo Staging: Consolidação de todos os resultados de itens de compras públicas.
+Empilha arquivos VW_DM_PNCP_ITEM_RESULTADO de todas as granularidades.
+Schema estável entre anos (sem variantes _pncp).
 */
 
 {{ config(
-    materialized='table',
+    materialized='incremental',
+    incremental_strategy='append',
     database='lake',
     tags=['staging', 'pncp', 'comprasgov']
 ) }}
@@ -22,18 +23,18 @@ bronze AS (
 )
 
 SELECT
-    * EXCLUDE (
-        data_atualizacao, data_atualizacao_pncp,
-        data_inclusao, data_inclusao_pncp,
-        numero_item, numero_item_pncp,
-        data_cancelamento, data_cancelamento_pncp,
-        data_resultado, data_resultado_pncp
-    ),
-
-    -- Colunas com variante _pncp: COALESCE prioriza a versão não-pncp (mais completa no diário)
-    CAST(COALESCE(data_atualizacao, data_atualizacao_pncp) AS DATE) AS data_atualizacao,
-    COALESCE(data_inclusao,    data_inclusao_pncp)    AS data_inclusao,
-    COALESCE(numero_item,      numero_item_pncp)      AS numero_item,
-    COALESCE(data_cancelamento, data_cancelamento_pncp) AS data_cancelamento,
-    COALESCE(data_resultado,   data_resultado_pncp)   AS data_resultado
+    * EXCLUDE (data_atualizacao),
+    CAST(data_atualizacao AS DATE) AS data_atualizacao
 FROM bronze
+
+{% if is_incremental() %}
+WHERE (granularidade, periodo) IN (
+    SELECT granularidade, periodo
+    FROM read_csv(
+        '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
+        header = true,
+        columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
+    )
+    WHERE view = 'VW_DM_PNCP_ITEM_RESULTADO'
+)
+{% endif %}

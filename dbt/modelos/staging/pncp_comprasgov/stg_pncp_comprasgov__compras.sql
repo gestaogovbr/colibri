@@ -62,7 +62,7 @@ FROM bronze
 WHERE (granularidade, periodo) IN (
     SELECT granularidade, periodo
     FROM read_csv(
-        '../dados/pncp_comprasgov_alteracoes.csv',
+        '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
         header = true,
         columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
     )
