@@ -4,4 +4,4 @@
     tags=['staging', 'catmats']
 ) }}
 
-SELECT * FROM read_csv_auto('../dados/catmats_api.csv', header = true)
+SELECT * FROM read_csv_auto('../dados/catmats/catmats_api.csv', header = true)

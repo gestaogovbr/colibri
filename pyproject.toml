@@ -18,6 +18,7 @@ dependencies = [
     "requests",
     "pipe",
     "rich",
+    "tqdm",
 ]
 
 [project.scripts]

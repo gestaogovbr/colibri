@@ -406,7 +406,7 @@ def query(sql: str):
 
 
 @pipeline.command("run")
-@click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov"]), default=None, help="Rodar só um pipeline")
+@click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
 def run(apenas: str | None):
     """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
 
@@ -433,7 +433,7 @@ def sincronizar(segredo: str):
     raiz = Path(CATALOGO_LOCAL).parent
 
     itens = [
-        ("manifesto.csv",  str(raiz / "dados" / "manifesto.csv")),
+        ("manifesto.csv",  str(raiz / "dados" / "manifestos" / "manifesto.csv")),
         ("meta.ducklake",  CATALOGO_LOCAL),
     ]
 
