@@ -41,6 +41,8 @@ SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA = DIRETORIO_RAIZ / "ncm"
+DIRETORIO_MANIFESTOS = DIRETORIO_RAIZ / "manifestos"
+DIRETORIO_ALTERACOES = DIRETORIO_RAIZ / "alteracoes"
 NOME_BASE_SILVER = "ncm_silver"
 
 NOME_MANIFESTO = "ncm_manifesto.csv"
@@ -181,8 +183,10 @@ def _salvar_silver(enriquecido: list[dict], agora: datetime) -> Path:
 
 def executar_ingestao() -> None:
     DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
-    caminho_manifesto = DIRETORIO_RAIZ / NOME_MANIFESTO
-    caminho_alteracoes = DIRETORIO_RAIZ / NOME_ALTERACOES
+    DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
+    DIRETORIO_ALTERACOES.mkdir(parents=True, exist_ok=True)
+    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
+    caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
     bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
     caminho_manifesto.unlink(missing_ok=True)

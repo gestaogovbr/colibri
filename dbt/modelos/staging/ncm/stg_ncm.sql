@@ -40,7 +40,7 @@ FROM raw_data
 WHERE EXISTS (
     SELECT 1
     FROM read_csv(
-        '../dados/ncm_alteracoes.csv',
+        '../dados/alteracoes/ncm_alteracoes.csv',
         header = true,
         columns = {'arquivo_csv': 'VARCHAR'}
     )
