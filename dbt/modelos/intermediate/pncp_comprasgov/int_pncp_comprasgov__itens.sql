@@ -8,7 +8,12 @@ WITH staging AS (
     SELECT * FROM {{ ref('stg_pncp_comprasgov__itens') }}
 ),
 
--- Por (id_compra_item, data_atualizacao): escolhe a linha com mais colunas preenchidas
+sem_duplicatas AS (
+    SELECT * EXCLUDE (_dbt_loaded_at, granularidade, periodo)
+    FROM staging
+    GROUP BY ALL
+),
+
 dedup AS (
     SELECT * EXCLUDE (_rn)
     FROM (
@@ -21,15 +26,15 @@ dedup AS (
                     excluir=['id_compra_item', 'data_atualizacao', 'granularidade', 'periodo', '_dbt_loaded_at']
                 ) }} DESC
             ) AS _rn
-        FROM staging
+        FROM sem_duplicatas
     )
     WHERE _rn = 1
 ),
 
 scd2 AS (
     SELECT
-        * EXCLUDE (granularidade, periodo),
-        data_atualizacao                              AS valido_de,
+        *,
+        data_atualizacao                             AS valido_de,
         LEAD(data_atualizacao) OVER (
             PARTITION BY id_compra_item
             ORDER BY data_atualizacao
@@ -37,7 +42,7 @@ scd2 AS (
         LEAD(data_atualizacao) OVER (
             PARTITION BY id_compra_item
             ORDER BY data_atualizacao
-        ) IS NULL                                     AS is_current
+        ) IS NULL                                    AS is_current
     FROM dedup
 )
 

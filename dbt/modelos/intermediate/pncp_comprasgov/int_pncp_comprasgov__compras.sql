@@ -7,9 +7,8 @@
 ) }}
 
 {# Em runs incrementais, recalcula o histórico SCD2 só dos cod_compra que tiveram
-   algum período alterado nesta execução (arquivo gerado por extract.py). Como
-   dedup/scd2 são PARTITION BY cod_compra, as linhas desses cod_compra bastam
-   pra recalcular o histórico inteiro deles corretamente. #}
+   algum período alterado nesta execução. Como o SCD2 é PARTITION BY cod_compra,
+   as linhas desses cod_compra bastam pra recalcular o histórico inteiro deles. #}
 WITH
 
 {% if is_incremental() %}
@@ -19,7 +18,7 @@ cod_compra_afetados AS (
     WHERE (granularidade, periodo) IN (
         SELECT granularidade, periodo
         FROM read_csv(
-            '../dados/pncp_comprasgov_alteracoes.csv',
+            '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
             header = true,
             columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
         )
@@ -35,7 +34,12 @@ staging AS (
     {% endif %}
 ),
 
--- Por (cod_compra, data_atualizacao): escolhe a linha com mais colunas preenchidas
+sem_duplicatas AS (
+    SELECT * EXCLUDE (_dbt_loaded_at, granularidade, periodo)
+    FROM staging
+    GROUP BY ALL
+),
+
 dedup AS (
     SELECT * EXCLUDE (_rn)
     FROM (
@@ -48,15 +52,15 @@ dedup AS (
                     excluir=['cod_compra', 'data_atualizacao', 'granularidade', 'periodo', '_dbt_loaded_at']
                 ) }} DESC
             ) AS _rn
-        FROM staging
+        FROM sem_duplicatas
     )
     WHERE _rn = 1
 ),
 
 scd2 AS (
     SELECT
-        * EXCLUDE (granularidade, periodo),
-        data_atualizacao                              AS valido_de,
+        *,
+        data_atualizacao                             AS valido_de,
         LEAD(data_atualizacao) OVER (
             PARTITION BY cod_compra
             ORDER BY data_atualizacao
@@ -64,7 +68,7 @@ scd2 AS (
         LEAD(data_atualizacao) OVER (
             PARTITION BY cod_compra
             ORDER BY data_atualizacao
-        ) IS NULL                                     AS is_current
+        ) IS NULL                                    AS is_current
     FROM dedup
 )
 

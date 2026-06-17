@@ -8,29 +8,25 @@ WITH staging AS (
     SELECT * FROM {{ ref('stg_ncm') }}
 ),
 
-versioned AS (
-    SELECT
-        * EXCLUDE (_dbt_loaded_at),
-        STRPTIME(
-            REGEXP_EXTRACT(_source_file, 'ncm_silver_(\d{4}-\d{2}-\d{2}-\d{6})', 1),
-            '%Y-%m-%d-%H%M%S'
-        ) AS extraido_em
+dedup AS (
+    SELECT * EXCLUDE (_source_file)
     FROM staging
+    GROUP BY ALL
 ),
 
 scd2 AS (
     SELECT
-        * EXCLUDE (_source_file, extraido_em),
-        extraido_em AS valido_de,
-        LEAD(extraido_em) OVER (
+        * EXCLUDE (_dbt_loaded_at),
+        _dbt_loaded_at::TIMESTAMP                    AS valido_de,
+        LEAD(_dbt_loaded_at::TIMESTAMP) OVER (
             PARTITION BY codigo
-            ORDER BY extraido_em
-        ) - INTERVAL '1 second'                     AS valido_ate,
-        LEAD(extraido_em) OVER (
+            ORDER BY _dbt_loaded_at
+        ) - INTERVAL '1 day'                        AS valido_ate,
+        LEAD(_dbt_loaded_at::TIMESTAMP) OVER (
             PARTITION BY codigo
-            ORDER BY extraido_em
-        ) IS NULL                                    AS is_current
-    FROM versioned
+            ORDER BY _dbt_loaded_at
+        ) IS NULL                                   AS is_current
+    FROM dedup
 )
 
 SELECT * FROM scd2
