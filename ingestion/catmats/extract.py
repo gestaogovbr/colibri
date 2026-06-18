@@ -42,17 +42,25 @@ BATCH_SIZE = 200
 MAX_RETRIES = 5
 BASE_BACKOFF = 2.0
 
+# Limite real da API (medido empiricamente): ~100 req/min (429 a partir de 2 req/s).
+# Pacing global mantém todas as threads abaixo disso, evitando 429 em vez de só reagir.
+PACING_INTERVALO = 0.7
+
 # Rate limit global: quando qualquer thread bate 429, todas aguardam
 _rl_lock = threading.Lock()
 _rl_ate: float = 0.0
+_proxima_permitida: float = 0.0
 
 
 def _aguardar_rate_limit() -> None:
+    global _proxima_permitida
     with _rl_lock:
-        ate = _rl_ate
-    restante = ate - time.monotonic()
-    if restante > 0:
-        time.sleep(restante)
+        agora = time.monotonic()
+        inicio = max(agora, _rl_ate, _proxima_permitida)
+        _proxima_permitida = inicio + PACING_INTERVALO
+        espera = inicio - agora
+    if espera > 0:
+        time.sleep(espera)
 
 
 def _registrar_rate_limit(espera: float) -> None:
