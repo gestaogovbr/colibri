@@ -8,12 +8,16 @@ WITH staging AS (
     SELECT * FROM {{ ref('stg_pncp_comprasgov__itens') }}
 ),
 
-sem_duplicatas AS (
+{# Para evitar que o modelo cresça indefinidamente em runs incrementais, 
+   aplicamos uma deduplicação prévia para registros idênticos #}
+dedup_append AS (
     SELECT * EXCLUDE (_dbt_loaded_at, granularidade, periodo)
     FROM staging
     GROUP BY ALL
 ),
 
+{# Remove duplicatas, mantendo somente o registro que tiver mais colunas preenchidas.
+   Talvez, isso pode remover correções do passado, que deveriam cair no LEAD #}
 dedup AS (
     SELECT * EXCLUDE (_rn)
     FROM (
@@ -23,10 +27,10 @@ dedup AS (
                 PARTITION BY id_compra_item, data_atualizacao
                 ORDER BY {{ contar_colunas_preenchidas(
                     ref('stg_pncp_comprasgov__itens'),
-                    excluir=['id_compra_item', 'data_atualizacao', 'granularidade', 'periodo', '_dbt_loaded_at']
+                    excluir=['_dbt_loaded_at', 'granularidade', 'periodo']
                 ) }} DESC
             ) AS _rn
-        FROM sem_duplicatas
+        FROM dedup_append
     )
     WHERE _rn = 1
 ),

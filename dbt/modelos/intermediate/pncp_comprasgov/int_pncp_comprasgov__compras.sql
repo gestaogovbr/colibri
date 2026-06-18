@@ -1,45 +1,23 @@
 {{ config(
-    materialized='incremental',
-    incremental_strategy='delete+insert',
-    unique_key=['cod_compra', 'data_atualizacao'],
+    materialized='table',
     database='lake',
     tags=['intermediate', 'pncp', 'comprasgov']
 ) }}
 
-{# Em runs incrementais, recalcula o histórico SCD2 só dos cod_compra que tiveram
-   algum período alterado nesta execução. Como o SCD2 é PARTITION BY cod_compra,
-   as linhas desses cod_compra bastam pra recalcular o histórico inteiro deles. #}
-WITH
-
-{% if is_incremental() %}
-cod_compra_afetados AS (
-    SELECT DISTINCT cod_compra
-    FROM {{ ref('stg_pncp_comprasgov__compras') }}
-    WHERE (granularidade, periodo) IN (
-        SELECT granularidade, periodo
-        FROM read_csv(
-            '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
-            header = true,
-            columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
-        )
-        WHERE view = 'VW_FT_PNCP_COMPRA'
-    )
-),
-{% endif %}
-
-staging AS (
+WITH staging AS (
     SELECT * FROM {{ ref('stg_pncp_comprasgov__compras') }}
-    {% if is_incremental() %}
-    WHERE cod_compra IN (SELECT cod_compra FROM cod_compra_afetados)
-    {% endif %}
 ),
 
-sem_duplicatas AS (
+{# Para evitar que o modelo cresça indefinidamente em runs incrementais, 
+   aplicamos uma deduplicação prévia para registros idênticos #}
+dedup_append AS (
     SELECT * EXCLUDE (_dbt_loaded_at, granularidade, periodo)
     FROM staging
     GROUP BY ALL
 ),
 
+{# Remove duplicatas, mantendo somente o registro que tiver mais colunas preenchidas.
+   Talvez, isso pode remover correções do passado, que deveriam cair no LEAD #}
 dedup AS (
     SELECT * EXCLUDE (_rn)
     FROM (
@@ -49,10 +27,10 @@ dedup AS (
                 PARTITION BY cod_compra, data_atualizacao
                 ORDER BY {{ contar_colunas_preenchidas(
                     ref('stg_pncp_comprasgov__compras'),
-                    excluir=['cod_compra', 'data_atualizacao', 'granularidade', 'periodo', '_dbt_loaded_at']
+                    excluir=['_dbt_loaded_at', 'granularidade', 'periodo']
                 ) }} DESC
             ) AS _rn
-        FROM sem_duplicatas
+        FROM dedup_append
     )
     WHERE _rn = 1
 ),
