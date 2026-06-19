@@ -4,8 +4,9 @@ Extrai o catálogo completo de itens CATMAT via API do ComprasGOV.
 Pagina /modulo-material/4_consultarItemMaterial e salva em dados/catmats/catmats_api.csv.
 
 Manifesto incremental (catmats_manifesto.csv):
-  Registra hash SHA-256 da resposta bruta por página. Páginas com hash inalterado
-  são puladas. O manifesto é sincronizado com o bucket para persistir entre ambientes.
+  Toda execução busca e recalcula o hash SHA-256 de TODAS as páginas (a API não
+  permite filtrar por modificação). Páginas com hash inalterado não são regravadas
+  no CSV. O manifesto é sincronizado com o bucket para persistir entre ambientes.
 
 Uso:
   python -m ingestion.catmats.extract
@@ -15,6 +16,7 @@ import csv
 import hashlib
 import logging
 import random
+import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -133,7 +135,14 @@ def _buscar_pagina(pagina: int, session: requests.Session) -> dict:
     return {"pagina": pagina, "registros": [], "hash": None, "ok": False}
 
 
-def executar_ingestao() -> None:
+def resetar_dados_locais() -> None:
+    """Apaga o CSV extraído e o manifesto local (usado por --do-zero)"""
+    shutil.rmtree(DIRETORIO_CATMATS, ignore_errors=True)
+    (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
+
+
+def executar_ingestao() -> bool:
+    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     DIRETORIO_CATMATS.mkdir(parents=True, exist_ok=True)
     DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
 
@@ -148,6 +157,9 @@ def executar_ingestao() -> None:
         logger.warning(f"Manifesto não encontrado no bucket, iniciando do zero: {e}")
 
     manifesto = carregar_manifesto(caminho_manifesto)
+    csv_ausente = not CAMINHO_CSV.exists()
+    if manifesto and csv_ausente:
+        logger.warning(f"Manifesto tem entradas mas {CAMINHO_CSV} não existe localmente. Só reconstruo o CSV se algo realmente tiver mudado.")
 
     logger.info("Consultando total de páginas do catálogo CATMAT...")
     with requests.Session() as s:
@@ -171,26 +183,22 @@ def executar_ingestao() -> None:
     logger.info(f"Total: {meta['totalRegistros']:,} registros | {total_paginas:,} páginas")
 
     todas_paginas = list(range(1, total_paginas + 1))
-    pendentes = [p for p in todas_paginas if p not in manifesto]
-    logger.info(f"Pendentes: {len(pendentes):,} | Já no manifesto: {len(manifesto):,}")
+    pendentes = todas_paginas
+    logger.info(f"Verificando {len(pendentes):,} página(s) | Já no manifesto: {len(manifesto):,}")
 
     if not pendentes:
         logger.info("Catálogo já atualizado.")
-        return
+        return False
 
-    csv_novo = not CAMINHO_CSV.exists()
-    buf_registros: list[list] = []
+    buf_registros: list[list] = []   # delta (páginas novas/alteradas), usado quando o CSV já existe
+    buf_completo: list[list] = []    # todas as páginas, só populado se csv_ausente
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0}
     manifesto_modificado = False
 
     def _flush() -> None:
-        nonlocal csv_novo
-        if buf_registros:
+        if buf_registros and not csv_ausente:
             with open(CAMINHO_CSV, "a", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                if csv_novo:
-                    w.writerow(COLUNAS_CSV)
-                    csv_novo = False
                 w.writerows(buf_registros)
             buf_registros.clear()
 
@@ -211,13 +219,17 @@ def executar_ingestao() -> None:
                             barra.update(1)
                             continue
 
+                        if csv_ausente:
+                            buf_completo.extend(resultado["registros"])
+
                         entrada = manifesto.get(pagina)
                         if entrada and entrada["hash_sha256"] == resultado["hash"]:
                             contadores["ignorado"] += 1
                             barra.update(1)
                             continue
 
-                        buf_registros.extend(resultado["registros"])
+                        if not csv_ausente:
+                            buf_registros.extend(resultado["registros"])
                         status = "atualizado" if entrada else "baixado"
                         contadores[status] += 1
                         manifesto[pagina] = {
@@ -238,7 +250,14 @@ def executar_ingestao() -> None:
     except KeyboardInterrupt:
         logger.warning("Interrompido pelo usuário.")
     finally:
-        _flush()
+        if manifesto_modificado and csv_ausente:
+            logger.info(f"Reconstruindo {CAMINHO_CSV} do zero ({len(buf_completo):,} registro(s)).")
+            with open(CAMINHO_CSV, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(COLUNAS_CSV)
+                w.writerows(buf_completo)
+        else:
+            _flush()
         salvar_manifesto(caminho_manifesto, manifesto)
         logger.info(
             f"Concluído.  "
@@ -251,6 +270,8 @@ def executar_ingestao() -> None:
                 salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_NOME, NOME_MANIFESTO)
             except Exception as e:
                 logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+
+    return manifesto_modificado
 
 
 if __name__ == "__main__":

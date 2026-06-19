@@ -22,6 +22,7 @@ import csv
 import hashlib
 import io
 import logging
+import shutil
 import time
 import tempfile
 import zipfile
@@ -114,7 +115,15 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str]]) -> None:
         w.writerows(alteracoes)
 
 
-def executar_ingestao() -> None:
+def resetar_dados_locais() -> None:
+    """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
+    shutil.rmtree(DIRETORIO_NFE, ignore_errors=True)
+    (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
+    (DIRETORIO_ALTERACOES / NOME_ALTERACOES).unlink(missing_ok=True)
+
+
+def executar_ingestao() -> bool:
+    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     for tabela in TABELAS:
         (DIRETORIO_NFE / tabela).mkdir(parents=True, exist_ok=True)
     DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
@@ -226,6 +235,8 @@ def executar_ingestao() -> None:
                 salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_NOME, NOME_MANIFESTO)
             except Exception as e:
                 logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+
+    return manifesto_modificado
 
 
 if __name__ == "__main__":

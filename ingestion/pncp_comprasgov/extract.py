@@ -2,7 +2,7 @@
 Ingestão bruta de dados de compras do ComprasGOV (VW_FT_PNCP_COMPRA) nas três
 granularidades: diário, mensal e anual.
 
-Manifesto incremental (manifesto.csv):
+Manifesto incremental (pncp_comprasgov_manifesto.csv):
   Registra metadados de cada arquivo: view, período, linhas, tamanho, hash SHA-256 e
   timestamp. Nas execuções seguintes, arquivos com hash local igual ao
   manifesto são pulados; se divergirem (corrompido ou fonte atualizada),
@@ -18,6 +18,7 @@ import csv
 import hashlib
 import io
 import logging
+import shutil
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -57,7 +58,7 @@ TEMPLATE_ARQUIVO_DIARIO = "comprasGOV-diario-{view}-{ano}-{mes:02d}-{dia:02d}.cs
 TEMPLATE_ARQUIVO_MENSAL = "comprasGOV-mensal-{view}-{ano}-{mes:02d}.csv"
 TEMPLATE_ARQUIVO_ANUAL = "comprasGOV-anual-{view}-{ano}.csv"
 
-NOME_MANIFESTO = "manifesto.csv"
+NOME_MANIFESTO = "pncp_comprasgov_manifesto.csv"
 COLUNAS_MANIFESTO = ["view", "data", "url", "num_linhas", "tamanho_bytes", "num_colunas", "hash_sha256", "extraido_em"]
 
 # Alterações desta execução (arquivos baixados ou atualizados), consumido pelo dbt
@@ -215,7 +216,16 @@ def processar_arquivo(session: requests.Session, view: str, chave: str, url: str
 
 # Execução
 
-def executar_ingestao() -> None:
+def resetar_dados_locais() -> None:
+    """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
+    for diretorio in (DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
+        shutil.rmtree(diretorio, ignore_errors=True)
+    (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
+    (DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES).unlink(missing_ok=True)
+
+
+def executar_ingestao() -> bool:
+    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL, DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES_DIR):
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
@@ -302,6 +312,7 @@ def executar_ingestao() -> None:
         f"Ignorados: {contadores['ignorado']}  "
         f"Indisponíveis: {contadores['indisponivel']}"
     )
+    return manifesto_modificado
 
 
 if __name__ == "__main__":

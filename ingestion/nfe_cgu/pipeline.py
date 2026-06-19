@@ -5,7 +5,7 @@ from pathlib import Path
 import boto3
 import duckdb
 
-from ingestion.nfe_cgu.extract import executar_ingestao
+from ingestion.nfe_cgu.extract import executar_ingestao, resetar_dados_locais
 from shared.carregar_segredo import carregar_segredo
 
 _RAIZ = Path(__file__).resolve().parent.parent.parent
@@ -52,19 +52,22 @@ def main():
     bucket = config["bucket_lake"]
 
     _baixar_ou_criar_catalogo(config, bucket)
-    executar_ingestao()
+    houve_mudanca = executar_ingestao()
 
-    subprocess.run(
-        [
-            "dbt", "run",
-            "--select",
-            "stg_nfe_cgu__itens stg_nfe_cgu__nf stg_nfe_cgu__eventos",
-            "--project-dir", str(_DBT_DIR),
-            "--profiles-dir", str(_DBT_DIR),
-        ],
-        cwd=str(_DBT_DIR),
-        check=True,
-    )
+    if houve_mudanca:
+        subprocess.run(
+            [
+                "dbt", "run",
+                "--select",
+                "stg_nfe_cgu__itens stg_nfe_cgu__nf stg_nfe_cgu__eventos",
+                "--project-dir", str(_DBT_DIR),
+                "--profiles-dir", str(_DBT_DIR),
+            ],
+            cwd=str(_DBT_DIR),
+            check=True,
+        )
+    else:
+        print("[dbt] Sem dados novos na extração, pulando dbt run.")
 
     _subir_catalogo(config, bucket)
 

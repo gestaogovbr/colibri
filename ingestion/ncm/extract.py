@@ -18,6 +18,7 @@ import csv
 import hashlib
 import json
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -181,7 +182,15 @@ def _salvar_silver(enriquecido: list[dict], agora: datetime) -> Path:
 
 # Execução
 
-def executar_ingestao() -> None:
+def resetar_dados_locais() -> None:
+    """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
+    shutil.rmtree(DIRETORIO_SAIDA, ignore_errors=True)
+    (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
+    (DIRETORIO_ALTERACOES / NOME_ALTERACOES).unlink(missing_ok=True)
+
+
+def executar_ingestao() -> bool:
+    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
     DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
     DIRETORIO_ALTERACOES.mkdir(parents=True, exist_ok=True)
@@ -207,7 +216,7 @@ def executar_ingestao() -> None:
     if ultimo_hash == hash_atual:
         logger.info("Sem mudanças nos dados de NCM. Ingestão encerrada.")
         salvar_alteracoes(caminho_alteracoes, [])
-        return
+        return False
 
     agora = datetime.now()
     mapa_ncm = _flatten_nomenclaturas(dados["Nomenclaturas"])
@@ -231,6 +240,7 @@ def executar_ingestao() -> None:
 
     logger.info(f"Manifesto: {caminho_manifesto} ({len(manifesto)} entrada(s))")
     logger.info(f"Alterações: {caminho_alteracoes} (1 arquivo)")
+    return True
 
 
 if __name__ == "__main__":
