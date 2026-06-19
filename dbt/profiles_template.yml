@@ -4,7 +4,7 @@ colibri:
     dev:
       type: duckdb
       path: ../dados/lakehouse_dev.duckdb
-      threads: 4
+      threads: 2
       extensions:
         - httpfs
         - ducklake
@@ -17,8 +17,15 @@ colibri:
           region: auto
           url_style: path
           use_ssl: true
+      settings:
+        http_timeout: 1800000
+        http_retries: 5
+        http_retry_wait_ms: 2000
+        http_retry_backoff: 2
+        preserve_insertion_order: false
+        temp_directory: "../dados/duckdb_tmp"
       attach:
         - path: "ducklake:../meta.ducklake"
           alias: lake
           options:
-            data_path: "s3://<R2_BUCKET>/dbt/"
+            data_path: "s3://<R2_BUCKET>/lake/"
