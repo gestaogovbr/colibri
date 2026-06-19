@@ -420,10 +420,18 @@ def run(apenas: str | None):
     console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
 
 
+_MANIFESTOS = [
+    "ncm_manifesto.csv",
+    "pncp_comprasgov_manifesto.csv",
+    "catmats_manifesto.csv",
+    "nfe_cgu_manifesto.csv",
+]
+
+
 @cli.command("sincronizar")
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
 def sincronizar(segredo: str):
-    """Baixa o manifesto e o catálogo DuckLake do bucket para a máquina local"""
+    """Baixa os manifestos e o catálogo DuckLake do bucket para a máquina local"""
     import os
     from pathlib import Path
 
@@ -433,7 +441,9 @@ def sincronizar(segredo: str):
     raiz = Path(CATALOGO_LOCAL).parent
 
     itens = [
-        ("manifesto.csv",  str(raiz / "dados" / "manifestos" / "manifesto.csv")),
+        (nome, str(raiz / "dados" / "manifestos" / nome))
+        for nome in _MANIFESTOS
+    ] + [
         ("meta.ducklake",  CATALOGO_LOCAL),
     ]
 
