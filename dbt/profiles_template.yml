@@ -4,7 +4,7 @@ colibri:
     dev:
       type: duckdb
       path: ../dados/lakehouse_dev.duckdb
-      threads: 2
+      threads: 1
       extensions:
         - httpfs
         - ducklake
@@ -18,9 +18,9 @@ colibri:
           url_style: path
           use_ssl: true
       settings:
-        http_timeout: 1800000
-        http_retries: 5
-        http_retry_wait_ms: 2000
+        http_timeout: 3600000
+        http_retries: 10
+        http_retry_wait_ms: 4000
         http_retry_backoff: 2
         preserve_insertion_order: false
         temp_directory: "../dados/duckdb_tmp"
