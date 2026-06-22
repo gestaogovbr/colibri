@@ -1,20 +1,21 @@
 """
-Extração das tabelas "fase externa" do PNCP via Databricks SQL.
+Extração das tabelas/views "PNCP em números" via Databricks SQL.
 
-Lê o catalog.schema raw.geral (4 tabelas) e salva cada uma como parquet em
-dados/pncp_com_numeros/.
+Lê 4 tabelas brutas (catalog raw, schema geral) e 3 views agregadas (catalog
+cotin_dlt_pncp, schema bronze) e salva cada uma como parquet em
+dados/pncp_em_numeros/.
 
-Manifesto incremental (pncp_com_numeros_manifesto.csv):
-  Toda execução consulta a tabela inteira e recalcula o hash SHA-256 do conteúdo
-  (não há filtro incremental do lado do Databricks). Tabelas com hash inalterado
-  não são regravadas. Algumas dessas tabelas têm dezenas de milhões de linhas
-  (ex: faseexterna_proposta_item ~46M) — por isso o resultado é lido via
-  fetchall_arrow() e o hash é calculado sobre os bytes do parquet já serializado,
-  evitando iterar linha a linha em Python. O manifesto é sincronizado com o
-  bucket para persistir entre ambientes.
+Manifesto incremental (pncp_em_numeros_manifesto.csv):
+  Toda execução consulta a tabela/view inteira e recalcula o hash SHA-256 do
+  conteúdo (não há filtro incremental do lado do Databricks). Fontes com hash
+  inalterado não são regravadas. Várias dessas fontes têm dezenas de milhões de
+  linhas (ex: faseexterna_proposta_item ~46M, vw_agg_itens_bronze ~39M) — por
+  isso o resultado é lido via fetchall_arrow() e o hash é calculado sobre os
+  bytes do parquet já serializado, evitando iterar linha a linha em Python.
+  O manifesto é sincronizado com o bucket para persistir entre ambientes.
 
 Uso:
-  python -m ingestion.pncp_com_numeros.extract
+  python -m ingestion.pncp_em_numeros.extract
 """
 
 import csv
@@ -39,24 +40,26 @@ logger = logging.getLogger(__name__)
 SEGREDO_DATABRICKS = "databricks-cotin"
 SEGREDO_BUCKET = "colibri-token-desenvolvedor"
 
-CATALOGO = "raw"
-SCHEMA = "geral"
-TABELAS = {
-    "compra": "faseexterna_compra",
-    "item": "faseexterna_item",
-    "participacao": "faseexterna_participacao",
-    "proposta_item": "faseexterna_proposta_item",
+# nome_logico -> (catalog, schema, tabela_ou_view)
+FONTES = {
+    #"compra":        ("raw", "geral", "faseexterna_compra"),
+    #"item":          ("raw", "geral", "faseexterna_item"),
+    #"participacao":  ("raw", "geral", "faseexterna_participacao"),
+    #"proposta_item": ("raw", "geral", "faseexterna_proposta_item"),
+    "agg_compra":    ("cotin_dlt_pncp", "bronze", "vw_agg_compra_bronze"),
+    "agg_itens":     ("cotin_dlt_pncp", "bronze", "vw_agg_itens_bronze"),
+    "agg_resultado": ("cotin_dlt_pncp", "bronze", "vw_agg_resultado_bronze"),
 }
 
 DIRETORIO_DADOS = Path("./dados")
-DIRETORIO_SAIDA = DIRETORIO_DADOS / "pncp_com_numeros"
+DIRETORIO_SAIDA = DIRETORIO_DADOS / "pncp_em_numeros"
 DIRETORIO_MANIFESTOS = DIRETORIO_DADOS / "manifestos"
 DIRETORIO_ALTERACOES = DIRETORIO_DADOS / "alteracoes"
 
-NOME_MANIFESTO = "pncp_com_numeros_manifesto.csv"
+NOME_MANIFESTO = "pncp_em_numeros_manifesto.csv"
 COLUNAS_MANIFESTO = ["tabela", "hash_sha256", "num_linhas", "extraido_em"]
 
-NOME_ALTERACOES = "pncp_com_numeros_alteracoes.csv"
+NOME_ALTERACOES = "pncp_em_numeros_alteracoes.csv"
 COLUNAS_ALTERACOES = ["tabela"]
 
 
@@ -105,6 +108,18 @@ def resetar_dados_locais() -> None:
     (DIRETORIO_ALTERACOES / NOME_ALTERACOES).unlink(missing_ok=True)
 
 
+def subir_manifesto() -> None:
+    """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
+    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
+    if not caminho_manifesto.exists():
+        return
+    bucket = carregar_segredo(SEGREDO_BUCKET)["bucket_lake"]
+    try:
+        salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_BUCKET, NOME_MANIFESTO)
+    except Exception as e:
+        logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+
+
 def executar_ingestao() -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
@@ -130,9 +145,9 @@ def executar_ingestao() -> bool:
     try:
         cursor = conn.cursor()
         try:
-            for nome_logico, nome_tabela in TABELAS.items():
-                logger.info(f"Consultando {CATALOGO}.{SCHEMA}.{nome_tabela}...")
-                cursor.execute(f"SELECT * FROM {CATALOGO}.{SCHEMA}.{nome_tabela}")
+            for nome_logico, (catalogo, schema, nome_objeto) in FONTES.items():
+                logger.info(f"Consultando {catalogo}.{schema}.{nome_objeto}...")
+                cursor.execute(f"SELECT * FROM {catalogo}.{schema}.{nome_objeto}")
                 tabela_arrow = cursor.fetchall_arrow()
                 bytes_parquet, hash_atual = _tabela_para_parquet_bytes_e_hash(tabela_arrow)
 
@@ -160,14 +175,8 @@ def executar_ingestao() -> bool:
 
     salvar_manifesto(caminho_manifesto, manifesto)
     salvar_alteracoes(caminho_alteracoes, alteracoes)
-    logger.info(f"Manifesto: {caminho_manifesto} ({len(manifesto)} tabela(s))")
-    logger.info(f"Alterações: {caminho_alteracoes} ({len(alteracoes)} tabela(s))")
-
-    if manifesto_modificado:
-        try:
-            salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_BUCKET, NOME_MANIFESTO)
-        except Exception as e:
-            logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+    logger.info(f"Manifesto: {caminho_manifesto} ({len(manifesto)} fonte(s))")
+    logger.info(f"Alterações: {caminho_alteracoes} ({len(alteracoes)} fonte(s))")
 
     return manifesto_modificado
 

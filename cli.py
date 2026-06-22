@@ -113,7 +113,7 @@ class ColibriGroup(click.Group):
         console.print(Align.center(tabela))
         console.print()
 
-        # Dica de uso.
+        # Dica de uso
         dica = Text(no_wrap=True)
         dica.append("Use ", style="dim")
         dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)

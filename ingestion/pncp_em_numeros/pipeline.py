@@ -4,7 +4,7 @@ from pathlib import Path
 import boto3
 import duckdb
 
-from ingestion.pncp_com_numeros.extract import executar_ingestao, resetar_dados_locais
+from ingestion.pncp_em_numeros.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
 from shared.carregar_segredo import carregar_segredo
 
 _RAIZ = Path(__file__).resolve().parent.parent.parent
@@ -52,13 +52,16 @@ def main():
     _baixar_ou_criar_catalogo(config, bucket)
     houve_mudanca = executar_ingestao()
 
-    # Ainda não há modelos dbt pra comprasgov_fase_externa; quando existirem,
+    # Ainda não há modelos dbt pra essas fontes; quando existirem,
     # rodar aqui igual aos outros pipelines (só "if houve_mudanca").
     if houve_mudanca:
         print("[dbt] Dados novos extraídos, mas ainda não há modelo dbt pra essa fonte.")
     else:
         print("[dbt] Sem dados novos na extração.")
 
+    # Hoje não há dbt aqui pra quebrar no meio, mas mantém o mesmo padrão dos
+    # outros pipelines: manifesto só sobe depois de qualquer etapa de dbt.
+    subir_manifesto()
     _subir_catalogo(config, bucket)
 
 
