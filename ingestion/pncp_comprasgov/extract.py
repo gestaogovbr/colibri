@@ -224,6 +224,18 @@ def resetar_dados_locais() -> None:
     (DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES).unlink(missing_ok=True)
 
 
+def subir_manifesto() -> None:
+    """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
+    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
+    if not caminho_manifesto.exists():
+        return
+    bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
+    try:
+        salvar_arquivo_no_bucket(str(caminho_manifesto), bucket_nome, SEGREDO_NOME, NOME_MANIFESTO)
+    except Exception as e:
+        logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+
+
 def executar_ingestao() -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL, DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES_DIR):
@@ -232,10 +244,8 @@ def executar_ingestao() -> bool:
     caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
     bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
-    manifesto_no_bucket = False
     try:
         baixar_arquivo_do_bucket(NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, str(caminho_manifesto))
-        manifesto_no_bucket = True
         logger.info(f"Manifesto baixado do bucket: {bucket_nome}/{NOME_MANIFESTO}")
     except Exception as e:
         logger.warning(f"Manifesto não encontrado no bucket, iniciando do zero: {e}")
@@ -300,11 +310,6 @@ def executar_ingestao() -> bool:
         salvar_alteracoes(caminho_alteracoes, alteracoes)
         logger.info(f"Manifesto: {caminho_manifesto}")
         logger.info(f"Alterações: {caminho_alteracoes} ({len(alteracoes)} arquivo(s))")
-        if manifesto_modificado or not manifesto_no_bucket:
-            try:
-                salvar_arquivo_no_bucket(str(caminho_manifesto), bucket_nome, SEGREDO_NOME)
-            except Exception as e:
-                logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
 
     logger.info(
         f"Baixados: {contadores['baixado']}  "

@@ -5,7 +5,7 @@ from pathlib import Path
 import boto3
 import duckdb
 
-from ingestion.catmats.extract import executar_ingestao, resetar_dados_locais
+from ingestion.catmats.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
 from shared.carregar_segredo import carregar_segredo
 
 _RAIZ = Path(__file__).resolve().parent.parent.parent
@@ -68,6 +68,9 @@ def main():
     else:
         print("[dbt] Sem dados novos na extração, pulando dbt run.")
 
+    # Só sobe manifesto/catálogo se chegou até aqui: se o dbt quebrar, a exceção
+    # interrompe a função antes disso, e o bucket fica intacto pra próxima tentativa.
+    subir_manifesto()
     _subir_catalogo(config, bucket)
 
 

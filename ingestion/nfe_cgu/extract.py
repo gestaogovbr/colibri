@@ -122,6 +122,18 @@ def resetar_dados_locais() -> None:
     (DIRETORIO_ALTERACOES / NOME_ALTERACOES).unlink(missing_ok=True)
 
 
+def subir_manifesto() -> None:
+    """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
+    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
+    if not caminho_manifesto.exists():
+        return
+    bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
+    try:
+        salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_NOME, NOME_MANIFESTO)
+    except Exception as e:
+        logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+
+
 def executar_ingestao() -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     for tabela in TABELAS:
@@ -230,11 +242,6 @@ def executar_ingestao() -> bool:
             f"Ignorados: {contadores['ignorado']}  "
             f"Indisponíveis: {contadores['indisponivel']}"
         )
-        if manifesto_modificado:
-            try:
-                salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_NOME, NOME_MANIFESTO)
-            except Exception as e:
-                logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
 
     return manifesto_modificado
 
