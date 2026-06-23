@@ -42,7 +42,7 @@ scd2 AS (
         LEAD(data_atualizacao) OVER (
             PARTITION BY cod_compra
             ORDER BY data_atualizacao
-        ) - 1                                        AS valido_ate,
+        ) - INTERVAL '1 day'                         AS valido_ate,
         LEAD(data_atualizacao) OVER (
             PARTITION BY cod_compra
             ORDER BY data_atualizacao

@@ -27,9 +27,8 @@ import requests
 from tqdm import tqdm
 
 import shared.configurar_logging as log
-from shared.baixar_arquivo import baixar_arquivo_do_bucket
 from shared.carregar_segredo import carregar_segredo
-from shared.salvar_arquivo import salvar_arquivo_no_bucket
+from shared.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
@@ -143,14 +142,8 @@ def resetar_dados_locais() -> None:
 
 def subir_manifesto() -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
-    if not caminho_manifesto.exists():
-        return
     bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
-    try:
-        salvar_arquivo_no_bucket(str(caminho_manifesto), bucket, SEGREDO_NOME, NOME_MANIFESTO)
-    except Exception as e:
-        logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
+    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, SEGREDO_NOME, logger)
 
 
 def executar_ingestao() -> bool:
@@ -161,13 +154,7 @@ def executar_ingestao() -> bool:
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
-    caminho_manifesto.unlink(missing_ok=True)
-    try:
-        baixar_arquivo_do_bucket(NOME_MANIFESTO, bucket, SEGREDO_NOME, str(caminho_manifesto))
-        logger.info(f"Manifesto baixado do bucket: {bucket}/{NOME_MANIFESTO}")
-    except Exception as e:
-        logger.warning(f"Manifesto não encontrado no bucket, iniciando do zero: {e}")
-
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, SEGREDO_NOME, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
     csv_ausente = not CAMINHO_CSV.exists()
     if manifesto and csv_ausente:
