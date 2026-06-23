@@ -10,7 +10,12 @@ def carregar_segredo(
     nome_segredo: str = SEGREDO_PADRAO, caminho_arquivo: str = CAMINHO_SEGREDOS
 ) -> dict:
     """
+<<<<<<< HEAD:utils/carregar_segredo.py
     Lê o arquivo YAML de segredos e retorna o dicionário correspondente ao nome do segredo informado
+=======
+    Lê o arquivo YAML de segredos e retorna o dicionário
+    correspondente ao nome do segredo informado
+>>>>>>> 2806fc7 (Ajuste nos extratores e utilitários):shared/carregar_segredo.py
     """
 
     if not os.path.exists(caminho_arquivo):
