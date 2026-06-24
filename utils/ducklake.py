@@ -114,3 +114,29 @@ def fechar(con: duckdb.DuckDBPyConnection, caminho_meta: str, nome_segredo: str)
 
     bucket, chave = _parsear_s3(caminho_meta)
     _subir_catalogo(cliente, bucket, chave)
+
+
+# Usado pelos pipeline.py de ingestion/*: baixa o catálogo pra rodar o dbt
+# localmente (não usa a sessão httpfs/ducklake do conectar()/fechar() acima,
+# porque o dbt-duckdb gerencia sua própria conexão via profiles.yml).
+
+def baixar_ou_criar_catalogo(config: dict, bucket: str) -> None:
+    cliente = criar_cliente(config)
+    try:
+        cliente.download_file(bucket, "meta.ducklake", CATALOGO_LOCAL)
+        print(f"[ducklake] Catálogo baixado de s3://{bucket}/meta.ducklake")
+    except Exception:
+        if os.path.exists(CATALOGO_LOCAL):
+            os.remove(CATALOGO_LOCAL)
+        con = duckdb.connect()
+        con.install_extension("ducklake")
+        con.load_extension("ducklake")
+        con.execute(f"ATTACH 'ducklake:{CATALOGO_LOCAL}' AS lake (DATA_PATH 's3://{bucket}/lake/')")
+        con.close()
+        print(f"[ducklake] Novo catálogo criado em {CATALOGO_LOCAL}")
+
+
+def subir_catalogo_simples(config: dict, bucket: str) -> None:
+    cliente = criar_cliente(config)
+    cliente.upload_file(CATALOGO_LOCAL, bucket, "meta.ducklake")
+    print(f"[ducklake] Catálogo sincronizado para s3://{bucket}/meta.ducklake")

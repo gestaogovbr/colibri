@@ -324,7 +324,7 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
 
 def _conectar_lake():
     import utils.ducklake as dl
-    from ingestion.pncp.pipeline import NOME_SEGREDO, CAMINHO_META, DATA_PATH
+    from ingestion.pncp_comprasgov.pipeline import NOME_SEGREDO, CAMINHO_META, DATA_PATH
     return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
 
 
@@ -405,26 +405,138 @@ def query(sql: str):
     console.print(tb)
 
 
-@pipeline.command("run")
-@click.option("--apenas", type=click.Choice(["ncm", "pncp"]), default=None, help="Rodar só um pipeline")
-def run(apenas: str | None):
-    """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
-    import ingestion.ncm.pipeline as ncm
-    import ingestion.pncp.pipeline as pncp
+_PREFIXO_SCHEMA = {
+    "stg_": "main_staging",
+    "int_": "main_intermediate",
+    "mrt_": "main_marts",
+}
 
-    if apenas == "ncm":
-        console.print(f"[{VERDE}]›[/] [{AZUL}]NCM[/]")
-        ncm.main()
-    elif apenas == "pncp":
-        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-        pncp.main()
-    else:
-        console.print(f"[{VERDE}]›[/] [{AZUL}]NCM[/]")
-        ncm.main()
-        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-        pncp.main()
+
+def _schema_para(tabela: str) -> str:
+    for prefixo, schema in _PREFIXO_SCHEMA.items():
+        if tabela.startswith(prefixo):
+            return schema
+    return "main"
+
+
+@lake.command("download")
+@click.argument("tabela")
+@click.option("--destino", default=None, help="Caminho do arquivo de saída (padrão: <tabela>.parquet)")
+@click.option("--formato", type=click.Choice(["parquet", "csv"]), default="parquet", show_default=True)
+def download_tabela(tabela: str, destino: str | None, formato: str):
+    """Exporta uma tabela do lake para um arquivo local"""
+    import os
+    schema = _schema_para(tabela)
+    destino = destino or f"{tabela}.{formato}"
+    con = _conectar_lake()
+    try:
+        with Progress(SpinnerColumn(), TextColumn(f"[cyan]Exportando {schema}.{tabela}..."), transient=True) as p:
+            p.add_task("")
+            if formato == "parquet":
+                con.execute(f"COPY (SELECT * FROM lake.{schema}.{tabela}) TO '{destino}' (FORMAT PARQUET)")
+            else:
+                con.execute(f"COPY (SELECT * FROM lake.{schema}.{tabela}) TO '{destino}' (FORMAT CSV, HEADER true)")
+    except Exception as e:
+        console.print(f"[red]✗[/red] {e}")
+        con.close()
+        return
+    con.close()
+    tamanho = os.path.getsize(destino)
+    console.print(f"[green]✓[/green] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+
+
+@pipeline.command("run")
+@click.option("--apenas", type=click.Choice(["pncp-comprasgov"]), default=None, help="Rodar só um pipeline")
+@click.option("--do-zero", is_flag=True, help="Apaga dados, manifestos e catálogo DuckLake locais antes de rodar, forçando reextração completa")
+def run(apenas: str | None, do_zero: bool):
+    """Roda o pipeline completo ou apenas um modulo"""
+    import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
+
+    pipelines = {
+        "pncp-comprasgov": (pncp_comprasgov,  "[cyan]>>> PNCP ComprasGOV[/cyan]"),
+    }
+
+    ordem = list(pipelines.keys()) if apenas is None else [apenas]
+
+    if do_zero:
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent
+        console.print("[yellow]⚠[/yellow] --do-zero: apagando dados, manifestos e catálogo DuckLake locais...")
+        for caminho_catalogo in (raiz / "meta.ducklake", raiz / "dbt" / "meta.ducklake", raiz / "dbt" / "meta.ducklake.wal"):
+            caminho_catalogo.unlink(missing_ok=True)
+        for nome in ordem:
+            modulo, _ = pipelines[nome]
+            modulo.resetar_dados_locais()
+
+    for nome in ordem:
+        modulo, label = pipelines[nome]
+        console.print(label)
+        modulo.main()
 
     console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
+
+
+_MANIFESTOS = [
+    "pncp_comprasgov_manifesto.csv",
+]
+
+
+@cli.command("sincronizar")
+@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+def sincronizar(segredo: str):
+    """Baixa os manifestos e o catálogo DuckLake do bucket para a máquina local"""
+    import os
+    from pathlib import Path
+    from utils.ducklake import CATALOGO_LOCAL
+
+    config = carregar_segredo(segredo)
+    bucket = config["bucket_lake"]
+    s3 = _cliente(segredo)
+    raiz = Path(CATALOGO_LOCAL).parent
+
+    itens = [
+        (nome, str(raiz / "dados" / "manifestos" / nome))
+        for nome in _MANIFESTOS
+    ] + [
+        ("meta.ducklake",  CATALOGO_LOCAL),
+    ]
+
+    for chave, destino in itens:
+        os.makedirs(os.path.dirname(destino), exist_ok=True)
+        try:
+            with Progress(SpinnerColumn(), TextColumn(f"[cyan]Baixando {chave}..."), transient=True) as p:
+                p.add_task("")
+                s3.download_file(bucket, chave, destino)
+            tamanho = os.path.getsize(destino)
+            console.print(f"[green]✓[/green] {chave} → [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+        except Exception as e:
+            console.print(f"[red]✗[/red] {chave}: {e}")
+
+
+@cli.command("docs")
+@click.option("--sem-servidor", is_flag=True, help="Gera a documentação sem abrir o servidor")
+def docs(sem_servidor: bool):
+    """Gera e exibe a documentação automática do dbt"""
+    import subprocess
+    from pathlib import Path
+
+    dbt_dir = Path(__file__).resolve().parent / "dbt"
+
+    console.print("[cyan]>>> Gerando documentação...[/cyan]")
+    subprocess.run(
+        ["dbt", "docs", "generate", "--project-dir", str(dbt_dir), "--profiles-dir", str(dbt_dir)],
+        cwd=str(dbt_dir),
+        check=True,
+    )
+
+    if not sem_servidor:
+        console.print("[cyan]>>> Servindo documentação em http://localhost:8080[/cyan]")
+        subprocess.run(
+            ["dbt", "docs", "serve", "--project-dir", str(dbt_dir), "--profiles-dir", str(dbt_dir)],
+            cwd=str(dbt_dir),
+            check=True,
+        )
 
 
 if __name__ == "__main__":
