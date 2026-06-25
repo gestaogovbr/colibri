@@ -7,13 +7,13 @@ from utils.carregar_segredo import carregar_segredo
 from utils.ducklake import baixar_ou_criar_catalogo, subir_catalogo_simples
 
 _RAIZ = Path(__file__).resolve().parent.parent.parent
-_DBT_DIR = _RAIZ / "dbt"
-_SEGREDO_NOME = "colibri-token-desenvolvedor"
+DBT_DIR = _RAIZ / "dbt"
+NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 
 def main():
     os.chdir(_RAIZ)
-    config = carregar_segredo(_SEGREDO_NOME)
+    config = carregar_segredo(NOME_SEGREDO)
     bucket = config["bucket_lake"]
 
     baixar_ou_criar_catalogo(config, bucket)
@@ -25,10 +25,10 @@ def main():
                 "dbt", "run",
                 "--select",
                 "stg_nfe_cgu__itens stg_nfe_cgu__nf stg_nfe_cgu__eventos",
-                "--project-dir", str(_DBT_DIR),
-                "--profiles-dir", str(_DBT_DIR),
+                "--project-dir", str(DBT_DIR),
+                "--profiles-dir", str(DBT_DIR),
             ],
-            cwd=str(_DBT_DIR),
+            cwd=str(DBT_DIR),
             check=True,
         )
     else:

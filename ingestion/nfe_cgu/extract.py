@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 URL_BASE = "https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/nfe"
 PERIODO_INICIO = date(2022, 1, 1)
 TABELAS = ["itens", "eventos", "nf"]
-SEGREDO_NOME = "colibri-token-desenvolvedor"
+NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 DIRETORIO_DADOS = Path("./dados")
 DIRETORIO_NFE = DIRETORIO_DADOS / "nfe_cgu"
@@ -123,8 +123,8 @@ def resetar_dados_locais() -> None:
 
 def subir_manifesto() -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
-    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, SEGREDO_NOME, logger)
+    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
 
 
 def executar_ingestao() -> bool:
@@ -136,9 +136,9 @@ def executar_ingestao() -> bool:
 
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
+    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, SEGREDO_NOME, logger)
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
 
     periodos = _gerar_periodos()

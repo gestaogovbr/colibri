@@ -12,11 +12,12 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
+from ingestion.pncp_comprasgov import pipeline as pncp_comprasgov_pipeline
 from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
-SEGREDO_PADRAO = "colibri-token-desenvolvedor"
+NOME_SEGREDO = "colibri-token-desenvolvedor"
 FUSO = ZoneInfo("America/Sao_Paulo")
 
 NOME = "colibri"
@@ -185,7 +186,7 @@ def bucket():
 
 @bucket.command("list")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--prefixo", default="", help="Filtrar por prefixo")
 def listar(bucket_name: str, segredo: str, prefixo: str):
     """Lista arquivos no bucket"""
@@ -232,7 +233,7 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
 @bucket.command("delete")
 @click.argument("arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 def deletar(arquivo: str, bucket_name: str, segredo: str):
     """Remove um arquivo do bucket"""
     s3 = _cliente(segredo)
@@ -248,7 +249,7 @@ def deletar(arquivo: str, bucket_name: str, segredo: str):
 
 @bucket.command("purge")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--prefixo", default="", help="Limitar a um prefixo")
 @click.confirmation_option(prompt="⚠  Isso vai deletar todos os objetos. Confirma?")
 def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
@@ -276,7 +277,7 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
 @bucket.command("download")
 @click.argument("arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--destino", default=None, help="Caminho local de destino (padrao: ./<arquivo>)")
 def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     """Baixa um arquivo do bucket"""
@@ -298,7 +299,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
 @bucket.command("upload")
 @click.argument("caminho_arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--chave", default=None, help="Nome no bucket (padrão: nome do arquivo com timestamp)")
 def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | None):
     """Faz upload de um arquivo para o bucket"""
@@ -409,12 +410,12 @@ def query(sql: str):
 def run(apenas: str | None):
     """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
 
-    #if apenas == "pncp":
-    #    console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-    #    pncp.main()
-    #else:
-    #    console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-    #    pncp.main()
+    if apenas == "pncp-comprasgov":
+        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
+        pncp_comprasgov_pipeline.main()
+    else:
+        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
+        pncp_comprasgov_pipeline.main()
 
     console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
 
@@ -428,7 +429,7 @@ _MANIFESTOS = [
 
 
 @cli.command("sincronizar")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 def sincronizar(segredo: str):
     """Baixa os manifestos e o catálogo DuckLake do bucket para a máquina local"""
     import os
