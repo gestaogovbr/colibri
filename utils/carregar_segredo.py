@@ -1,20 +1,15 @@
 import os
 import yaml
-
 import shared.configurar_logging as log
 
-
-_RAIZ_PROJETO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CAMINHO_SEGREDOS = os.path.join(_RAIZ_PROJETO, ".segredos.yml")
-SEGREDO_PADRAO = "colibri-token-desenvolvedor"
+from shared.constantes import CAMINHO_SEGREDOS, SEGREDO_PADRAO
 
 
 def carregar_segredo(
     nome_segredo: str = SEGREDO_PADRAO, caminho_arquivo: str = CAMINHO_SEGREDOS
 ) -> dict:
     """
-    Lê o arquivo YAML de segredos e retorna o dicionário
-    correspondente ao nome do segredo informado.
+    Lê o arquivo YAML de segredos e retorna o dicionário correspondente ao nome do segredo informado
     """
 
     if not os.path.exists(caminho_arquivo):
@@ -28,6 +23,15 @@ def carregar_segredo(
 
     if nome_segredo not in dados:
         raise KeyError(log.SEGREDO_NAO_ENCONTRADO % nome_segredo)
+
+    # Ex: dados -> {
+    #                 "colibri-token-desenvolvedor": {
+    #                     "endpoint": "https://<ACCOUNTID>.r2.cloudflarestorage.com",
+    #                     "access_key": "<SUA ACCESS KEY>",
+    #                     "secret_key": "<SUA SECRET KEY>",
+    #                 },
+    #                 ...
+    #              }
 
     return dados[nome_segredo]
 
