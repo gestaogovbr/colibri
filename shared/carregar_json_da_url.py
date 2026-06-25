@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def carregar_json_da_url(url: str, timeout: int = 10):
     """
-    Busca dados JSON de uma URL e os retorna como um objeto Python.
+    Busca dados JSON de uma URL e os retorna como um objeto Python
     """
 
     logger.info("Buscando JSON de %s", url)
