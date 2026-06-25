@@ -48,7 +48,7 @@ import utils.configurar_logging as log
 from utils.baixar_arquivo import baixar_arquivo_do_bucket
 from utils.carregar_segredo import carregar_segredo
 from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from utils.salvar_arquivo import salvar_arquivo_no_bucket
+from utils.salvar_arquivo_timestamp import salvar_arquivo_no_bucket
 
 log.setup_logging()
 logger = logging.getLogger(__name__)

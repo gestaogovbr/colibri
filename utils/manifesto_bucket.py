@@ -17,7 +17,7 @@ def baixar_manifesto(
 ) -> None:
     """Baixa o manifesto do bucket pra caminho_local. Se apagar_antes=True (padrão),
     remove a cópia local antes de tentar -- garante que uma falha no download não
-    deixe um manifesto antigo/desatualizado sendo usado por engano."""
+    deixe um manifesto antigo/desatualizado sendo usado por engano"""
     if apagar_antes:
         caminho_local.unlink(missing_ok=True)
     try:
@@ -36,7 +36,7 @@ def subir_manifesto(
 ) -> None:
     """Sobe o manifesto local pro bucket, se ele existir. Só deve ser chamado
     depois do dbt rodar com sucesso (ou de confirmar que não havia nada a
-    rodar) -- ver pipeline.py de cada módulo."""
+    rodar) -- ver pipeline.py de cada módulo"""
     if not caminho_local.exists():
         return
     try:

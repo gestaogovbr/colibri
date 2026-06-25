@@ -1,53 +1,56 @@
+/*
+Modelo Staging: Consolidação de todos os itens de compras públicas
+Empilha todos os arquivos PNCP_COMPRA_ITEM de diferentes anos e harmoniza colunas
+renomeadas com sufixo _pncp (alteração de schema em 2025).
+*/
+
 {{ config(
-    materialized='table',
+    materialized='incremental',
+    incremental_strategy='append',
     database='lake',
-    tags=['intermediate', 'pncp', 'comprasgov']
+    tags=['staging', 'pncp', 'comprasgov']
 ) }}
 
-WITH staging AS (
-    SELECT * FROM {{ ref('stg_pncp_comprasgov__itens') }}
+WITH raw_data AS (
+  {{ pncp_comprasgov_union_por_ano('VW_FT_PNCP_COMPRA_ITEM') }}
 ),
 
-{# Para evitar que o modelo cresça indefinidamente em runs incrementais, 
-   aplicamos uma deduplicação prévia para registros idênticos #}
-dedup_append AS (
-    SELECT * EXCLUDE (_dbt_loaded_at, granularidade, periodo)
-    FROM staging
-    GROUP BY ALL
-),
-
-{# Remove duplicatas, mantendo somente o registro que tiver mais colunas preenchidas.
-   Talvez, isso pode remover correções do passado, que deveriam cair no LEAD #}
-dedup AS (
-    SELECT * EXCLUDE (_rn)
-    FROM (
-        SELECT
-            *,
-            ROW_NUMBER() OVER (
-                PARTITION BY id_compra_item, data_atualizacao
-                ORDER BY {{ contar_colunas_preenchidas(
-                    ref('stg_pncp_comprasgov__itens'),
-                    excluir=['_dbt_loaded_at', 'granularidade', 'periodo']
-                ) }} DESC
-            ) AS _rn
-        FROM dedup_append
-    )
-    WHERE _rn = 1
-),
-
-scd2 AS (
+bronze AS (
     SELECT
         *,
-        data_atualizacao                             AS valido_de,
-        LEAD(data_atualizacao) OVER (
-            PARTITION BY id_compra_item
-            ORDER BY data_atualizacao
-        ) - 1                                        AS valido_ate,
-        LEAD(data_atualizacao) OVER (
-            PARTITION BY id_compra_item
-            ORDER BY data_atualizacao
-        ) IS NULL                                    AS is_current
-    FROM dedup
+        '{{ run_started_at.strftime("%Y-%m-%d %H:%M:%S") }}' AS _dbt_loaded_at
+    FROM raw_data
 )
 
-SELECT * FROM scd2
+SELECT
+    * EXCLUDE (
+        numero_item, numero_item_pncp,
+        item_categoria_id, item_categoria_id_pncp,
+        criterio_julgamento_id, criterio_julgamento_id_pncp,
+        data_inclusao, data_inclusao_pncp,
+        data_atualizacao, data_atualizacao_pncp
+    ),
+
+    -- Colunas com variante _pncp: COALESCE prioriza a versão não-pncp (mais completa no diário)
+    COALESCE(numero_item,          numero_item_pncp)          AS numero_item,
+    COALESCE(item_categoria_id,    item_categoria_id_pncp)    AS item_categoria_id,
+    COALESCE(criterio_julgamento_id, criterio_julgamento_id_pncp) AS criterio_julgamento_id,
+    COALESCE(data_inclusao,        data_inclusao_pncp)        AS data_inclusao,
+    CAST(COALESCE(data_atualizacao, data_atualizacao_pncp) AS DATE) AS data_atualizacao
+FROM bronze
+
+{# Em runs incrementais, insere só as linhas dos arquivos que o extract baixou/atualizou nesta
+   execução (arquivo gerado por extract.py, que sempre roda antes do dbt no pipeline). O
+   delete+insert por (granularidade, periodo) cobre reprocessamento de arquivos; a
+   deduplicação por id_compra_item entre períodos fica pra camada intermediate (silver). #}
+{% if is_incremental() %}
+WHERE (granularidade, periodo) IN (
+    SELECT granularidade, periodo
+    FROM read_csv(
+        '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
+        header = true,
+        columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
+    )
+    WHERE view = 'VW_FT_PNCP_COMPRA_ITEM'
+)
+{% endif %}

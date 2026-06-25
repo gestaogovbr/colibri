@@ -1,22 +1,20 @@
 import os
 import subprocess
-from pathlib import Path
 
 from ingestion.ncm.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
 from utils.carregar_segredo import carregar_segredo
-from utils.ducklake import baixar_ou_criar_catalogo, subir_catalogo_simples
-
-_RAIZ = Path(__file__).resolve().parent.parent.parent
-DBT_DIR = _RAIZ / "dbt"
-NOME_SEGREDO = "colibri-token-desenvolvedor"
+from utils.criar_cliente import criar_cliente
+from utils.baixar_catalogo import baixar_catalogo
+from utils.salvar_arquivo import salvar_arquivo_no_bucket
+from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
 
 
 def main():
-    os.chdir(_RAIZ)
+    os.chdir(RAIZ_PROJETO)
     config = carregar_segredo(NOME_SEGREDO)
-    bucket = config["bucket_lake"]
+    cliente = criar_cliente(config)
 
-    baixar_ou_criar_catalogo(config, bucket)
+    baixar_catalogo(cliente, BUCKET, CATALOGO_LOCAL)
     houve_mudanca = executar_ingestao()
 
     if houve_mudanca:
@@ -34,7 +32,7 @@ def main():
         print("[dbt] Sem dados novos na extração, pulando dbt run.")
 
     subir_manifesto()
-    subir_catalogo_simples(config, bucket)
+    salvar_arquivo_no_bucket(CATALOGO_LOCAL, BUCKET, NOME_SEGREDO, CATALOGO_LOCAL)
 
 
 if __name__ == "__main__":

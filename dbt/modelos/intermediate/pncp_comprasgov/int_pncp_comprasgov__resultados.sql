@@ -1,53 +1,40 @@
+/*
+Modelo Staging: Consolidação de todos os resultados de itens de compras públicas.
+Empilha arquivos VW_DM_PNCP_ITEM_RESULTADO de todas as granularidades.
+Schema estável entre anos (sem variantes _pncp).
+*/
+
 {{ config(
-    materialized='table',
+    materialized='incremental',
+    incremental_strategy='append',
     database='lake',
-    tags=['intermediate', 'pncp', 'comprasgov']
+    tags=['staging', 'pncp', 'comprasgov']
 ) }}
 
-WITH staging AS (
-    SELECT * FROM {{ ref('stg_pncp_comprasgov__resultados') }}
+WITH raw_data AS (
+  {{ pncp_comprasgov_union_por_ano('VW_DM_PNCP_ITEM_RESULTADO') }}
 ),
 
-{# Para evitar que o modelo cresça indefinidamente em runs incrementais, 
-   aplicamos uma deduplicação prévia para registros idênticos #}
-dedup_append AS (
-    SELECT * EXCLUDE (_dbt_loaded_at, granularidade, periodo)
-    FROM staging
-    GROUP BY ALL
-),
-
-{# Remove duplicatas, mantendo somente o registro que tiver mais colunas preenchidas.
-   Talvez, isso pode remover correções do passado, que deveriam cair no LEAD #}
-dedup AS (
-    SELECT * EXCLUDE (_rn)
-    FROM (
-        SELECT
-            *,
-            ROW_NUMBER() OVER (
-                PARTITION BY id_compra_item, sequencial_resultado, data_atualizacao
-                ORDER BY {{ contar_colunas_preenchidas(
-                    ref('stg_pncp_comprasgov__resultados'),
-                    excluir=['_dbt_loaded_at', 'granularidade', 'periodo']
-                ) }} DESC
-            ) AS _rn
-        FROM dedup_append
-    )
-    WHERE _rn = 1
-),
-
-scd2 AS (
+bronze AS (
     SELECT
         *,
-        data_atualizacao                              AS valido_de,
-        LEAD(data_atualizacao) OVER (
-            PARTITION BY id_compra_item, sequencial_resultado
-            ORDER BY data_atualizacao
-        ) - 1                                        AS valido_ate,
-        LEAD(data_atualizacao) OVER (
-            PARTITION BY id_compra_item, sequencial_resultado
-            ORDER BY data_atualizacao
-        ) IS NULL                                     AS is_current
-    FROM dedup
+        '{{ run_started_at.strftime("%Y-%m-%d %H:%M:%S") }}' AS _dbt_loaded_at
+    FROM raw_data
 )
 
-SELECT * FROM scd2
+SELECT
+    * EXCLUDE (data_atualizacao),
+    CAST(data_atualizacao AS DATE) AS data_atualizacao
+FROM bronze
+
+{% if is_incremental() %}
+WHERE (granularidade, periodo) IN (
+    SELECT granularidade, periodo
+    FROM read_csv(
+        '../dados/alteracoes/pncp_comprasgov_alteracoes.csv',
+        header = true,
+        columns = {'view': 'VARCHAR', 'granularidade': 'VARCHAR', 'periodo': 'VARCHAR'}
+    )
+    WHERE view = 'VW_DM_PNCP_ITEM_RESULTADO'
+)
+{% endif %}

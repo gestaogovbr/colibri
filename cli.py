@@ -89,7 +89,7 @@ class ColibriGroup(click.Group):
         subtitulo = SUBTITULO if ctx.parent is None else (self.help or "").strip()
 
         banner, largura = self._banner()
-        regua = "─" * min(largura, console.size.width)
+        regua = "-" * min(largura, console.size.width)
 
         console.print(Align.center(banner))
         console.print(Align.center(_gradiente_h(regua, VERDE_RGB, AZUL_RGB)))
@@ -240,18 +240,18 @@ def deletar(arquivo: str, bucket_name: str, segredo: str):
     try:
         s3.head_object(Bucket=bucket_name, Key=arquivo)
     except ClientError:
-        console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
         return
 
     s3.delete_object(Bucket=bucket_name, Key=arquivo)
-    console.print(f"[{VERDE}]✓[/] Deletado: [bold]{arquivo}[/bold]")
+    console.print(f"[{VERDE}]+[/] Deletado: [bold]{arquivo}[/bold]")
 
 
 @bucket.command("purge")
 @click.argument("bucket_name")
 @click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--prefixo", default="", help="Limitar a um prefixo")
-@click.confirmation_option(prompt="⚠  Isso vai deletar todos os objetos. Confirma?")
+@click.confirmation_option(prompt="!  Isso vai deletar todos os objetos. Confirma?")
 def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
     """Remove todos os arquivos do bucket (ou de um prefixo)"""
     s3 = _cliente(segredo)
@@ -271,7 +271,7 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
         for i in range(0, len(objetos), 1000):
             s3.delete_objects(Bucket=bucket_name, Delete={"Objects": objetos[i:i + 1000]})
 
-    console.print(f"[{VERDE}]✓[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]")
+    console.print(f"[{VERDE}]+[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]")
 
 
 @bucket.command("download")
@@ -291,9 +291,9 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     try:
         s3.download_file(bucket_name, arquivo, destino)
         tamanho = os.path.getsize(destino)
-        console.print(f"[{VERDE}]✓[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+        console.print(f"[{VERDE}]+[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
     except ClientError:
-        console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
 
 
 @bucket.command("upload")
@@ -304,7 +304,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
 def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | None):
     """Faz upload de um arquivo para o bucket"""
     if not os.path.exists(caminho_arquivo):
-        console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]")
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]")
         return
 
     if chave is None:
@@ -320,7 +320,7 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
         with open(caminho_arquivo, "rb") as f:
             s3.upload_fileobj(f, bucket_name, chave)
 
-    console.print(f"[{VERDE}]✓[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+    console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
 def _conectar_lake():
@@ -367,7 +367,7 @@ def anos(tabela: str):
             GROUP BY ano ORDER BY ano
         """).fetchall()
     except Exception as e:
-        console.print(f"[red]✗[/red] {e}")
+        console.print(f"[red]x[/red] {e}")
         con.close()
         return
     con.close()
@@ -390,7 +390,7 @@ def query(sql: str):
     try:
         resultado = con.execute(sql).fetchdf()
     except Exception as e:
-        console.print(f"[red]✗[/red] {e}")
+        console.print(f"[red]x[/red] {e}")
         con.close()
         return
     con.close()
@@ -407,17 +407,34 @@ def query(sql: str):
 
 @pipeline.command("run")
 @click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
-def run(apenas: str | None):
-    """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
+@click.option("--do-zero", is_flag=True, help="Apaga dados, manifestos e catálogo DuckLake locais antes de rodar, forçando reextração completa")
+def run(apenas: str | None, do_zero: bool):
+    """Roda o pipeline completo ou apenas um modulo"""
+    import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
 
-    if apenas == "pncp-comprasgov":
-        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-        pncp_comprasgov_pipeline.main()
-    else:
-        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
-        pncp_comprasgov_pipeline.main()
+    pipelines = {
+        "pncp-comprasgov": (pncp_comprasgov,  "[cyan]>>> PNCP ComprasGOV[/cyan]"),
+    }
 
-    console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
+    ordem = list(pipelines.keys()) if apenas is None else [apenas]
+
+    if do_zero:
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent
+        console.print("[yellow]![/yellow] --do-zero: apagando dados, manifestos e catálogo DuckLake locais...")
+        for caminho_catalogo in (raiz / "meta.ducklake", raiz / "dbt" / "meta.ducklake", raiz / "dbt" / "meta.ducklake.wal"):
+            caminho_catalogo.unlink(missing_ok=True)
+        for nome in ordem:
+            modulo, _ = pipelines[nome]
+            modulo.resetar_dados_locais()
+
+    for nome in ordem:
+        modulo, label = pipelines[nome]
+        console.print(label)
+        modulo.main()
+
+    console.print("[green]+[/green] Pipeline concluido.")
 
 
 _MANIFESTOS = [
@@ -454,9 +471,9 @@ def sincronizar(segredo: str):
                 p.add_task("")
                 s3.download_file(bucket, chave, destino)
             tamanho = os.path.getsize(destino)
-            console.print(f"[green]✓[/green] {chave} → [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+            console.print(f"[green]+[/green] {chave} -> [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
         except Exception as e:
-            console.print(f"[red]✗[/red] {chave}: {e}")
+            console.print(f"[red]x[/red] {chave}: {e}")
 
 
 @cli.command("docs")

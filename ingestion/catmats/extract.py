@@ -68,7 +68,7 @@ def _registrar_rate_limit(espera: float) -> None:
     global _rl_ate
     with _rl_lock:
         _rl_ate = max(_rl_ate, time.monotonic() + espera)
-SEGREDO_NOME = "colibri-token-desenvolvedor"
+NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 DIRETORIO_DADOS = Path("./dados")
 DIRETORIO_CATMATS = DIRETORIO_DADOS / "catmats"
@@ -142,8 +142,8 @@ def resetar_dados_locais() -> None:
 
 def subir_manifesto() -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
-    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, SEGREDO_NOME, logger)
+    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
 
 
 def executar_ingestao() -> bool:
@@ -152,9 +152,9 @@ def executar_ingestao() -> bool:
     DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
 
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
-    bucket = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
+    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, SEGREDO_NOME, logger)
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
     csv_ausente = not CAMINHO_CSV.exists()
     if manifesto and csv_ausente:
