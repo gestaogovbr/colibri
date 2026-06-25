@@ -13,7 +13,6 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, CATALOGO_LOCAL
-
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()

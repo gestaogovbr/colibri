@@ -22,11 +22,11 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-import shared.carregar_json_da_url as cju
-import shared.configurar_logging as log
-from shared.carregar_segredo import carregar_segredo
-from shared.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from shared.no import No
+import utils.carregar_json_da_url as cju
+import utils.configurar_logging as log
+from utils.carregar_segredo import carregar_segredo
+from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.no import No
 
 
 log.setup_logging()

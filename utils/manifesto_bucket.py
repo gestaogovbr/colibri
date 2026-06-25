@@ -3,8 +3,8 @@
 import logging
 from pathlib import Path
 
-from shared.baixar_arquivo import baixar_arquivo_do_bucket
-from shared.salvar_arquivo import salvar_arquivo_no_bucket
+from utils.baixar_arquivo import baixar_arquivo_do_bucket
+from utils.salvar_arquivo import salvar_arquivo_no_bucket
 
 
 def baixar_manifesto(

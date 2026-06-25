@@ -2,7 +2,7 @@
 Ingestão bruta de dados de compras do ComprasGOV (VW_FT_PNCP_COMPRA) nas três
 granularidades: diário, mensal e anual.
 
-Manifesto incremental (pncp_comprasgov_manifesto.csv):
+Manifesto incremental (manifesto.csv):
   Registra metadados de cada arquivo: view, período, linhas, tamanho, hash SHA-256 e
   timestamp. Nas execuções seguintes, arquivos com hash local igual ao
   manifesto são pulados; se divergirem (corrompido ou fonte atualizada),
@@ -18,16 +18,16 @@ import csv
 import hashlib
 import io
 import logging
-import shutil
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from shared.carregar_segredo import carregar_segredo
-from shared.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.baixar_arquivo import baixar_arquivo_do_bucket
+from utils.carregar_segredo import carregar_segredo
+from utils.salvar_arquivo import salvar_arquivo_no_bucket
 
 import requests
 
-import shared.configurar_logging as log
+import utils.configurar_logging as log
 
 
 log.setup_logging()
@@ -42,22 +42,21 @@ DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA_DIARIO = Path("./dados/pncp_comprasgov_diario")
 DIRETORIO_SAIDA_MENSAL = Path("./dados/pncp_comprasgov_mensal")
 DIRETORIO_SAIDA_ANUAL = Path("./dados/pncp_comprasgov_anual")
-DIRETORIO_MANIFESTOS = DIRETORIO_RAIZ / "manifestos"
-DIRETORIO_ALTERACOES_DIR = DIRETORIO_RAIZ / "alteracoes"
 SEGREDO_NOME = "colibri-token-desenvolvedor"
 
 URL_BASE_DIARIO = "https://repositorio.dados.gov.br/seges/comprasgov/diario"
 URL_BASE_MENSAL = "https://repositorio.dados.gov.br/seges/comprasgov/mensal"
 URL_BASE_ANUAL = "https://repositorio.dados.gov.br/seges/comprasgov/anual"
 
-VIEWS = ["VW_FT_PNCP_COMPRA", "VW_FT_PNCP_COMPRA_ITEM", "VW_DM_PNCP_ITEM_RESULTADO"]
+# Views extraídas: por ora, só compras (itens e resultados ficam pra depois)
+VIEWS = ["VW_FT_PNCP_COMPRA"]
 VIEW_PADRAO = VIEWS[0]
 
 TEMPLATE_ARQUIVO_DIARIO = "comprasGOV-diario-{view}-{ano}-{mes:02d}-{dia:02d}.csv"
 TEMPLATE_ARQUIVO_MENSAL = "comprasGOV-mensal-{view}-{ano}-{mes:02d}.csv"
 TEMPLATE_ARQUIVO_ANUAL = "comprasGOV-anual-{view}-{ano}.csv"
 
-NOME_MANIFESTO = "pncp_comprasgov_manifesto.csv"
+NOME_MANIFESTO = "manifesto.csv"
 COLUNAS_MANIFESTO = ["view", "data", "url", "num_linhas", "tamanho_bytes", "num_colunas", "hash_sha256", "extraido_em"]
 
 # Alterações desta execução (arquivos baixados ou atualizados), consumido pelo dbt
@@ -215,29 +214,21 @@ def processar_arquivo(session: requests.Session, view: str, chave: str, url: str
 
 # Execução
 
-def resetar_dados_locais() -> None:
-    """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
-    for diretorio in (DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
-        shutil.rmtree(diretorio, ignore_errors=True)
-    (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
-    (DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES).unlink(missing_ok=True)
-
-
-def subir_manifesto() -> None:
-    """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
-    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, logger)
-
-
-def executar_ingestao() -> bool:
-    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
-    for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL, DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES_DIR):
+def executar_ingestao() -> None:
+    for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
         d.mkdir(parents=True, exist_ok=True)
-    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
-    caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
+    caminho_manifesto = DIRETORIO_RAIZ / NOME_MANIFESTO
+    caminho_alteracoes = DIRETORIO_RAIZ / NOME_ALTERACOES
     bucket_nome = carregar_segredo(SEGREDO_NOME)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, logger)
+    manifesto_no_bucket = False
+    try:
+        baixar_arquivo_do_bucket(NOME_MANIFESTO, bucket_nome, SEGREDO_NOME, str(caminho_manifesto))
+        manifesto_no_bucket = True
+        logger.info(f"Manifesto baixado do bucket: {bucket_nome}/{NOME_MANIFESTO}")
+    except Exception as e:
+        logger.warning(f"Manifesto não encontrado no bucket, iniciando do zero: {e}")
+
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
 
@@ -298,6 +289,11 @@ def executar_ingestao() -> bool:
         salvar_alteracoes(caminho_alteracoes, alteracoes)
         logger.info(f"Manifesto: {caminho_manifesto}")
         logger.info(f"Alterações: {caminho_alteracoes} ({len(alteracoes)} arquivo(s))")
+        if manifesto_modificado or not manifesto_no_bucket:
+            try:
+                salvar_arquivo_no_bucket(str(caminho_manifesto), bucket_nome, SEGREDO_NOME)
+            except Exception as e:
+                logger.warning(f"Não foi possível salvar manifesto no bucket: {e}")
 
     logger.info(
         f"Baixados: {contadores['baixado']}  "
@@ -305,7 +301,6 @@ def executar_ingestao() -> bool:
         f"Ignorados: {contadores['ignorado']}  "
         f"Indisponíveis: {contadores['indisponivel']}"
     )
-    return manifesto_modificado
 
 
 if __name__ == "__main__":

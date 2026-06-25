@@ -26,9 +26,9 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 
-import shared.configurar_logging as log
-from shared.carregar_segredo import carregar_segredo
-from shared.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+import utils.configurar_logging as log
+from utils.carregar_segredo import carregar_segredo
+from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
 
 log.setup_logging()
 logger = logging.getLogger(__name__)

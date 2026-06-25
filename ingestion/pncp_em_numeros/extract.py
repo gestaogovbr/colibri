@@ -44,11 +44,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from databricks import sql
 
-import shared.configurar_logging as log
-from shared.baixar_arquivo import baixar_arquivo_do_bucket
-from shared.carregar_segredo import carregar_segredo
-from shared.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from shared.salvar_arquivo import salvar_arquivo_no_bucket
+import utils.configurar_logging as log
+from utils.baixar_arquivo import baixar_arquivo_do_bucket
+from utils.carregar_segredo import carregar_segredo
+from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.salvar_arquivo import salvar_arquivo_no_bucket
 
 log.setup_logging()
 logger = logging.getLogger(__name__)

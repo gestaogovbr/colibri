@@ -3,8 +3,8 @@ import subprocess
 from pathlib import Path
 
 from ingestion.catmats.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
-from shared.carregar_segredo import carregar_segredo
-from shared.ducklake import baixar_ou_criar_catalogo, subir_catalogo_simples
+from utils.carregar_segredo import carregar_segredo
+from utils.ducklake import baixar_ou_criar_catalogo, subir_catalogo_simples
 
 _RAIZ = Path(__file__).resolve().parent.parent.parent
 _DBT_DIR = _RAIZ / "dbt"
