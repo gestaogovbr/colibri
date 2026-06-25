@@ -5,10 +5,12 @@ from zoneinfo import ZoneInfo
 import boto3
 import click
 from botocore.exceptions import ClientError
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+from rich.text import Text
 from rich import box
 
 from utils.carregar_segredo import carregar_segredo
@@ -16,6 +18,107 @@ from utils.carregar_segredo import carregar_segredo
 console = Console()
 SEGREDO_PADRAO = "colibri-token-desenvolvedor"
 FUSO = ZoneInfo("America/Sao_Paulo")
+
+NOME = "colibri"
+SUBTITULO = "Lakehouse e orquestrador de pipelines"
+
+# Paleta do colibri: verde + azul
+VERDE = "#2ee6a6"
+AZUL = "#1e9bff"
+VERDE_RGB = (46, 230, 166)
+AZUL_RGB = (30, 155, 255)
+
+BANNER = r"""
+
+ $$$$$$\            $$\ $$\ $$\                 $$\ 
+$$  __$$\           $$ |\__|$$ |                \__|
+$$ /  \__| $$$$$$\  $$ |$$\ $$$$$$$\   $$$$$$\  $$\ 
+$$ |      $$  __$$\ $$ |$$ |$$  __$$\ $$  __$$\ $$ |
+$$ |      $$ /  $$ |$$ |$$ |$$ |  $$ |$$ |  \__|$$ |
+$$ |  $$\ $$ |  $$ |$$ |$$ |$$ |  $$ |$$ |      $$ |
+\$$$$$$  |\$$$$$$  |$$ |$$ |$$$$$$$  |$$ |      $$ |
+ \______/  \______/ \__|\__|\_______/ \__|      \__|
+"""
+
+
+def _mistura(ini, fim, p):
+    """Interpola duas cores RGB (p de 0.0 a 1.0) e devolve em hex."""
+    r, g, b = (round(ini[i] + (fim[i] - ini[i]) * p) for i in range(3))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _gradiente_v(linhas, ini, fim):
+    """Gradiente vertical: cada linha recebe uma cor entre `ini` e `fim`."""
+    texto = Text(no_wrap=True)
+    n = max(len(linhas) - 1, 1)
+    for i, linha in enumerate(linhas):
+        texto.append(linha + "\n", style=f"bold {_mistura(ini, fim, i / n)}")
+    return texto
+
+
+def _gradiente_h(s, ini, fim):
+    """Gradiente horizontal: cada caractere recebe uma cor entre `ini` e `fim`."""
+    texto = Text(no_wrap=True)
+    n = max(len(s) - 1, 1)
+    for i, ch in enumerate(s):
+        texto.append(ch, style=f"bold {_mistura(ini, fim, i / n)}")
+    return texto
+
+
+class ColibriGroup(click.Group):
+    """Grupo Click que mantém o mesmo cabeçalho (banner + comandos) em todos os menus."""
+
+    def list_commands(self, ctx):
+        # Mantém a ordem de definição em vez da ordem alfabética padrão do Click
+        return list(self.commands)
+
+    def _banner(self):
+        # Linhas da arte sem espaços à direita (para o centro ficar correto).
+        linhas = [l.rstrip() for l in BANNER.splitlines() if l.strip()]
+        largura = max((len(l) for l in linhas), default=0)
+
+        # Se o banner não couber na janela atual, usa um título compacto que não quebra
+        if console.size.width < largura:
+            return _gradiente_h(NOME, VERDE_RGB, AZUL_RGB), len(NOME)
+
+        return _gradiente_v(linhas, VERDE_RGB, AZUL_RGB), largura
+
+    def format_help(self, ctx, formatter):
+        # Na raiz usa o subtítulo global; nos subgrupos, a própria docstring do grupo
+        subtitulo = SUBTITULO if ctx.parent is None else (self.help or "").strip()
+
+        banner, largura = self._banner()
+        regua = "─" * min(largura, console.size.width)
+
+        console.print(Align.center(banner))
+        console.print(Align.center(_gradiente_h(regua, VERDE_RGB, AZUL_RGB)))
+        if subtitulo:
+            console.print(Align.center(Text(subtitulo, style="italic dim")))
+        console.print()
+
+        # Comandos numa tabela com borda, centralizada como bloco
+        tabela = Table(
+            box=box.ROUNDED,
+            show_header=False,
+            border_style=AZUL,
+            padding=(0, 2),
+            title="Comandos",
+            title_style=f"bold {VERDE}",
+        )
+        tabela.add_column(style=f"bold {VERDE}", no_wrap=True)
+        tabela.add_column(style="white")
+        for nome in self.list_commands(ctx):
+            tabela.add_row(nome, self.get_command(ctx, nome).get_short_help_str())
+        console.print(Align.center(tabela))
+        console.print()
+
+        # Dica de uso.
+        dica = Text(no_wrap=True)
+        dica.append("Use ", style="dim")
+        dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)
+        dica.append(" para ver as opções.", style="dim")
+        console.print(Align.center(dica))
+        console.print()
 
 
 def _cliente(nome_segredo: str):
@@ -45,19 +148,42 @@ def _cor_tamanho(bytes: int) -> str:
     return "red"
 
 
-@click.group()
+def _tabela_dados(*colunas):
+    """Tabela de dados com o tema verde/azul. Cada item: nome ou (nome, kwargs)."""
+    tabela = Table(box=box.ROUNDED, header_style=f"bold {VERDE}", border_style=AZUL)
+    for coluna in colunas:
+        if isinstance(coluna, tuple):
+            tabela.add_column(coluna[0], **coluna[1])
+        else:
+            tabela.add_column(coluna)
+    return tabela
+
+
+@click.group(cls=ColibriGroup)
 def cli():
-    """Colibri: ferramentas de gestao do bucket R2"""
+    """Lakehouse e orquestrador de pipelines"""
     pass
 
 
-@cli.group()
+@cli.group(cls=ColibriGroup)
+def lake():
+    """Explora o catálogo e executa queries SQL"""
+    pass
+
+
+@cli.group(cls=ColibriGroup)
+def pipeline():
+    """Orquestra os pipelines de ingestão"""
+    pass
+
+
+@cli.group(cls=ColibriGroup)
 def bucket():
-    """Operações no bucket R2"""
+    """Gerencia arquivos no object storage (R2)"""
     pass
 
 
-@bucket.command("ls")
+@bucket.command("list")
 @click.argument("bucket_name")
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
 @click.option("--prefixo", default="", help="Filtrar por prefixo")
@@ -65,7 +191,7 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
     """Lista arquivos no bucket"""
     s3 = _cliente(segredo)
 
-    with Progress(SpinnerColumn(), TextColumn("[cyan]Buscando arquivos..."), transient=True) as p:
+    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Buscando arquivos..."), transient=True) as p:
         p.add_task("")
         paginator = s3.get_paginator("list_objects_v2")
         objetos = [
@@ -75,13 +201,14 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
         ]
 
     if not objetos:
-        console.print(Panel(f"[yellow]Bucket [bold]{bucket_name}[/bold] vazio.[/yellow]"))
+        console.print(Panel(f"[yellow]Bucket [bold]{bucket_name}[/bold] vazio.[/yellow]", border_style="yellow"))
         return
 
-    tabela = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
-    tabela.add_column("Arquivo", style="white", no_wrap=False, ratio=3)
-    tabela.add_column("Tamanho", justify="right", ratio=1)
-    tabela.add_column("Modificado", style="dim", ratio=1)
+    tabela = _tabela_dados(
+        ("Arquivo", {"style": "white", "no_wrap": False, "ratio": 3}),
+        ("Tamanho", {"justify": "right", "ratio": 1}),
+        ("Modificado", {"style": "dim", "ratio": 1}),
+    )
 
     total_bytes = 0
     for obj in objetos:
@@ -96,13 +223,13 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
 
     console.print(tabela)
     console.print(
-        f"  [dim]{len(objetos)} arquivo(s)[/dim]  •  "
-        f"[bold]{_tamanho(total_bytes)}[/bold] total  •  "
-        f"[dim]bucket:[/dim] [cyan]{bucket_name}[/cyan]"
+        f"  [dim]{len(objetos)} arquivo(s)[/dim]  [{AZUL}]•[/]  "
+        f"[bold]{_tamanho(total_bytes)}[/bold] total  [{AZUL}]•[/]  "
+        f"[dim]bucket:[/dim] [{AZUL}]{bucket_name}[/]"
     )
 
 
-@bucket.command("rm")
+@bucket.command("delete")
 @click.argument("arquivo")
 @click.argument("bucket_name")
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
@@ -116,10 +243,10 @@ def deletar(arquivo: str, bucket_name: str, segredo: str):
         return
 
     s3.delete_object(Bucket=bucket_name, Key=arquivo)
-    console.print(f"[green]✓[/green] Deletado: [bold]{arquivo}[/bold]")
+    console.print(f"[{VERDE}]✓[/] Deletado: [bold]{arquivo}[/bold]")
 
 
-@bucket.command("rm-all")
+@bucket.command("purge")
 @click.argument("bucket_name")
 @click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
 @click.option("--prefixo", default="", help="Limitar a um prefixo")
@@ -138,12 +265,12 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
         console.print("[yellow]Nenhum arquivo encontrado.[/yellow]")
         return
 
-    with Progress(SpinnerColumn(), TextColumn(f"[red]Deletando {len(objetos)} arquivo(s)..."), transient=True) as p:
+    with Progress(SpinnerColumn(style="red"), TextColumn(f"[red]Deletando {len(objetos)} arquivo(s)..."), transient=True) as p:
         p.add_task("")
         for i in range(0, len(objetos), 1000):
             s3.delete_objects(Bucket=bucket_name, Delete={"Objects": objetos[i:i + 1000]})
 
-    console.print(f"[green]✓[/green] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [cyan]{bucket_name}[/cyan]")
+    console.print(f"[{VERDE}]✓[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]")
 
 
 @bucket.command("download")
@@ -163,7 +290,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     try:
         s3.download_file(bucket_name, arquivo, destino)
         tamanho = os.path.getsize(destino)
-        console.print(f"[green]✓[/green] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+        console.print(f"[{VERDE}]✓[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
     except ClientError:
         console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
 
@@ -187,18 +314,12 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
     tamanho = os.path.getsize(caminho_arquivo)
     s3 = _cliente(segredo)
 
-    with Progress(SpinnerColumn(), TextColumn(f"[cyan]Enviando {_tamanho(tamanho)}..."), transient=True) as p:
+    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Enviando {_tamanho(tamanho)}..."), transient=True) as p:
         p.add_task("")
         with open(caminho_arquivo, "rb") as f:
             s3.upload_fileobj(f, bucket_name, chave)
 
-    console.print(f"[green]✓[/green] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
-
-
-@cli.group()
-def lake():
-    """Consulta o catalogo DuckLake"""
-    pass
+    console.print(f"[{VERDE}]✓[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
 def _conectar_lake():
@@ -207,7 +328,7 @@ def _conectar_lake():
     return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
 
 
-@lake.command("tabelas")
+@lake.command("tables")
 def tabelas():
     """Lista as tabelas registradas no catalogo"""
     con = _conectar_lake()
@@ -224,16 +345,17 @@ def tabelas():
     """).fetchall()
     con.close()
 
-    tabela = Table(box=box.ROUNDED, header_style="bold cyan")
-    tabela.add_column("Tabela")
-    tabela.add_column("Linhas", justify="right")
-    tabela.add_column("Parquets", justify="right")
+    tabela = _tabela_dados(
+        "Tabela",
+        ("Linhas", {"justify": "right"}),
+        ("Parquets", {"justify": "right"}),
+    )
     for row in rows:
         tabela.add_row(row[0], f"{row[1]:,}" if row[1] else "—", str(row[2]))
     console.print(tabela)
 
 
-@lake.command("anos")
+@lake.command("years")
 @click.argument("tabela")
 def anos(tabela: str):
     """Mostra contagem de linhas por ano de uma tabela"""
@@ -250,19 +372,17 @@ def anos(tabela: str):
         return
     con.close()
 
-    tb = Table(box=box.ROUNDED, header_style="bold cyan")
-    tb.add_column("Ano")
-    tb.add_column("Linhas", justify="right")
+    tb = _tabela_dados("Ano", ("Linhas", {"justify": "right"}))
     total = 0
     for row in rows:
         tb.add_row(str(row[0]), f"{row[1]:,}")
         total += row[1]
     tb.add_section()
-    tb.add_row("[bold]Total[/bold]", f"[bold]{total:,}[/bold]")
+    tb.add_row("[bold]Total[/bold]", f"[bold {AZUL}]{total:,}[/]")
     console.print(tb)
 
 
-@lake.command("q")
+@lake.command("query")
 @click.argument("sql")
 def query(sql: str):
     """Executa uma query SQL no lake"""
@@ -279,40 +399,32 @@ def query(sql: str):
         console.print("[yellow]Sem resultados.[/yellow]")
         return
 
-    tb = Table(box=box.ROUNDED, header_style="bold cyan")
-    for col in resultado.columns:
-        tb.add_column(str(col))
+    tb = _tabela_dados(*[str(col) for col in resultado.columns])
     for _, row in resultado.iterrows():
         tb.add_row(*[str(v) for v in row])
     console.print(tb)
 
 
-@cli.group()
-def pipeline():
-    """Executa os pipelines de ingestao"""
-    pass
-
-
 @pipeline.command("run")
 @click.option("--apenas", type=click.Choice(["ncm", "pncp"]), default=None, help="Rodar só um pipeline")
 def run(apenas: str | None):
-    """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo."""
+    """Roda o pipeline completo (NCM + PNCP) ou apenas um modulo"""
     import ingestion.ncm.pipeline as ncm
     import ingestion.pncp.pipeline as pncp
 
     if apenas == "ncm":
-        console.print("[cyan]>>> NCM[/cyan]")
+        console.print(f"[{VERDE}]›[/] [{AZUL}]NCM[/]")
         ncm.main()
     elif apenas == "pncp":
-        console.print("[cyan]>>> PNCP[/cyan]")
+        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
         pncp.main()
     else:
-        console.print("[cyan]>>> NCM[/cyan]")
+        console.print(f"[{VERDE}]›[/] [{AZUL}]NCM[/]")
         ncm.main()
-        console.print("[cyan]>>> PNCP[/cyan]")
+        console.print(f"[{VERDE}]›[/] [{AZUL}]PNCP[/]")
         pncp.main()
 
-    console.print("[green]✓[/green] Pipeline concluido.")
+    console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
 
 
 if __name__ == "__main__":
