@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-import shared.ducklake as ducklake
+import utils.ducklake as ducklake
 
 
 NOME_TABELA = "ncm_bronze"

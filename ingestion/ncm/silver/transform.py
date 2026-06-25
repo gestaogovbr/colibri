@@ -1,4 +1,4 @@
-from shared.no import No
+from utils.no import No
 
 
 def criar_mapa_ncm(ncm_json: dict):

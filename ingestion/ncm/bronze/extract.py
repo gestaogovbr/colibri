@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 
 import boto3
 
-import shared.carregar_json_da_url as cju
-from shared.carregar_segredo import carregar_segredo
+import utils.carregar_json_da_url as cju
+from utils.carregar_segredo import carregar_segredo
 
 
 NCM_URL = "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"

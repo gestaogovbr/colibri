@@ -11,7 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich import box
 
-from shared.carregar_segredo import carregar_segredo
+from utils.carregar_segredo import carregar_segredo
 
 console = Console()
 SEGREDO_PADRAO = "colibri-token-desenvolvedor"
@@ -202,7 +202,7 @@ def lake():
 
 
 def _conectar_lake():
-    import shared.ducklake as dl
+    import utils.ducklake as dl
     from ingestion.pncp.pipeline import NOME_SEGREDO, CAMINHO_META, DATA_PATH
     return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
 

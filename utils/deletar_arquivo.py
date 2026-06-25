@@ -2,8 +2,8 @@ import boto3
 import click
 from botocore.exceptions import ClientError
 
-import shared.configurar_logging as log
-from shared.carregar_segredo import carregar_segredo
+import utils.configurar_logging as log
+from utils.carregar_segredo import carregar_segredo
 
 
 class ArquivoNaoEncontradoError(Exception):

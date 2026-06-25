@@ -1,7 +1,7 @@
 import os
 import yaml
 
-import shared.configurar_logging as log
+import utils.configurar_logging as log
 
 
 _RAIZ_PROJETO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

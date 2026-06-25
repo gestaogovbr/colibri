@@ -5,7 +5,7 @@ import boto3
 import duckdb
 from botocore.exceptions import ClientError
 
-from shared.carregar_segredo import carregar_segredo
+from utils.carregar_segredo import carregar_segredo
 
 
 CATALOGO_LOCAL = "meta.ducklake"

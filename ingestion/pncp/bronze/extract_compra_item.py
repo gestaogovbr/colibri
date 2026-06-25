@@ -1,7 +1,7 @@
 from datetime import datetime
 import duckdb
 
-import shared.ducklake as ducklake
+import utils.ducklake as ducklake
 
 
 BASE_URL = "https://repositorio.dados.gov.br/seges/comprasgov/anual"

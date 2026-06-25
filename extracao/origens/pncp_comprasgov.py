@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 import requests
 
-import shared.configurar_logging as log
+import utils.configurar_logging as log
 
 
 log.setup_logging()

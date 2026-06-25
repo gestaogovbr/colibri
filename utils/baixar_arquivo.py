@@ -3,7 +3,7 @@ import os
 import boto3
 import click
 
-from shared.carregar_segredo import carregar_segredo
+from utils.carregar_segredo import carregar_segredo
 
 
 @click.command()

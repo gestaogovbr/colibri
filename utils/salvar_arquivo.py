@@ -5,8 +5,8 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from shared.carregar_segredo import carregar_segredo
-import shared.configurar_logging as log
+from utils.carregar_segredo import carregar_segredo
+import utils.configurar_logging as log
 
 
 log.setup_logging()
