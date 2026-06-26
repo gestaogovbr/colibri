@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -43,13 +44,13 @@ $$ |  $$\ $$ |  $$ |$$ |$$ |$$ |  $$ |$$ |      $$ |
 
 
 def _mistura(ini, fim, p):
-    """Interpola duas cores RGB (p de 0.0 a 1.0) e devolve em hex."""
+    """Interpola duas cores RGB (p de 0.0 a 1.0) e devolve em hex"""
     r, g, b = (round(ini[i] + (fim[i] - ini[i]) * p) for i in range(3))
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def _gradiente_v(linhas, ini, fim):
-    """Gradiente vertical: cada linha recebe uma cor entre `ini` e `fim`."""
+    """Gradiente vertical: cada linha recebe uma cor entre `ini` e `fim`"""
     texto = Text(no_wrap=True)
     n = max(len(linhas) - 1, 1)
     for i, linha in enumerate(linhas):
@@ -58,7 +59,7 @@ def _gradiente_v(linhas, ini, fim):
 
 
 def _gradiente_h(s, ini, fim):
-    """Gradiente horizontal: cada caractere recebe uma cor entre `ini` e `fim`."""
+    """Gradiente horizontal: cada caractere recebe uma cor entre `ini` e `fim`"""
     texto = Text(no_wrap=True)
     n = max(len(s) - 1, 1)
     for i, ch in enumerate(s):
@@ -67,7 +68,7 @@ def _gradiente_h(s, ini, fim):
 
 
 class ColibriGroup(click.Group):
-    """Grupo Click que mantém o mesmo cabeçalho (banner + comandos) em todos os menus."""
+    """Grupo Click que mantém o mesmo cabeçalho (banner + comandos) em todos os menus"""
 
     def list_commands(self, ctx):
         # Mantém a ordem de definição em vez da ordem alfabética padrão do Click
@@ -91,6 +92,7 @@ class ColibriGroup(click.Group):
         banner, largura = self._banner()
         regua = "-" * min(largura, console.size.width)
 
+        console.print()
         console.print(Align.center(banner))
         console.print(Align.center(_gradiente_h(regua, VERDE_RGB, AZUL_RGB)))
         if subtitulo:
@@ -119,7 +121,6 @@ class ColibriGroup(click.Group):
         dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)
         dica.append(" para ver as opções.", style="dim")
         console.print(Align.center(dica))
-        console.print()
 
 
 def _cliente(nome_segredo: str):
@@ -150,7 +151,7 @@ def _cor_tamanho(bytes: int) -> str:
 
 
 def _tabela_dados(*colunas):
-    """Tabela de dados com o tema verde/azul. Cada item: nome ou (nome, kwargs)."""
+    """Tabela de dados com o tema verde/azul. Cada item: nome ou (nome, kwargs)"""
     tabela = Table(box=box.ROUNDED, header_style=f"bold {VERDE}", border_style=AZUL)
     for coluna in colunas:
         if isinstance(coluna, tuple):
@@ -334,6 +335,7 @@ def tabelas():
     con = _conectar_lake()
     rows = con.execute("""
         SELECT t.table_name,
+               'tabela' AS tipo,
                s.record_count AS linhas,
                count(f.data_file_id) AS parquets
         FROM __ducklake_metadata_lake.main.ducklake_table t
@@ -341,17 +343,33 @@ def tabelas():
         LEFT JOIN __ducklake_metadata_lake.main.ducklake_data_file f USING (table_id)
         WHERE t.end_snapshot IS NULL
         GROUP BY t.table_name, s.record_count
-        ORDER BY t.table_name
+
+        UNION ALL
+
+        SELECT v.view_name,
+               'view' AS tipo,
+               NULL AS linhas,
+               NULL AS parquets
+        FROM __ducklake_metadata_lake.main.ducklake_view v
+        WHERE v.end_snapshot IS NULL
+
+        ORDER BY tipo, table_name
     """).fetchall()
     con.close()
 
     tabela = _tabela_dados(
         "Tabela",
+        "Tipo",
         ("Linhas", {"justify": "right"}),
         ("Parquets", {"justify": "right"}),
     )
-    for row in rows:
-        tabela.add_row(row[0], f"{row[1]:,}" if row[1] else "—", str(row[2]))
+    for nome, tipo, linhas, parquets in rows:
+        tabela.add_row(
+            nome,
+            tipo,
+            f"{linhas:,}" if linhas else "—",
+            f"{parquets:,}" if parquets else "—",
+        )
     console.print(tabela)
 
 
@@ -407,8 +425,7 @@ def query(sql: str):
 
 @pipeline.command("run")
 @click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
-@click.option("--do-zero", is_flag=True, help="Apaga dados, manifestos e catálogo DuckLake locais antes de rodar, forçando reextração completa")
-def run(apenas: str | None, do_zero: bool):
+def run(apenas: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
 
@@ -417,17 +434,6 @@ def run(apenas: str | None, do_zero: bool):
     }
 
     ordem = list(pipelines.keys()) if apenas is None else [apenas]
-
-    if do_zero:
-        from pathlib import Path
-
-        raiz = Path(__file__).resolve().parent
-        console.print("[yellow]![/yellow] --do-zero: apagando dados, manifestos e catálogo DuckLake locais...")
-        for caminho_catalogo in (raiz / "meta.ducklake", raiz / "dbt" / "meta.ducklake", raiz / "dbt" / "meta.ducklake.wal"):
-            caminho_catalogo.unlink(missing_ok=True)
-        for nome in ordem:
-            modulo, _ = pipelines[nome]
-            modulo.resetar_dados_locais()
 
     for nome in ordem:
         modulo, label = pipelines[nome]

@@ -115,17 +115,3 @@ models:
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
-
-  - name: mrt_pncp_comprasgov__resumo_anual
-    description: >
-      Resumo anual de compras (quantidade e valores), para conferência com os
-      números públicos do painel "PNCP em Números".
-    columns:
-      - name: ano_compra
-        description: Ano de referência das compras.
-      - name: qtd_compras
-        description: Quantidade de compras distintas no ano.
-      - name: valor_total_estimado
-        description: Soma dos valores totais estimados das compras do ano.
-      - name: valor_total_homologado
-        description: Soma dos valores totais homologados das compras do ano.
