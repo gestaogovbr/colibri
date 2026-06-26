@@ -5,9 +5,9 @@
     regexp_extract(filename, '{{ view }}-(.+)\.csv$', 1) AS periodo
   FROM read_csv_auto(
     [
-      '../dados/pncp_comprasgov_diario/*/*/*/comprasGOV-diario-{{ view }}-*.csv',
-      '../dados/pncp_comprasgov_mensal/*/*/comprasGOV-mensal-{{ view }}-*.csv',
-      '../dados/pncp_comprasgov_anual/*/comprasGOV-anual-{{ view }}-*.csv'
+      's3://{{ var("bucket_lake") }}/pncp_comprasgov_diario/*/*/*/comprasGOV-diario-{{ view }}-*.parquet',
+      's3://{{ var("bucket_lake") }}/pncp_comprasgov_mensal/*/*/comprasGOV-mensal-{{ view }}-*.parquet',
+      's3://{{ var("bucket_lake") }}/pncp_comprasgov_anual/*/comprasGOV-anual-{{ view }}-*.parquet'
     ],
     union_by_name = true,
     filename = true

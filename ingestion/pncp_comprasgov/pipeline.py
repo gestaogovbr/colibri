@@ -5,7 +5,7 @@ from ingestion.pncp_comprasgov.extract import executar_ingestao, resetar_dados_l
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
-from utils.salvar_arquivo import salvar_arquivo_no_bucket
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
 
 
@@ -22,7 +22,9 @@ def main():
             [
                 "dbt", "run",
                 "--select",
-                "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov__resumo_anual stg_pncp_comprasgov__itens int_pncp_comprasgov__itens stg_pncp_comprasgov__resultados int_pncp_comprasgov__resultados",
+                "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov_compras "
+                "stg_pncp_comprasgov__itens int_pncp_comprasgov__itens mrt_pncp_comprasgov_itens "
+                "stg_pncp_comprasgov__resultados int_pncp_comprasgov__resultados mrt_pncp_comprasgov_resultados",
                 "--project-dir", str(DBT_DIR),
                 "--profiles-dir", str(DBT_DIR),
             ],

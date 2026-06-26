@@ -14,16 +14,25 @@ Uso:
   python -m ingestion.pncp_comprasgov.extract
 """
 
+import io
+import uuid
+import time
 import csv
 import hashlib
-import io
 import logging
 import shutil
-import time
+import boto3
+import botocore
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import duckdb
+import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from utils.carregar_segredo import carregar_segredo
 from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
 
 import requests
 
@@ -155,6 +164,20 @@ def hash_arquivo(caminho: Path) -> str:
     return h.hexdigest()
 
 
+# Conversão
+
+def csv_para_parquet(conteudo: bytes) -> bytes:
+    # Cria o caminho para um parquet num diretório temporário do SO
+    caminho_tmp = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.parquet"
+    try:
+        # Lê o csv e escreve ele como um parquet no arquivo temporário
+        duckdb.read_csv(io.BytesIO(conteudo)).write_parquet(str(caminho_tmp))
+        # Lê os bytes do parquet
+        return caminho_tmp.read_bytes()
+    finally:
+        caminho_tmp.unlink(missing_ok=True)
+
+
 # Download
 
 def criar_sessao() -> requests.Session:
@@ -193,24 +216,50 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
 
 def processar_arquivo(session: requests.Session, view: str, chave: str, url: str, caminho: Path, manifesto: dict[str, dict]) -> str:
     """
-    Baixa um arquivo CSV, se necessário.
+    Baixa um arquivo CSV e salva no bucket, se necessário.
 
     Retorna: "baixado", "atualizado", "ignorado" ou "indisponivel"
+
+    Solução da consulta se objeto existe no bucket com HEAD request foi baseado na solução:
+        -> https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
     """
     entrada = manifesto.get(f"{view}:{chave}")
     conteudo = baixar(session, url)
     if conteudo is None:
         return "indisponivel"
-    if entrada and caminho.exists() and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest():
+    
+    config = carregar_segredo(NOME_SEGREDO)
+    bucket_nome = config["bucket_lake"]
+    
+    # Ex: 'dados/pncp_comprasgov_diario/2021/12/01/comprasGOV-diario-VW_FT_PNCP_COMPRA-2021-12-01.csv'
+    nome_no_bucket = caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
+
+    s3 = boto3.resource(
+        "s3",
+        endpoint_url=config["endpoint"],
+        aws_access_key_id=config["access_key"],
+        aws_secret_access_key=config["secret_key"],
+        region_name="auto",
+    )
+    # Verifica se objeto existe no bucket via HEAD request
+    try:
+        s3.Object(bucket_nome, nome_no_bucket).load() # tenta obter o objeto pela key
+        existe_no_bucket = True
+    except botocore.exceptions.ClientError as e:
+        existe_no_bucket = False
+    
+    # Salva no bucket caso arquivo conste no manifesto, no bucket E hash bater com manifesto
+    if entrada and existe_no_bucket and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest():
         logger.info(f"[{view}] {chave}: hash bate com manifesto, pulando")
         return "ignorado"
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-    caminho.write_bytes(conteudo)
-    registrar_entrada(manifesto, view, chave, url, conteudo)
-    status = "atualizado" if entrada else "baixado"
-    e = manifesto[f"{view}:{chave}"]
-    logger.info(f"[{view}] {chave}: {status} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)")
-    return status
+    else:
+        conteudo_parquet = csv_para_parquet(conteudo)
+        salvar_bytes_no_bucket(conteudo_parquet, bucket_nome, NOME_SEGREDO, nome_no_bucket)
+        registrar_entrada(manifesto, view, chave, url, conteudo)
+        status = "atualizado" if entrada else "baixado"
+        e = manifesto[f"{view}:{chave}"]
+        logger.info(f"[{view}] {chave}: {status} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)")
+        return status
 
 
 # Execução

@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 from utils.baixar_arquivo import baixar_arquivo_do_bucket
-from utils.salvar_arquivo import salvar_arquivo_no_bucket
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 
 
 def baixar_manifesto(
