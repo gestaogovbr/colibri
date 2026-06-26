@@ -1,11 +1,11 @@
 {{ config(
-    materialized='table',
+    materialized='view',
     database='lake',
     tags=['intermediate', 'pncp', 'comprasgov']
 ) }}
 
 WITH staging AS (
-    SELECT * FROM {{ ref('stg_pncp_comprasgov__compras') }}
+    SELECT * FROM {{ ref('stg_pncp_comprasgov__resultados') }}
 ),
 
 {# Para evitar que o modelo cresça indefinidamente em runs incrementais, 
@@ -24,9 +24,9 @@ dedup AS (
         SELECT
             *,
             ROW_NUMBER() OVER (
-                PARTITION BY cod_compra, data_atualizacao
+                PARTITION BY id_compra_item, sequencial_resultado, data_atualizacao
                 ORDER BY {{ contar_colunas_preenchidas(
-                    ref('stg_pncp_comprasgov__compras'),
+                    ref('stg_pncp_comprasgov__resultados'),
                     excluir=['_dbt_loaded_at', 'granularidade', 'periodo']
                 ) }} DESC
             ) AS _rn
@@ -38,15 +38,15 @@ dedup AS (
 scd2 AS (
     SELECT
         *,
-        data_atualizacao                             AS valido_de,
+        data_atualizacao                              AS valido_de,
         LEAD(data_atualizacao) OVER (
-            PARTITION BY cod_compra
+            PARTITION BY id_compra_item, sequencial_resultado
             ORDER BY data_atualizacao
-        ) - INTERVAL '1 day'                         AS valido_ate,
+        ) - 1                                        AS valido_ate,
         LEAD(data_atualizacao) OVER (
-            PARTITION BY cod_compra
+            PARTITION BY id_compra_item, sequencial_resultado
             ORDER BY data_atualizacao
-        ) IS NULL                                    AS is_current
+        ) IS NULL                                     AS is_current
     FROM dedup
 )
 

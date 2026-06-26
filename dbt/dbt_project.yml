@@ -3,6 +3,7 @@ version: '0.1.0'
 profile: colibri
 vars:
   timezone: 'America/Sao_Paulo'
+  bucket_lake: 'colibri-dev'
 
 model-paths: ["modelos"]
 
@@ -13,9 +14,9 @@ models:
       +schema: staging
     intermediate:
       +database: lake
-      +materialized: table
+      +materialized: view
       +schema: intermediate
     marts:
       +database: lake
-      +materialized: table
+      +materialized: view
       +schema: marts
