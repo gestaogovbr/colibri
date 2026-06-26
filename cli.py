@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -12,11 +13,12 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
-
+from ingestion.pncp_comprasgov import pipeline as pncp_comprasgov_pipeline
+from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
-SEGREDO_PADRAO = "colibri-token-desenvolvedor"
+NOME_SEGREDO = "colibri-token-desenvolvedor"
 FUSO = ZoneInfo("America/Sao_Paulo")
 
 NOME = "colibri"
@@ -42,13 +44,13 @@ $$ |  $$\ $$ |  $$ |$$ |$$ |$$ |  $$ |$$ |      $$ |
 
 
 def _mistura(ini, fim, p):
-    """Interpola duas cores RGB (p de 0.0 a 1.0) e devolve em hex."""
+    """Interpola duas cores RGB (p de 0.0 a 1.0) e devolve em hex"""
     r, g, b = (round(ini[i] + (fim[i] - ini[i]) * p) for i in range(3))
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def _gradiente_v(linhas, ini, fim):
-    """Gradiente vertical: cada linha recebe uma cor entre `ini` e `fim`."""
+    """Gradiente vertical: cada linha recebe uma cor entre `ini` e `fim`"""
     texto = Text(no_wrap=True)
     n = max(len(linhas) - 1, 1)
     for i, linha in enumerate(linhas):
@@ -57,7 +59,7 @@ def _gradiente_v(linhas, ini, fim):
 
 
 def _gradiente_h(s, ini, fim):
-    """Gradiente horizontal: cada caractere recebe uma cor entre `ini` e `fim`."""
+    """Gradiente horizontal: cada caractere recebe uma cor entre `ini` e `fim`"""
     texto = Text(no_wrap=True)
     n = max(len(s) - 1, 1)
     for i, ch in enumerate(s):
@@ -66,7 +68,7 @@ def _gradiente_h(s, ini, fim):
 
 
 class ColibriGroup(click.Group):
-    """Grupo Click que mantém o mesmo cabeçalho (banner + comandos) em todos os menus."""
+    """Grupo Click que mantém o mesmo cabeçalho (banner + comandos) em todos os menus"""
 
     def list_commands(self, ctx):
         # Mantém a ordem de definição em vez da ordem alfabética padrão do Click
@@ -88,8 +90,9 @@ class ColibriGroup(click.Group):
         subtitulo = SUBTITULO if ctx.parent is None else (self.help or "").strip()
 
         banner, largura = self._banner()
-        regua = "─" * min(largura, console.size.width)
+        regua = "-" * min(largura, console.size.width)
 
+        console.print()
         console.print(Align.center(banner))
         console.print(Align.center(_gradiente_h(regua, VERDE_RGB, AZUL_RGB)))
         if subtitulo:
@@ -112,13 +115,12 @@ class ColibriGroup(click.Group):
         console.print(Align.center(tabela))
         console.print()
 
-        # Dica de uso.
+        # Dica de uso
         dica = Text(no_wrap=True)
         dica.append("Use ", style="dim")
         dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)
         dica.append(" para ver as opções.", style="dim")
         console.print(Align.center(dica))
-        console.print()
 
 
 def _cliente(nome_segredo: str):
@@ -149,7 +151,7 @@ def _cor_tamanho(bytes: int) -> str:
 
 
 def _tabela_dados(*colunas):
-    """Tabela de dados com o tema verde/azul. Cada item: nome ou (nome, kwargs)."""
+    """Tabela de dados com o tema verde/azul. Cada item: nome ou (nome, kwargs)"""
     tabela = Table(box=box.ROUNDED, header_style=f"bold {VERDE}", border_style=AZUL)
     for coluna in colunas:
         if isinstance(coluna, tuple):
@@ -185,7 +187,7 @@ def bucket():
 
 @bucket.command("list")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--prefixo", default="", help="Filtrar por prefixo")
 def listar(bucket_name: str, segredo: str, prefixo: str):
     """Lista arquivos no bucket"""
@@ -232,25 +234,25 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
 @bucket.command("delete")
 @click.argument("arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 def deletar(arquivo: str, bucket_name: str, segredo: str):
     """Remove um arquivo do bucket"""
     s3 = _cliente(segredo)
     try:
         s3.head_object(Bucket=bucket_name, Key=arquivo)
     except ClientError:
-        console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
         return
 
     s3.delete_object(Bucket=bucket_name, Key=arquivo)
-    console.print(f"[{VERDE}]✓[/] Deletado: [bold]{arquivo}[/bold]")
+    console.print(f"[{VERDE}]+[/] Deletado: [bold]{arquivo}[/bold]")
 
 
 @bucket.command("purge")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--prefixo", default="", help="Limitar a um prefixo")
-@click.confirmation_option(prompt="⚠  Isso vai deletar todos os objetos. Confirma?")
+@click.confirmation_option(prompt="!  Isso vai deletar todos os objetos. Confirma?")
 def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
     """Remove todos os arquivos do bucket (ou de um prefixo)"""
     s3 = _cliente(segredo)
@@ -270,13 +272,13 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
         for i in range(0, len(objetos), 1000):
             s3.delete_objects(Bucket=bucket_name, Delete={"Objects": objetos[i:i + 1000]})
 
-    console.print(f"[{VERDE}]✓[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]")
+    console.print(f"[{VERDE}]+[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]")
 
 
 @bucket.command("download")
 @click.argument("arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--destino", default=None, help="Caminho local de destino (padrao: ./<arquivo>)")
 def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     """Baixa um arquivo do bucket"""
@@ -290,20 +292,20 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     try:
         s3.download_file(bucket_name, arquivo, destino)
         tamanho = os.path.getsize(destino)
-        console.print(f"[{VERDE}]✓[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+        console.print(f"[{VERDE}]+[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
     except ClientError:
-        console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
 
 
 @bucket.command("upload")
 @click.argument("caminho_arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 @click.option("--chave", default=None, help="Nome no bucket (padrão: nome do arquivo com timestamp)")
 def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | None):
     """Faz upload de um arquivo para o bucket"""
     if not os.path.exists(caminho_arquivo):
-        console.print(f"[red]✗[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]")
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]")
         return
 
     if chave is None:
@@ -319,12 +321,11 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
         with open(caminho_arquivo, "rb") as f:
             s3.upload_fileobj(f, bucket_name, chave)
 
-    console.print(f"[{VERDE}]✓[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+    console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
 def _conectar_lake():
     import utils.ducklake as dl
-    from ingestion.pncp_comprasgov.pipeline import NOME_SEGREDO, CAMINHO_META, DATA_PATH
     return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
 
 
@@ -334,6 +335,7 @@ def tabelas():
     con = _conectar_lake()
     rows = con.execute("""
         SELECT t.table_name,
+               'tabela' AS tipo,
                s.record_count AS linhas,
                count(f.data_file_id) AS parquets
         FROM __ducklake_metadata_lake.main.ducklake_table t
@@ -341,17 +343,33 @@ def tabelas():
         LEFT JOIN __ducklake_metadata_lake.main.ducklake_data_file f USING (table_id)
         WHERE t.end_snapshot IS NULL
         GROUP BY t.table_name, s.record_count
-        ORDER BY t.table_name
+
+        UNION ALL
+
+        SELECT v.view_name,
+               'view' AS tipo,
+               NULL AS linhas,
+               NULL AS parquets
+        FROM __ducklake_metadata_lake.main.ducklake_view v
+        WHERE v.end_snapshot IS NULL
+
+        ORDER BY tipo, table_name
     """).fetchall()
     con.close()
 
     tabela = _tabela_dados(
         "Tabela",
+        "Tipo",
         ("Linhas", {"justify": "right"}),
         ("Parquets", {"justify": "right"}),
     )
-    for row in rows:
-        tabela.add_row(row[0], f"{row[1]:,}" if row[1] else "—", str(row[2]))
+    for nome, tipo, linhas, parquets in rows:
+        tabela.add_row(
+            nome,
+            tipo,
+            f"{linhas:,}" if linhas else "—",
+            f"{parquets:,}" if parquets else "—",
+        )
     console.print(tabela)
 
 
@@ -367,7 +385,7 @@ def anos(tabela: str):
             GROUP BY ano ORDER BY ano
         """).fetchall()
     except Exception as e:
-        console.print(f"[red]✗[/red] {e}")
+        console.print(f"[red]x[/red] {e}")
         con.close()
         return
     con.close()
@@ -390,7 +408,7 @@ def query(sql: str):
     try:
         resultado = con.execute(sql).fetchdf()
     except Exception as e:
-        console.print(f"[red]✗[/red] {e}")
+        console.print(f"[red]x[/red] {e}")
         con.close()
         return
     con.close()
@@ -405,50 +423,9 @@ def query(sql: str):
     console.print(tb)
 
 
-_PREFIXO_SCHEMA = {
-    "stg_": "main_staging",
-    "int_": "main_intermediate",
-    "mrt_": "main_marts",
-}
-
-
-def _schema_para(tabela: str) -> str:
-    for prefixo, schema in _PREFIXO_SCHEMA.items():
-        if tabela.startswith(prefixo):
-            return schema
-    return "main"
-
-
-@lake.command("download")
-@click.argument("tabela")
-@click.option("--destino", default=None, help="Caminho do arquivo de saída (padrão: <tabela>.parquet)")
-@click.option("--formato", type=click.Choice(["parquet", "csv"]), default="parquet", show_default=True)
-def download_tabela(tabela: str, destino: str | None, formato: str):
-    """Exporta uma tabela do lake para um arquivo local"""
-    import os
-    schema = _schema_para(tabela)
-    destino = destino or f"{tabela}.{formato}"
-    con = _conectar_lake()
-    try:
-        with Progress(SpinnerColumn(), TextColumn(f"[cyan]Exportando {schema}.{tabela}..."), transient=True) as p:
-            p.add_task("")
-            if formato == "parquet":
-                con.execute(f"COPY (SELECT * FROM lake.{schema}.{tabela}) TO '{destino}' (FORMAT PARQUET)")
-            else:
-                con.execute(f"COPY (SELECT * FROM lake.{schema}.{tabela}) TO '{destino}' (FORMAT CSV, HEADER true)")
-    except Exception as e:
-        console.print(f"[red]✗[/red] {e}")
-        con.close()
-        return
-    con.close()
-    tamanho = os.path.getsize(destino)
-    console.print(f"[green]✓[/green] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
-
-
 @pipeline.command("run")
-@click.option("--apenas", type=click.Choice(["pncp-comprasgov"]), default=None, help="Rodar só um pipeline")
-@click.option("--do-zero", is_flag=True, help="Apaga dados, manifestos e catálogo DuckLake locais antes de rodar, forçando reextração completa")
-def run(apenas: str | None, do_zero: bool):
+@click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
+def run(apenas: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
 
@@ -458,37 +435,28 @@ def run(apenas: str | None, do_zero: bool):
 
     ordem = list(pipelines.keys()) if apenas is None else [apenas]
 
-    if do_zero:
-        from pathlib import Path
-
-        raiz = Path(__file__).resolve().parent
-        console.print("[yellow]⚠[/yellow] --do-zero: apagando dados, manifestos e catálogo DuckLake locais...")
-        for caminho_catalogo in (raiz / "meta.ducklake", raiz / "dbt" / "meta.ducklake", raiz / "dbt" / "meta.ducklake.wal"):
-            caminho_catalogo.unlink(missing_ok=True)
-        for nome in ordem:
-            modulo, _ = pipelines[nome]
-            modulo.resetar_dados_locais()
-
     for nome in ordem:
         modulo, label = pipelines[nome]
         console.print(label)
         modulo.main()
 
-    console.print(f"[{VERDE}]✓[/] Pipeline concluido.")
+    console.print("[green]+[/green] Pipeline concluido.")
 
 
 _MANIFESTOS = [
+    "ncm_manifesto.csv",
     "pncp_comprasgov_manifesto.csv",
+    "catmats_manifesto.csv",
+    "nfe_cgu_manifesto.csv",
 ]
 
 
 @cli.command("sincronizar")
-@click.option("--segredo", default=SEGREDO_PADRAO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
 def sincronizar(segredo: str):
     """Baixa os manifestos e o catálogo DuckLake do bucket para a máquina local"""
     import os
     from pathlib import Path
-    from utils.ducklake import CATALOGO_LOCAL
 
     config = carregar_segredo(segredo)
     bucket = config["bucket_lake"]
@@ -509,9 +477,9 @@ def sincronizar(segredo: str):
                 p.add_task("")
                 s3.download_file(bucket, chave, destino)
             tamanho = os.path.getsize(destino)
-            console.print(f"[green]✓[/green] {chave} → [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+            console.print(f"[green]+[/green] {chave} -> [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
         except Exception as e:
-            console.print(f"[red]✗[/red] {chave}: {e}")
+            console.print(f"[red]x[/red] {chave}: {e}")
 
 
 @cli.command("docs")
