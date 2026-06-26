@@ -5,7 +5,7 @@ from ingestion.ncm.extract import executar_ingestao, resetar_dados_locais, subir
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
-from utils.salvar_arquivo import salvar_arquivo_no_bucket
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
 
 
