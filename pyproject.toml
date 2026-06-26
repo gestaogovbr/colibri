@@ -9,7 +9,9 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3",
     "click",
-    "duckdb",
+    "databricks-sql-connector",
+    "dbt-duckdb==1.10.1",
+    "duckdb==1.4.5",
     "numpy",
     "pandas",
     "pyarrow",
@@ -17,6 +19,7 @@ dependencies = [
     "requests",
     "pipe",
     "rich",
+    "tqdm",
 ]
 
 [project.scripts]

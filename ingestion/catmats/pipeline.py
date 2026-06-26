@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from ingestion.pncp_comprasgov.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
+from ingestion.catmats.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
@@ -21,10 +21,7 @@ def main():
         subprocess.run(
             [
                 "dbt", "run",
-                "--select",
-                "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov_compras "
-                "stg_pncp_comprasgov__itens int_pncp_comprasgov__itens mrt_pncp_comprasgov_itens "
-                "stg_pncp_comprasgov__resultados int_pncp_comprasgov__resultados mrt_pncp_comprasgov_resultados",
+                "--select", "stg_catmats",
                 "--project-dir", str(DBT_DIR),
                 "--profiles-dir", str(DBT_DIR),
             ],
@@ -34,8 +31,6 @@ def main():
     else:
         print("[dbt] Sem dados novos na extração, pulando dbt run.")
 
-    # Só sobe manifesto/catálogo se chegou até aqui: se o dbt quebrar, a exceção
-    # interrompe a função antes disso, e o bucket fica intacto pra próxima tentativa.
     subir_manifesto()
     salvar_arquivo_no_bucket(CATALOGO_LOCAL, BUCKET, NOME_SEGREDO, CATALOGO_LOCAL)
 
