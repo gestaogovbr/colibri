@@ -423,6 +423,15 @@ def query(sql: str):
     console.print(tb)
 
 
+
+@lake.command("ui")
+def ui():
+    """Abre DuckDB UI conectado ao catálogo"""
+    con = _conectar_lake()
+    con.execute("CALL start_ui();")
+    input("Pressione Enter para fechar o servidor e encerrar o script...")
+
+
 @pipeline.command("run")
 @click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
 def run(apenas: str | None):
