@@ -1,1 +1,1 @@
-"""Colibri - Sistema de extração e transformação de dados."""
+"""Colibri - Sistema de extração e transformação de dados"""

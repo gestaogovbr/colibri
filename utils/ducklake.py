@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from utils.carregar_segredo import carregar_segredo
 from utils.baixar_catalogo import baixar_catalogo
 from utils.criar_cliente import criar_cliente
-from utils.constantes import CATALOGO_LOCAL, _SESSION_DB
+from utils.constantes import CATALOGO_LOCAL, SESSION_DB
 
 
 def _parsear_s3(caminho_meta: str) -> tuple[str, str]:
@@ -61,9 +61,9 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     Cria uma conexão duckdb local, contendo todas as extensões e credenciais pra falar com o bucket
     """
     endpoint = urlparse(config["endpoint"]).netloc
-    if os.path.exists(_SESSION_DB):
-        os.remove(_SESSION_DB)
-    con = duckdb.connect(_SESSION_DB)
+    if os.path.exists(SESSION_DB):
+        os.remove(SESSION_DB)
+    con = duckdb.connect(SESSION_DB)
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
     con.execute("INSTALL ducklake")
@@ -87,7 +87,7 @@ def conectar(caminho_meta: str, data_path: str, nome_segredo: str) -> duckdb.Duc
     bucket, chave = _parsear_s3(caminho_meta)
     baixar_catalogo(cliente, bucket, chave)
 
-    # Cria uma conexão com o _SESSION_DB ("ducklake_session.duckdb")
+    # Cria uma conexão com o SESSION_DB ("ducklake_session.duckdb")
     con = _nova_conexao(config)
 
     # Conecta o catálogo baixado do bucket com o caminho dos parquets no bucket
@@ -103,8 +103,8 @@ def fechar(con: duckdb.DuckDBPyConnection, caminho_meta: str, nome_segredo: str)
     con.close()
 
     # Remove o banco de sessão local, já que não é mais necessário
-    if os.path.exists(_SESSION_DB):
-        os.remove(_SESSION_DB)
+    if os.path.exists(SESSION_DB):
+        os.remove(SESSION_DB)
 
     # Garante que as alterações do WAL foram gravadas no meta.ducklake antes do upload
     _checkpoint_catalogo()
