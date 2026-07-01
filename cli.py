@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 import boto3
 import click
 from botocore.exceptions import ClientError
-from rich.align import Align
 from rich.console import Console
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
@@ -89,17 +89,7 @@ class ColibriGroup(click.Group):
         # Na raiz usa o subtítulo global; nos subgrupos, a própria docstring do grupo
         subtitulo = SUBTITULO if ctx.parent is None else (self.help or "").strip()
 
-        banner, largura = self._banner()
-        regua = "-" * min(largura, console.size.width)
-
-        console.print()
-        console.print(banner)
-        console.print(_gradiente_h(regua, VERDE_RGB, AZUL_RGB))
-        if subtitulo:
-            console.print(Text(subtitulo, style="italic dim"))
-        console.print()
-
-        # Comandos numa tabela com borda, centralizada como bloco
+        # Tabela construída primeiro para medir a largura e calcular o recuo do banner
         tabela = Table(
             box=box.ROUNDED,
             show_header=False,
@@ -112,6 +102,19 @@ class ColibriGroup(click.Group):
         tabela.add_column(style="white")
         for nome in self.list_commands(ctx):
             tabela.add_row(nome, self.get_command(ctx, nome).get_short_help_str())
+
+        largura_tabela = console.measure(tabela).maximum
+        banner, largura = self._banner()
+        regua = "-" * min(largura, console.size.width)
+        left_pad = max(0, (largura_tabela - largura) // 2)
+
+        console.print()
+        console.print(Padding(banner, (0, 0, 0, left_pad)))
+        console.print(Padding(_gradiente_h(regua, VERDE_RGB, AZUL_RGB), (0, 0, 0, left_pad)))
+        if subtitulo:
+            sub_pad = max(0, (largura_tabela - len(subtitulo)) // 2)
+            console.print(Padding(Text(subtitulo, style="italic dim"), (0, 0, 0, sub_pad)))
+        console.print()
         console.print(tabela)
         console.print()
 
@@ -120,7 +123,9 @@ class ColibriGroup(click.Group):
         dica.append("Use ", style="dim")
         dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)
         dica.append(" para ver as opções.", style="dim")
-        console.print(dica)
+        dica_str = f"Use {ctx.command_path} <comando> --help para ver as opções."
+        dica_pad = max(0, (largura_tabela - len(dica_str)) // 2)
+        console.print(Padding(dica, (0, 0, 0, dica_pad)))
 
 
 def _cliente(nome_segredo: str):
@@ -398,6 +403,56 @@ def anos(tabela: str):
     tb.add_section()
     tb.add_row("[bold]Total[/bold]", f"[bold {AZUL}]{total:,}[/]")
     console.print(tb)
+
+
+@lake.command("download")
+@click.argument("tabela")
+@click.option("--destino", default=None, help="Diretório de destino (padrão: ./<tabela>)")
+def lake_download(tabela: str, destino: str | None):
+    """Baixa os parquets de uma tabela do catálogo para o disco"""
+    con = _conectar_lake()
+    from urllib.parse import urlparse
+    try:
+        rows = con.execute("""
+            SELECT s.schema_name, t.path AS table_path, f.path, f.file_size_bytes
+            FROM __ducklake_metadata_lake.main.ducklake_schema s
+            JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
+            JOIN __ducklake_metadata_lake.main.ducklake_data_file f USING (table_id)
+            WHERE t.table_name = ? AND t.end_snapshot IS NULL
+            ORDER BY f.path
+        """, [tabela]).fetchall()
+    except Exception as e:
+        console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
+        con.close()
+        return
+    con.close()
+
+    if not rows:
+        console.print(f"[red]x[/red] Tabela não encontrada ou sem arquivos: [bold]{tabela}[/bold]")
+        return
+
+    destino_base = destino or tabela
+    os.makedirs(destino_base, exist_ok=True)
+
+    config = carregar_segredo(NOME_SEGREDO_VISUALIZADOR)
+    bucket = config["bucket_lake"]
+    s3 = _cliente(NOME_SEGREDO_VISUALIZADOR)
+    prefixo = urlparse(DATA_PATH).path.lstrip("/")  # ex: "lake/"
+    total_bytes = sum(r[3] or 0 for r in rows)
+    console.print(f"  [{AZUL}]{len(rows)} parquet(s)[/] — {_tamanho(total_bytes)} total")
+
+    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Baixando..."), transient=True) as p:
+        p.add_task("")
+        for schema_name, table_path, file_path, _ in rows:
+            chave = f"{prefixo}{schema_name}/{table_path}{file_path}"
+            nome_local = os.path.join(destino_base, os.path.basename(file_path))
+            try:
+                s3.download_file(bucket, chave, nome_local)
+                console.print(f"  [{VERDE}]+[/] {os.path.basename(file_path)}")
+            except ClientError as e:
+                console.print(f"  [red]x[/red] Falha (chave: {chave}): {e}")
+
+    console.print(f"[{VERDE}]+[/] {len(rows)} arquivo(s) em [bold]{destino_base}/[/bold]")
 
 
 @lake.command("query")

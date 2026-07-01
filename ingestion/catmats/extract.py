@@ -140,19 +140,19 @@ def resetar_dados_locais() -> None:
     (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
 
 
-def subir_manifesto() -> None:
+def subir_manifesto(bucket: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
     _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
 
 
-def executar_ingestao() -> bool:
+def executar_ingestao(bucket: str | None = None) -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     DIRETORIO_CATMATS.mkdir(parents=True, exist_ok=True)
     DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
 
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
-    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
     baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
