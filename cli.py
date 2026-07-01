@@ -407,52 +407,42 @@ def anos(tabela: str):
 
 @lake.command("download")
 @click.argument("tabela")
-@click.option("--destino", default=None, help="Diretório de destino (padrão: ./<tabela>)")
+@click.option("--destino", default=None, help="Arquivo de saída (padrão: ./<tabela>.parquet)")
 def lake_download(tabela: str, destino: str | None):
     """Baixa os parquets de uma tabela do catálogo para o disco"""
     con = _conectar_lake()
-    from urllib.parse import urlparse
     try:
-        rows = con.execute("""
-            SELECT s.schema_name, t.path AS table_path, f.path, f.file_size_bytes
+        row = con.execute("""
+            SELECT s.schema_name
             FROM __ducklake_metadata_lake.main.ducklake_schema s
             JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
-            JOIN __ducklake_metadata_lake.main.ducklake_data_file f USING (table_id)
             WHERE t.table_name = ? AND t.end_snapshot IS NULL
-            ORDER BY f.path
-        """, [tabela]).fetchall()
+            LIMIT 1
+        """, [tabela]).fetchone()
     except Exception as e:
         console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
         con.close()
         return
-    con.close()
 
-    if not rows:
-        console.print(f"[red]x[/red] Tabela não encontrada ou sem arquivos: [bold]{tabela}[/bold]")
+    if not row:
+        console.print(f"[red]x[/red] Tabela não encontrada: [bold]{tabela}[/bold]")
+        con.close()
         return
 
-    destino_base = destino or tabela
-    os.makedirs(destino_base, exist_ok=True)
+    schema_name = row[0]
+    saida = destino or f"{tabela}.parquet"
 
-    config = carregar_segredo(NOME_SEGREDO_VISUALIZADOR)
-    bucket = config["bucket_lake"]
-    s3 = _cliente(NOME_SEGREDO_VISUALIZADOR)
-    prefixo = urlparse(DATA_PATH).path.lstrip("/")  # ex: "lake/"
-    total_bytes = sum(r[3] or 0 for r in rows)
-    console.print(f"  [{AZUL}]{len(rows)} parquet(s)[/] — {_tamanho(total_bytes)} total")
-
-    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Baixando..."), transient=True) as p:
+    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Exportando..."), transient=True) as p:
         p.add_task("")
-        for schema_name, table_path, file_path, _ in rows:
-            chave = f"{prefixo}{schema_name}/{table_path}{file_path}"
-            nome_local = os.path.join(destino_base, os.path.basename(file_path))
-            try:
-                s3.download_file(bucket, chave, nome_local)
-                console.print(f"  [{VERDE}]+[/] {os.path.basename(file_path)}")
-            except ClientError as e:
-                console.print(f"  [red]x[/red] Falha (chave: {chave}): {e}")
+        try:
+            con.execute(f"COPY (SELECT * FROM lake.{schema_name}.{tabela}) TO '{saida}' (FORMAT PARQUET)")
+        except Exception as e:
+            console.print(f"[red]x[/red] Erro: {e}")
+            con.close()
+            return
 
-    console.print(f"[{VERDE}]+[/] {len(rows)} arquivo(s) em [bold]{destino_base}/[/bold]")
+    con.close()
+    console.print(f"[{VERDE}]+[/] Salvo em [bold]{saida}[/bold]")
 
 
 @lake.command("query")
