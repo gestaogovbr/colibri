@@ -3,7 +3,7 @@ version: '0.1.0'
 profile: colibri
 vars:
   timezone: 'America/Sao_Paulo'
-  bucket_lake: 'colibri-dev'
+  bucket_lake: 'colibri-prod'
 
 model-paths: ["modelos"]
 

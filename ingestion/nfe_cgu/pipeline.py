@@ -9,13 +9,14 @@ from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
 
 
-def main():
+def main(bucket: str | None = None):
     os.chdir(RAIZ_PROJETO)
+    bucket = bucket or BUCKET
     config = carregar_segredo(NOME_SEGREDO)
     cliente = criar_cliente(config)
 
-    baixar_catalogo(cliente, BUCKET, CATALOGO_LOCAL)
-    houve_mudanca = executar_ingestao()
+    baixar_catalogo(cliente, bucket, CATALOGO_LOCAL)
+    houve_mudanca = executar_ingestao(bucket=bucket)
 
     if houve_mudanca:
         subprocess.run(
@@ -32,8 +33,8 @@ def main():
     else:
         print("[dbt] Sem dados novos na extração, pulando dbt run.")
 
-    subir_manifesto()
-    salvar_arquivo_no_bucket(CATALOGO_LOCAL, BUCKET, NOME_SEGREDO, CATALOGO_LOCAL)
+    subir_manifesto(bucket=bucket)
+    salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO, CATALOGO_LOCAL)
 
 
 if __name__ == "__main__":
