@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 from ingestion.pncp_comprasgov import pipeline as pncp_comprasgov_pipeline
-from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, CATALOGO_LOCAL
+from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
@@ -326,7 +326,7 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
 
 def _conectar_lake():
     import utils.ducklake as dl
-    return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
+    return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO_VISUALIZADOR)
 
 
 @lake.command("tables")
@@ -434,7 +434,8 @@ def ui():
 
 @pipeline.command("run")
 @click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
-def run(apenas: str | None):
+@click.option("--bucket", default=None, help="Bucket de destino (padrão: definido nas constantes)")
+def run(apenas: str | None, bucket: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
 
@@ -447,7 +448,7 @@ def run(apenas: str | None):
     for nome in ordem:
         modulo, label = pipelines[nome]
         console.print(label)
-        modulo.main()
+        modulo.main(bucket=bucket)
 
     console.print("[green]+[/green] Pipeline concluido.")
 
