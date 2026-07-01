@@ -93,10 +93,10 @@ class ColibriGroup(click.Group):
         regua = "-" * min(largura, console.size.width)
 
         console.print()
-        console.print(Align.center(banner))
-        console.print(Align.center(_gradiente_h(regua, VERDE_RGB, AZUL_RGB)))
+        console.print(banner)
+        console.print(_gradiente_h(regua, VERDE_RGB, AZUL_RGB))
         if subtitulo:
-            console.print(Align.center(Text(subtitulo, style="italic dim")))
+            console.print(Text(subtitulo, style="italic dim"))
         console.print()
 
         # Comandos numa tabela com borda, centralizada como bloco
@@ -112,7 +112,7 @@ class ColibriGroup(click.Group):
         tabela.add_column(style="white")
         for nome in self.list_commands(ctx):
             tabela.add_row(nome, self.get_command(ctx, nome).get_short_help_str())
-        console.print(Align.center(tabela))
+        console.print(tabela)
         console.print()
 
         # Dica de uso
@@ -120,7 +120,7 @@ class ColibriGroup(click.Group):
         dica.append("Use ", style="dim")
         dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)
         dica.append(" para ver as opções.", style="dim")
-        console.print(Align.center(dica))
+        console.print(dica)
 
 
 def _cliente(nome_segredo: str):
