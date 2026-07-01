@@ -3,7 +3,7 @@ Ingestão de NFe da CGU (Portal da Transparência).
 
 Para cada período YYYY-MM ainda não processado (ou com conteúdo alterado),
 baixa o ZIP correspondente, extrai os CSVs (itens, eventos, nf),
-converte latin-1 → UTF-8 e salva em dados/nfe_cgu/{tabela}/{YYYY-MM}.csv.
+converte latin-1 → UTF-8, converte para Parquet e salva no bucket em nfe_cgu/{tabela}/{YYYY-MM}.parquet.
 
 Manifesto incremental (nfe_cgu_manifesto.csv):
   Registra hash SHA-256 por (tabela, período). Períodos cujo hash bate com o
@@ -18,22 +18,27 @@ Uso:
   python -m ingestion.nfe_cgu.extract
 """
 
+import io
+import uuid
+import time
 import csv
 import hashlib
-import io
 import logging
 import shutil
-import time
+import boto3
+import botocore
+import duckdb
 import tempfile
 import zipfile
 from datetime import date, datetime
 from pathlib import Path
+from utils.carregar_segredo import carregar_segredo
+from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
 
 import requests
 
 import utils.configurar_logging as log
-from utils.carregar_segredo import carregar_segredo
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
@@ -52,9 +57,10 @@ NOME_ALTERACOES = "nfe_cgu_alteracoes.csv"
 COLUNAS_MANIFESTO = ["tabela", "periodo", "hash_sha256", "num_linhas", "tamanho_bytes", "extraido_em"]
 COLUNAS_ALTERACOES = ["tabela", "periodo"]
 
+TIMEOUT_SEGUNDOS = 120
 MAX_TENTATIVAS = 3
-PAUSA_BASE = 5
-TIMEOUT = 120
+PAUSA_BASE_SEGUNDOS = 5
+SALVAR_MANIFESTO_A_CADA = 10
 
 
 def _gerar_periodos() -> list[str]:
@@ -76,19 +82,43 @@ def _identificar_csvs(nomes: list[str]) -> tuple[str, str, str]:
     return itens, eventos, nf
 
 
-def _baixar(session: requests.Session, url: str) -> bytes | None:
+def csv_para_parquet(conteudo: bytes) -> bytes:
+    caminho_tmp = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.parquet"
+    try:
+        duckdb.read_csv(io.BytesIO(conteudo)).write_parquet(str(caminho_tmp))
+        return caminho_tmp.read_bytes()
+    finally:
+        caminho_tmp.unlink(missing_ok=True)
+
+
+def criar_sessao() -> requests.Session:
+    """Cria uma sessão HTTP persistente pra todas as requests"""
+    session = requests.Session()
+    session.headers.update({"User-Agent": "colibri-ingestao/1.0"})
+    return session
+
+
+def baixar(session: requests.Session, url: str) -> bytes | None:
+    """Baixa a URL com até MAX_TENTATIVAS tentativas e retorna o payload em BYTES"""
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
-            resp = session.get(url, timeout=TIMEOUT)
-            if resp.status_code == 404:
-                logger.debug(f"404: {url}")
+            resposta = session.get(url, timeout=TIMEOUT_SEGUNDOS)
+
+            if resposta.status_code == 404:
+                logger.debug(f"404 — sem dados: {url}")
                 return None
-            resp.raise_for_status()
-            return resp.content
-        except requests.RequestException as e:
-            logger.warning(f"Tentativa {tentativa}/{MAX_TENTATIVAS}: {e}")
-            if tentativa < MAX_TENTATIVAS:
-                time.sleep(PAUSA_BASE * tentativa)
+
+            resposta.raise_for_status()
+            return resposta.content
+
+        except requests.exceptions.Timeout:
+            logger.warning(f"Timeout (tentativa {tentativa}/{MAX_TENTATIVAS}): {url}")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}")
+
+        if tentativa < MAX_TENTATIVAS:
+            time.sleep(PAUSA_BASE_SEGUNDOS * tentativa)
+
     logger.error(f"Falha definitiva: {url}")
     return None
 
@@ -114,6 +144,18 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str]]) -> None:
         w.writerows(alteracoes)
 
 
+def registrar_entrada(manifesto: dict[str, dict], tabela: str, periodo: str, conteudo: bytes) -> None:
+    linhas = conteudo.decode("utf-8").strip().splitlines()
+    manifesto[f"{tabela}:{periodo}"] = {
+        "tabela": tabela,
+        "periodo": periodo,
+        "hash_sha256": hashlib.sha256(conteudo).hexdigest(),
+        "num_linhas": len(linhas) - 1,
+        "tamanho_bytes": len(conteudo),
+        "extraido_em": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
 def resetar_dados_locais() -> None:
     """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
     shutil.rmtree(DIRETORIO_NFE, ignore_errors=True)
@@ -127,109 +169,120 @@ def subir_manifesto() -> None:
     _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
 
 
+def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[str, dict]) -> str:
+    """
+    Baixa o ZIP do período, extrai cada tabela em memória e salva no bucket se necessário.
+
+    Retorna: "baixado", "atualizado", "ignorado" ou "indisponivel"
+    """
+    periodo_raw = periodo.replace("-", "")
+    url = f"{URL_BASE}/{periodo_raw}_NFe.zip"
+
+    conteudo_zip = baixar(session, url)
+    if conteudo_zip is None:
+        return "indisponivel"
+
+    config = carregar_segredo(NOME_SEGREDO)
+    bucket = config["bucket_lake"]
+
+    # Ex: 'nfe_cgu/itens/2022-01.parquet'
+    s3 = boto3.resource(
+        "s3",
+        endpoint_url=config["endpoint"],
+        aws_access_key_id=config["access_key"],
+        aws_secret_access_key=config["secret_key"],
+        region_name="auto",
+    )
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
+            nomes = [n for n in z.namelist() if not n.endswith("/")]
+            nome_itens, nome_eventos, nome_nf = _identificar_csvs(nomes)
+
+            status_geral = "ignorado"
+            for tabela, nome in zip(TABELAS, [nome_itens, nome_eventos, nome_nf]):
+                conteudo_utf8 = z.read(nome).decode("latin-1").encode("utf-8")
+                linhas = conteudo_utf8.decode().strip().splitlines()
+                if len(linhas) < 2:
+                    logger.debug(f"[{tabela}] {periodo}: sem dados, ignorado.")
+                    continue
+
+                chave = f"{tabela}:{periodo}"
+                entrada = manifesto.get(chave)
+                nome_no_bucket = f"nfe_cgu/{tabela}/{periodo}.parquet"
+
+                # Verifica se objeto existe no bucket via HEAD request
+                try:
+                    s3.Object(bucket, nome_no_bucket).load()
+                    existe_no_bucket = True
+                except botocore.exceptions.ClientError as e:
+                    existe_no_bucket = False
+
+                if entrada and existe_no_bucket and entrada["hash_sha256"] == hashlib.sha256(conteudo_utf8).hexdigest():
+                    logger.info(f"[{tabela}] {periodo}: hash bate com manifesto, pulando")
+                    continue
+
+                conteudo_parquet = csv_para_parquet(conteudo_utf8)
+                salvar_bytes_no_bucket(conteudo_parquet, bucket, NOME_SEGREDO, nome_no_bucket)
+                registrar_entrada(manifesto, tabela, periodo, conteudo_utf8)
+                status_geral = "atualizado" if entrada else "baixado"
+                e = manifesto[chave]
+                logger.info(f"[{tabela}] {periodo}: {status_geral} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)")
+
+        return status_geral
+
+    except StopIteration:
+        logger.error(f"{periodo}: não foi possível identificar CSVs no ZIP")
+        return "indisponivel"
+    except Exception as e:
+        logger.error(f"{periodo}: erro ao processar ZIP: {e}")
+        return "indisponivel"
+
+
 def executar_ingestao() -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
-    for tabela in TABELAS:
-        (DIRETORIO_NFE / tabela).mkdir(parents=True, exist_ok=True)
-    DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
-    DIRETORIO_ALTERACOES.mkdir(parents=True, exist_ok=True)
-
+    for d in (DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES):
+        d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
     bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
     baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
-
-    periodos = _gerar_periodos()
-    logger.info(f"Total: {len(periodos)} períodos")
+    session = criar_sessao()
 
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0, "indisponivel": 0}
     alteracoes: list[tuple[str, str]] = []
     manifesto_modificado = False
 
-    session = requests.Session()
-    session.headers["User-Agent"] = "colibri-ingestao/1.0"
+    periodos = _gerar_periodos()
+    hoje = date.today()
+    logger.info(f"Ingestão: {PERIODO_INICIO} -> {hoje} ({len(periodos)} período(s))")
 
     try:
-        for periodo in periodos:
-            periodo_raw = periodo.replace("-", "")
-            url = f"{URL_BASE}/{periodo_raw}_NFe.zip"
-
-            conteudo_zip = _baixar(session, url)
-            if conteudo_zip is None:
-                contadores["indisponivel"] += 1
-                continue
-
-            try:
-                with tempfile.TemporaryDirectory() as tmp:
-                    tmp_path = Path(tmp)
-                    with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as z:
-                        z.extractall(tmp)
-
-                    arquivos = [f for f in tmp_path.iterdir() if f.is_file()]
-                    if len(arquivos) < 2:
-                        logger.error(f"{periodo}: esperado ao menos 2 arquivos, encontrado {len(arquivos)}")
-                        continue
-
-                    nomes = [f.name for f in arquivos]
-                    try:
-                        nome_itens, nome_eventos, nome_nf = _identificar_csvs(nomes)
-                    except StopIteration:
-                        logger.error(f"{periodo}: não foi possível identificar CSVs: {nomes}")
-                        continue
-
-                    salvos = 0
-                    for tabela, nome in zip(TABELAS, [nome_itens, nome_eventos, nome_nf]):
-                        src = tmp_path / nome
-                        conteudo_utf8 = src.read_bytes().decode("latin-1").encode("utf-8")
-                        linhas = conteudo_utf8.decode().strip().splitlines()
-                        if len(linhas) < 2:
-                            logger.debug(f"{periodo}/{tabela}: sem dados, ignorado.")
-                            continue
-
-                        hash_atual = hashlib.sha256(conteudo_utf8).hexdigest()
-                        chave = f"{tabela}:{periodo}"
-                        entrada = manifesto.get(chave)
-                        dst = DIRETORIO_NFE / tabela / f"{periodo}.csv"
-
-                        if entrada and dst.exists() and entrada["hash_sha256"] == hash_atual:
-                            contadores["ignorado"] += 1
-                            continue
-
-                        dst.write_bytes(conteudo_utf8)
-                        status = "atualizado" if entrada else "baixado"
-                        manifesto[chave] = {
-                            "tabela": tabela,
-                            "periodo": periodo,
-                            "hash_sha256": hash_atual,
-                            "num_linhas": len(linhas) - 1,
-                            "tamanho_bytes": len(conteudo_utf8),
-                            "extraido_em": datetime.now().isoformat(timespec="seconds"),
-                        }
-                        alteracoes.append((tabela, periodo))
-                        contadores[status] += 1
-                        manifesto_modificado = True
-                        salvos += 1
-
-                if salvos > 0:
-                    logger.info(f"{periodo}: {salvos} CSV(s) salvos.")
-
-            except Exception as e:
-                logger.error(f"{periodo}: erro ao processar ZIP: {e}")
+        for i, periodo in enumerate(periodos, 1):
+            status = processar_periodo(session, periodo, manifesto)
+            contadores[status] += 1
+            if status in ("baixado", "atualizado"):
+                manifesto_modificado = True
+                for tabela in TABELAS:
+                    alteracoes.append((tabela, periodo))
+            if i % SALVAR_MANIFESTO_A_CADA == 0:
+                salvar_manifesto(caminho_manifesto, manifesto)
 
     finally:
         session.close()
         salvar_manifesto(caminho_manifesto, manifesto)
         salvar_alteracoes(caminho_alteracoes, alteracoes)
-        logger.info(
-            f"Concluído. {len(set(p for _, p in alteracoes))} períodos novos.  "
-            f"Baixados: {contadores['baixado']}  "
-            f"Atualizados: {contadores['atualizado']}  "
-            f"Ignorados: {contadores['ignorado']}  "
-            f"Indisponíveis: {contadores['indisponivel']}"
-        )
+        logger.info(f"Manifesto: {caminho_manifesto}")
+        logger.info(f"Alterações: {caminho_alteracoes} ({len(alteracoes)} arquivo(s))")
 
+    logger.info(
+        f"Baixados: {contadores['baixado']}  "
+        f"Atualizados: {contadores['atualizado']}  "
+        f"Ignorados: {contadores['ignorado']}  "
+        f"Indisponíveis: {contadores['indisponivel']}"
+    )
     return manifesto_modificado
 
 
