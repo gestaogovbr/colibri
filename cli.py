@@ -173,9 +173,12 @@ def cli():
 
 
 @cli.group(cls=ColibriGroup)
-def lake():
+@click.option("--bucket", default='colibri-prod', help="Bucket do lake (padrão: colibri-prod)")
+@click.pass_context
+def lake(ctx, bucket):
     """Explora o catálogo e executa queries SQL"""
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["bucket"] = bucket
 
 
 @cli.group(cls=ColibriGroup)
@@ -329,15 +332,22 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
     console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
-def _conectar_lake():
+def _conectar_lake(bucket: str | None = None):
     import utils.ducklake as dl
-    return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO_VISUALIZADOR)
+    if bucket:
+        caminho_meta = f"s3://{bucket}/meta.ducklake"
+        data_path = f"s3://{bucket}/lake/"
+    else:
+        caminho_meta = CAMINHO_META
+        data_path = DATA_PATH
+    return dl.conectar(caminho_meta, data_path, NOME_SEGREDO_VISUALIZADOR)
 
 
 @lake.command("tables")
-def tabelas():
+@click.pass_context
+def tabelas(ctx):
     """Lista as tabelas registradas no catalogo"""
-    con = _conectar_lake()
+    con = _conectar_lake(ctx.obj.get("bucket"))
     rows = con.execute("""
         SELECT t.table_name,
                'tabela' AS tipo,

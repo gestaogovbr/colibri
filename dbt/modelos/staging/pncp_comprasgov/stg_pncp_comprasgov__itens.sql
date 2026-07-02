@@ -12,7 +12,7 @@ renomeadas com sufixo _pncp (alteração de schema em 2025).
 ) }}
 
 WITH raw_data AS (
-  {{ pncp_comprasgov_union_por_ano('VW_FT_PNCP_COMPRA_ITEM') }}
+  {{ pncp_comprasgov_source('VW_FT_PNCP_COMPRA_ITEM') }}
 ),
 
 bronze AS (

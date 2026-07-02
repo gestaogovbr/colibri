@@ -6,24 +6,16 @@
 ) }}
 
 WITH raw_data AS (
-    SELECT * FROM read_csv(
-        '../dados/nfe_cgu/eventos/*.csv',
-        sep = ';',
-        header = true,
-        all_varchar = true,
-        union_by_name = true,
-        filename = true
-    )
+  {{ nfe_cgu_source('eventos') }}
 )
 
 SELECT
-    * EXCLUDE (filename),
-    regexp_extract(filename, '(\d{4}-\d{2})\.csv$', 1) AS periodo,
+    *,
     '{{ run_started_at.strftime("%Y-%m-%d %H:%M:%S") }}' AS _dbt_loaded_at
 FROM raw_data
 
 {% if is_incremental() %}
-WHERE regexp_extract(filename, '(\d{4}-\d{2})\.csv$', 1) IN (
+WHERE periodo IN (
     SELECT periodo
     FROM read_csv(
         '../dados/alteracoes/nfe_cgu_alteracoes.csv',

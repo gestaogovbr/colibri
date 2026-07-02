@@ -12,7 +12,7 @@ Schema estável entre anos (sem variantes _pncp).
 ) }}
 
 WITH raw_data AS (
-  {{ pncp_comprasgov_union_por_ano('VW_DM_PNCP_ITEM_RESULTADO') }}
+  {{ pncp_comprasgov_source('VW_DM_PNCP_ITEM_RESULTADO') }}
 ),
 
 bronze AS (
