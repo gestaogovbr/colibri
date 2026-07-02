@@ -163,13 +163,13 @@ def resetar_dados_locais() -> None:
     (DIRETORIO_ALTERACOES / NOME_ALTERACOES).unlink(missing_ok=True)
 
 
-def subir_manifesto() -> None:
+def subir_manifesto(bucket: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
     _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
 
 
-def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[str, dict]) -> str:
+def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[str, dict], bucket: str) -> str:
     """
     Baixa o ZIP do período, extrai cada tabela em memória e salva no bucket se necessário.
 
@@ -183,7 +183,6 @@ def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[s
         return "indisponivel"
 
     config = carregar_segredo(NOME_SEGREDO)
-    bucket = config["bucket_lake"]
 
     # Ex: 'nfe_cgu/itens/2022-01.parquet'
     s3 = boto3.resource(
@@ -239,13 +238,13 @@ def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[s
         return "indisponivel"
 
 
-def executar_ingestao() -> bool:
+def executar_ingestao(bucket: str | None = None) -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     for d in (DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES):
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
     baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
@@ -261,7 +260,7 @@ def executar_ingestao() -> bool:
 
     try:
         for i, periodo in enumerate(periodos, 1):
-            status = processar_periodo(session, periodo, manifesto)
+            status = processar_periodo(session, periodo, manifesto, bucket)
             contadores[status] += 1
             if status in ("baixado", "atualizado"):
                 manifesto_modificado = True
