@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 from ingestion.pncp_comprasgov import pipeline as pncp_comprasgov_pipeline
-from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
+from utils.constantes import NOME_SEGREDO, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
@@ -329,15 +329,19 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
     console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
-def _conectar_lake():
+def _conectar_lake(bucket: str, segredo: str):
     import utils.ducklake as dl
-    return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO_VISUALIZADOR)
+    caminho_meta = f"s3://{bucket}/meta.ducklake"
+    data_path = f"s3://{bucket}/lake/"
+    return dl.conectar(caminho_meta, data_path, segredo)
 
 
 @lake.command("tables")
-def tabelas():
+@click.option("--bucket", default='colibri-prod', show_default=True, help="Bucket do lake")
+@click.option("--segredo", default=NOME_SEGREDO_VISUALIZADOR, show_default=True, help="Segredo com acesso ao bucket")
+def tabelas(bucket: str, segredo: str):
     """Lista as tabelas registradas no catalogo"""
-    con = _conectar_lake()
+    con = _conectar_lake(bucket, segredo)
     rows = con.execute("""
         SELECT t.table_name,
                'tabela' AS tipo,
@@ -380,9 +384,11 @@ def tabelas():
 
 @lake.command("years")
 @click.argument("tabela")
-def anos(tabela: str):
+@click.option("--bucket", default='colibri-prod', show_default=True, help="Bucket do lake")
+@click.option("--segredo", default=NOME_SEGREDO_VISUALIZADOR, show_default=True, help="Segredo com acesso ao bucket")
+def anos(tabela: str, bucket: str, segredo: str):
     """Mostra contagem de linhas por ano de uma tabela"""
-    con = _conectar_lake()
+    con = _conectar_lake(bucket, segredo)
     try:
         rows = con.execute(f"""
             SELECT ano, count(*) AS n
@@ -408,9 +414,11 @@ def anos(tabela: str):
 @lake.command("download")
 @click.argument("tabela")
 @click.option("--destino", default=None, help="Arquivo de saída (padrão: ./<tabela>.parquet)")
-def lake_download(tabela: str, destino: str | None):
+@click.option("--bucket", default='colibri-prod', show_default=True, help="Bucket do lake")
+@click.option("--segredo", default=NOME_SEGREDO_VISUALIZADOR, show_default=True, help="Segredo com acesso ao bucket")
+def lake_download(tabela: str, destino: str | None, bucket: str, segredo: str):
     """Baixa os parquets de uma tabela do catálogo para o disco"""
-    con = _conectar_lake()
+    con = _conectar_lake(bucket, segredo)
     try:
         row = con.execute("""
             SELECT s.schema_name
@@ -447,9 +455,11 @@ def lake_download(tabela: str, destino: str | None):
 
 @lake.command("query")
 @click.argument("sql")
-def query(sql: str):
+@click.option("--bucket", default='colibri-prod', show_default=True, help="Bucket do lake")
+@click.option("--segredo", default=NOME_SEGREDO_VISUALIZADOR, show_default=True, help="Segredo com acesso ao bucket")
+def query(sql: str, bucket: str, segredo: str):
     """Executa uma query SQL no lake"""
-    con = _conectar_lake()
+    con = _conectar_lake(bucket, segredo)
     try:
         resultado = con.execute(sql).fetchdf()
     except Exception as e:
@@ -470,9 +480,11 @@ def query(sql: str):
 
 
 @lake.command("ui")
-def ui():
+@click.option("--bucket", default='colibri-prod', show_default=True, help="Bucket do lake")
+@click.option("--segredo", default=NOME_SEGREDO_VISUALIZADOR, show_default=True, help="Segredo com acesso ao bucket")
+def ui(bucket: str, segredo: str):
     """Abre DuckDB UI conectado ao catálogo"""
-    con = _conectar_lake()
+    con = _conectar_lake(bucket, segredo)
     con.execute("CALL start_ui();")
     input("Pressione Enter para fechar o servidor e encerrar o script...")
 
@@ -482,10 +494,16 @@ def ui():
 @click.option("--bucket", default=None, help="Bucket de destino (padrão: definido nas constantes)")
 def run(apenas: str | None, bucket: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
+    import ingestion.ncm.pipeline as ncm
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
+    import ingestion.catmats.pipeline as catmats
+    import ingestion.nfe_cgu.pipeline as nfe_cgu
 
     pipelines = {
+        "ncm": (ncm, "[cyan]>>> NCM[/cyan]"),
         "pncp-comprasgov": (pncp_comprasgov,  "[cyan]>>> PNCP ComprasGOV[/cyan]"),
+        "catmats": (catmats, "[cyan]>>> CATMATS[/cyan]"),
+        "nfe-cgu": (nfe_cgu, "[cyan]>>> NFe-CGU[/cyan]"),
     }
 
     ordem = list(pipelines.keys()) if apenas is None else [apenas]

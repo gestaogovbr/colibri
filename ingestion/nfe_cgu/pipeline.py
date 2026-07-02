@@ -24,6 +24,7 @@ def main(bucket: str | None = None):
                 "dbt", "run",
                 "--select",
                 "stg_nfe_cgu__itens stg_nfe_cgu__nf stg_nfe_cgu__eventos",
+                "--vars", f"bucket_lake: {bucket}",
                 "--project-dir", str(DBT_DIR),
                 "--profiles-dir", str(DBT_DIR),
             ],
