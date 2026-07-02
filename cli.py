@@ -425,8 +425,16 @@ def lake_download(tabela: str, destino: str | None, bucket: str, segredo: str):
             FROM __ducklake_metadata_lake.main.ducklake_schema s
             JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
             WHERE t.table_name = ? AND t.end_snapshot IS NULL
+
+            UNION ALL
+
+            SELECT s.schema_name
+            FROM __ducklake_metadata_lake.main.ducklake_schema s
+            JOIN __ducklake_metadata_lake.main.ducklake_view v USING (schema_id)
+            WHERE v.view_name = ? AND v.end_snapshot IS NULL
+
             LIMIT 1
-        """, [tabela]).fetchone()
+        """, [tabela, tabela]).fetchone()
     except Exception as e:
         console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
         con.close()
