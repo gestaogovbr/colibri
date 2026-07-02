@@ -3,9 +3,10 @@ from pathlib import Path
 
 
 CATALOGO_LOCAL = "meta.ducklake"
-BUCKET = "colibri-dev"
+BUCKET = "colibri-prod"
 SESSION_DB = "ducklake_session.duckdb"
 NOME_SEGREDO = "colibri-token-desenvolvedor"
+NOME_SEGREDO_VISUALIZADOR = "colibri-token-visualizador"
 RAIZ_PROJETO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAMINHO_SEGREDOS = os.path.join(RAIZ_PROJETO, ".segredos.yml")
 CAMINHO_META = f"s3://{BUCKET}/meta.ducklake"

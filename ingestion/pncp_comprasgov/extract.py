@@ -214,7 +214,7 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
 
 # Processamento
 
-def processar_arquivo(session: requests.Session, view: str, chave: str, url: str, caminho: Path, manifesto: dict[str, dict]) -> str:
+def processar_arquivo(session: requests.Session, view: str, chave: str, url: str, caminho: Path, manifesto: dict[str, dict], bucket_nome: str) -> str:
     """
     Baixa um arquivo CSV e salva no bucket, se necessário.
 
@@ -227,9 +227,8 @@ def processar_arquivo(session: requests.Session, view: str, chave: str, url: str
     conteudo = baixar(session, url)
     if conteudo is None:
         return "indisponivel"
-    
+
     config = carregar_segredo(NOME_SEGREDO)
-    bucket_nome = config["bucket_lake"]
     
     # Ex: 'dados/pncp_comprasgov_diario/2021/12/01/comprasGOV-diario-VW_FT_PNCP_COMPRA-2021-12-01.csv'
     nome_no_bucket = caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
@@ -272,19 +271,19 @@ def resetar_dados_locais() -> None:
     (DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES).unlink(missing_ok=True)
 
 
-def subir_manifesto() -> None:
+def subir_manifesto(bucket_nome: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket_nome = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
     _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO, logger)
 
 
-def executar_ingestao() -> bool:
+def executar_ingestao(bucket_nome: str | None = None) -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
     for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL, DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES_DIR):
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
-    bucket_nome = carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
     baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
@@ -303,7 +302,7 @@ def executar_ingestao() -> bool:
             # Diário
             data = DATA_INICIO
             while data <= hoje:
-                status = processar_arquivo(session, view, data.isoformat(), construir_url_diario(view, data), construir_caminho_diario(view, data), manifesto)
+                status = processar_arquivo(session, view, data.isoformat(), construir_url_diario(view, data), construir_caminho_diario(view, data), manifesto, bucket_nome)
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
                     manifesto_modificado = True
@@ -317,7 +316,7 @@ def executar_ingestao() -> bool:
             ano, mes = DATA_INICIO.year, DATA_INICIO.month
             while (ano, mes) <= (hoje.year, hoje.month):
                 chave = f"{ano}-{mes:02d}"
-                status = processar_arquivo(session, view, chave, construir_url_mensal(view, ano, mes), construir_caminho_mensal(view, ano, mes), manifesto)
+                status = processar_arquivo(session, view, chave, construir_url_mensal(view, ano, mes), construir_caminho_mensal(view, ano, mes), manifesto, bucket_nome)
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
                     manifesto_modificado = True
@@ -332,7 +331,7 @@ def executar_ingestao() -> bool:
             # Anual
             for ano in range(DATA_INICIO.year, hoje.year + 1):
                 chave = str(ano)
-                status = processar_arquivo(session, view, chave, construir_url_anual(view, ano), construir_caminho_anual(view, ano), manifesto)
+                status = processar_arquivo(session, view, chave, construir_url_anual(view, ano), construir_caminho_anual(view, ano), manifesto, bucket_nome)
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
                     manifesto_modificado = True

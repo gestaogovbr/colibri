@@ -6,15 +6,15 @@ from zoneinfo import ZoneInfo
 import boto3
 import click
 from botocore.exceptions import ClientError
-from rich.align import Align
 from rich.console import Console
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
 from ingestion.pncp_comprasgov import pipeline as pncp_comprasgov_pipeline
-from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, CATALOGO_LOCAL
+from utils.constantes import CAMINHO_META, DATA_PATH, NOME_SEGREDO, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
@@ -89,17 +89,7 @@ class ColibriGroup(click.Group):
         # Na raiz usa o subtítulo global; nos subgrupos, a própria docstring do grupo
         subtitulo = SUBTITULO if ctx.parent is None else (self.help or "").strip()
 
-        banner, largura = self._banner()
-        regua = "-" * min(largura, console.size.width)
-
-        console.print()
-        console.print(banner)
-        console.print(_gradiente_h(regua, VERDE_RGB, AZUL_RGB))
-        if subtitulo:
-            console.print(Text(subtitulo, style="italic dim"))
-        console.print()
-
-        # Comandos numa tabela com borda, centralizada como bloco
+        # Tabela construída primeiro para medir a largura e calcular o recuo do banner
         tabela = Table(
             box=box.ROUNDED,
             show_header=False,
@@ -112,6 +102,19 @@ class ColibriGroup(click.Group):
         tabela.add_column(style="white")
         for nome in self.list_commands(ctx):
             tabela.add_row(nome, self.get_command(ctx, nome).get_short_help_str())
+
+        largura_tabela = console.measure(tabela).maximum
+        banner, largura = self._banner()
+        regua = "-" * min(largura, console.size.width)
+        left_pad = max(0, (largura_tabela - largura) // 2)
+
+        console.print()
+        console.print(Padding(banner, (0, 0, 0, left_pad)))
+        console.print(Padding(_gradiente_h(regua, VERDE_RGB, AZUL_RGB), (0, 0, 0, left_pad)))
+        if subtitulo:
+            sub_pad = max(0, (largura_tabela - len(subtitulo)) // 2)
+            console.print(Padding(Text(subtitulo, style="italic dim"), (0, 0, 0, sub_pad)))
+        console.print()
         console.print(tabela)
         console.print()
 
@@ -120,7 +123,9 @@ class ColibriGroup(click.Group):
         dica.append("Use ", style="dim")
         dica.append(f"{ctx.command_path} <comando> --help", style=AZUL)
         dica.append(" para ver as opções.", style="dim")
-        console.print(dica)
+        dica_str = f"Use {ctx.command_path} <comando> --help para ver as opções."
+        dica_pad = max(0, (largura_tabela - len(dica_str)) // 2)
+        console.print(Padding(dica, (0, 0, 0, dica_pad)))
 
 
 def _cliente(nome_segredo: str):
@@ -326,7 +331,7 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
 
 def _conectar_lake():
     import utils.ducklake as dl
-    return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO)
+    return dl.conectar(CAMINHO_META, DATA_PATH, NOME_SEGREDO_VISUALIZADOR)
 
 
 @lake.command("tables")
@@ -400,6 +405,46 @@ def anos(tabela: str):
     console.print(tb)
 
 
+@lake.command("download")
+@click.argument("tabela")
+@click.option("--destino", default=None, help="Arquivo de saída (padrão: ./<tabela>.parquet)")
+def lake_download(tabela: str, destino: str | None):
+    """Baixa os parquets de uma tabela do catálogo para o disco"""
+    con = _conectar_lake()
+    try:
+        row = con.execute("""
+            SELECT s.schema_name
+            FROM __ducklake_metadata_lake.main.ducklake_schema s
+            JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
+            WHERE t.table_name = ? AND t.end_snapshot IS NULL
+            LIMIT 1
+        """, [tabela]).fetchone()
+    except Exception as e:
+        console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
+        con.close()
+        return
+
+    if not row:
+        console.print(f"[red]x[/red] Tabela não encontrada: [bold]{tabela}[/bold]")
+        con.close()
+        return
+
+    schema_name = row[0]
+    saida = destino or f"{tabela}.parquet"
+
+    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Exportando..."), transient=True) as p:
+        p.add_task("")
+        try:
+            con.execute(f"COPY (SELECT * FROM lake.{schema_name}.{tabela}) TO '{saida}' (FORMAT PARQUET)")
+        except Exception as e:
+            console.print(f"[red]x[/red] Erro: {e}")
+            con.close()
+            return
+
+    con.close()
+    console.print(f"[{VERDE}]+[/] Salvo em [bold]{saida}[/bold]")
+
+
 @lake.command("query")
 @click.argument("sql")
 def query(sql: str):
@@ -434,7 +479,8 @@ def ui():
 
 @pipeline.command("run")
 @click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
-def run(apenas: str | None):
+@click.option("--bucket", default=None, help="Bucket de destino (padrão: definido nas constantes)")
+def run(apenas: str | None, bucket: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
 
@@ -447,7 +493,7 @@ def run(apenas: str | None):
     for nome in ordem:
         modulo, label = pipelines[nome]
         console.print(label)
-        modulo.main()
+        modulo.main(bucket=bucket)
 
     console.print("[green]+[/green] Pipeline concluido.")
 
