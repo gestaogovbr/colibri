@@ -8,7 +8,7 @@ from utils.baixar_catalogo import baixar_catalogo
 from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
 
-MODELOS_DBT = "int_dim_margem_resolucoes stg_fato_margem_eventos stg_dim_margem_ncm_prefixos stg_dim_margem_ncm"
+MODELOS_DBT = "stg_dim_margem_resolucoes stg_fato_margem_eventos stg_dim_margem_ncm_prefixos stg_dim_margem_ncm"
 
 
 def main(bucket: str | None = None):
@@ -25,6 +25,7 @@ def main(bucket: str | None = None):
             [
                 "dbt", "run",
                 "--select", MODELOS_DBT,
+                "--vars", f"bucket_lake: {bucket}",
                 "--project-dir", str(DBT_DIR),
                 "--profiles-dir", str(DBT_DIR),
             ],
