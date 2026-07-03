@@ -1,0 +1,232 @@
+﻿num_linha;resolucao;habilita;ncm;regra_de_origem;margem_normal;regra_de_qualificacao;margem_adicional;comentario;desc_ncm_4dg;grupo_cics;Está em cics_1;Está em cics_3;Está em cics_7;Está em cics8
+13;cics_4;habilita;8423;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Aparelhos e instrumentos de pesagem, incluindo as básculas e balanças para verificar peças usinadas (fabricadas*), excluindo as balanças sensíveis a pesos não superiores a 5 cg; pesos para quaisquer balanças.";TICs;1;1;2;2
+14;cics_4;habilita;8429;CFI; 10 ;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;0;0;2;2
+15;cics_4;habilita;8430;CFI; 10 ;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;0;0;2;2
+16;cics_4;habilita;8443;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Máquinas e aparelhos de impressão por meio de placas, cilindros e outros elementos de impressão da posição 84.42; outras impressoras, aparelhos de copiar e aparelhos de telecopiar (fax), mesmo combinados entre si; partes e acessórios.";TICs;0;0;2;2
+17;cics_4;habilita;8471;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+18;cics_4;habilita;8473;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Partes e acessórios (exceto estojos, capas e semelhantes) reconhecíveis como exclusiva ou principalmente destinados às máquinas ou aparelhos das posições 84.70 a 84.72.;TICs;0;0;2;2
+19;cics_4;habilita;8507;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Acumuladores elétricos e seus separadores, mesmo de forma quadrada ou retangular.;TICs;0;0;2;2
+20;cics_4;habilita;8517;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+21;cics_4;habilita;8526;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Aparelhos de radiodetecção e de radiossondagem (radar), aparelhos de radionavegação e aparelhos de radiotelecomando.;TICs;0;0;2;2
+22;cics_4;habilita;8531;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Aparelhos elétricos de sinalização acústica ou visual (por exemplo, campainhas, sirenes, painéis indicadores, aparelhos de alarme para proteção contra roubo ou incêndio), exceto os das posições 85.12 ou 85.30.;TICs;0;0;2;2
+23;cics_4;habilita;8541;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+24;cics_4;habilita;8542;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Circuitos integrados eletrônicos.;TICs;0;0;2;2
+25;cics_4;habilita;8543;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Máquinas e aparelhos elétricos com função própria, não especificados nem compreendidos noutras posições do presente Capítulo.;TICs;0;0;2;2
+26;cics_4;habilita;8601;CFI; 10 ;;;;Locomotivas e locotratores, de fonte externa de eletricidade ou de acumuladores elétricos.;Sistemas Metroferroviários;0;0;2;2
+27;cics_4;habilita;8602;CFI; 10 ;;;;"Outras locomotivas e locotratores; tênderes.";Sistemas Metroferroviários;0;0;2;2
+28;cics_4;habilita;8603;CFI; 10 ;;;;Litorinas (automotoras), mesmo para circulação urbana, exceto as da posição 86.04.;Sistemas Metroferroviários;0;0;2;2
+29;cics_4;habilita;8701;CFI; 10 ;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;0;0;2;2
+30;cics_4;habilita;8702;CFI; 10 ;;;;Veículos automóveis para transporte de dez pessoas ou mais, incluindo o motorista.;Ônibus;0;0;2;2
+31;cics_4;habilita;9026;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+32;cics_4;habilita;9027;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+33;cics_4;habilita;9028;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Contadores de gases, de líquidos ou de eletricidade, incluindo os aparelhos para a sua aferição.;TICs;0;0;2;2
+34;cics_4;habilita;9029;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Outros contadores (por exemplo, contadores de voltas, contadores de produção, taxímetros, totalizadores de caminho percorrido, podômetros); indicadores de velocidade e tacômetros, exceto os das posições 90.14 ou 90.15; estroboscópios.";TICs;0;0;2;2
+35;cics_4;habilita;9030;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Osciloscópios, analisadores de espectro e outros instrumentos e aparelhos para medida ou controle de grandezas elétricas; instrumentos e aparelhos para medida ou detecção de radiações alfa, beta, gama, X, cósmicas ou outras radiações ionizantes.";TICs;0;0;2;2
+36;cics_4;habilita;9031;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Instrumentos, aparelhos e máquinas de medida ou controle, não especificados nem compreendidos noutras posições do presente Capítulo; projetores de perfis.";TICs;0;0;2;2
+37;cics_4;habilita;9032;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Instrumentos e aparelhos para regulação ou controle, automáticos.;TICs;0;0;2;2
+38;cics_4;habilita;84702;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+39;cics_4;habilita;85017;CFI-A; 10 ;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;0;0;2;2
+40;cics_4;habilita;85235;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;4
+41;cics_4;habilita;85364;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+42;cics_4;habilita;85395;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+43;cics_4;habilita;86069;CFI; 10 ;;;;Vagões para transporte de mercadorias sobre vias férreas.;Sistemas Metroferroviários;0;0;2;2
+44;cics_4;habilita;300215;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+45;cics_4;habilita;847290;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+46;cics_4;habilita;847910;CFI; 10 ;;;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;TICs;0;0;2;2
+47;cics_4;habilita;847982;CFI; 10 ;;;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;TICs;0;0;2;2
+48;cics_4;habilita;850440;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Transformadores elétricos, conversores elétricos estáticos (retificadores, por exemplo), bobinas de reatância e de autoindução.;TICs;0;0;2;2
+49;cics_4;habilita;850490;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Transformadores elétricos, conversores elétricos estáticos (retificadores, por exemplo), bobinas de reatância e de autoindução.;TICs;0;0;2;2
+50;cics_4;habilita;852550;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Aparelhos transmissores (emissores) para radiodifusão ou televisão, mesmo que incorporem um aparelho receptor ou um aparelho de gravação ou de reprodução de som; câmeras de televisão, câmeras fotográficas digitais e câmeras de vídeo.";TICs;0;0;2;2
+51;cics_4;habilita;852560;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Aparelhos transmissores (emissores) para radiodifusão ou televisão, mesmo que incorporem um aparelho receptor ou um aparelho de gravação ou de reprodução de som; câmeras de televisão, câmeras fotográficas digitais e câmeras de vídeo.";TICs;0;0;2;2
+52;cics_4;habilita;852910;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Partes reconhecíveis como exclusiva ou principalmente destinadas aos aparelhos das posições 85.24 a 85.28.;TICs;0;0;2;2
+53;cics_4;habilita;852990;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Partes reconhecíveis como exclusiva ou principalmente destinadas aos aparelhos das posições 85.24 a 85.28.;TICs;0;0;2;2
+54;cics_4;habilita;853400;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Circuitos impressos.;TICs;0;0;2;2
+55;cics_4;habilita;853630;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+56;cics_4;habilita;853650;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+57;cics_4;habilita;854470;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+58;cics_4;habilita;860400;CFI; 10 ;;;;Veículos para inspeção e manutenção de vias férreas ou semelhantes, mesmo autopropulsados (por exemplo, vagões-oficinas, vagões-guindastes, vagões equipados com batedores de balastro, alinhadores de vias, viaturas para testes e dresinas).;Sistemas Metroferroviários;0;0;2;2
+59;cics_4;habilita;860500;CFI; 10 ;;;;Vagões de passageiros (carruagens*), furgões para bagagem, vagões-postais e outros vagões especiais, para vias férreas ou semelhantes (excluindo as viaturas da posição 86.04).;Sistemas Metroferroviários;0;0;2;2
+60;cics_4;habilita;900110;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+61;cics_4;habilita;8501101;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;TICs;0;0;2;2
+62;cics_4;habilita;8532211;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Condensadores elétricos, fixos, variáveis ou ajustáveis.;TICs;0;0;2;2
+63;cics_4;habilita;8537101;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+64;cics_4;habilita;24049200;MedNac; 5 ;MedIFANac; 10 ;;"Produtos que contenham tabaco, tabaco reconstituído, nicotina ou sucedâneos do tabaco ou da nicotina, destinados à inalação sem combustão; outros produtos que contenham nicotina destinados à absorção da nicotina pelo corpo humano.";Medicamentos;0;0;2;2
+65;cics_4;habilita;25010090;MedNac; 5 ;MedIFANac; 10 ;;"Sal (incluindo o sal de mesa e o sal desnaturado) e cloreto de sódio puro, mesmo em solução aquosa ou adicionados de agentes antiaglomerantes ou de agentes que assegurem uma boa fluidez; água do mar.";Medicamentos;0;0;2;2
+66;cics_4;habilita;29362113;MedNac; 5 ;MedIFANac; 10 ;;Provitaminas e vitaminas, naturais ou reproduzidas por síntese (incluindo os concentrados naturais), bem como os seus derivados utilizados principalmente como vitaminas, misturados ou não entre si, mesmo em quaisquer soluções.;Medicamentos;0;0;2;2
+67;cics_4;habilita;29362931;MedNac; 5 ;MedIFANac; 10 ;;Provitaminas e vitaminas, naturais ou reproduzidas por síntese (incluindo os concentrados naturais), bem como os seus derivados utilizados principalmente como vitaminas, misturados ou não entre si, mesmo em quaisquer soluções.;Medicamentos;0;0;2;2
+68;cics_4;habilita;30021211;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+69;cics_4;habilita;30021212;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+70;cics_4;habilita;30021215;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+71;cics_4;habilita;30021219;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+72;cics_4;habilita;30021239;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+73;cics_4;habilita;30024121;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+74;cics_4;habilita;30024122;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+75;cics_4;habilita;30024123;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+76;cics_4;habilita;30024125;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+77;cics_4;habilita;30024126;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+78;cics_4;habilita;30024127;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+79;cics_4;habilita;30024129;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+80;cics_4;habilita;30024210;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+81;cics_4;habilita;30024992;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+82;cics_4;habilita;30041012;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+83;cics_4;habilita;30041014;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+84;cics_4;habilita;30042029;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+85;cics_4;habilita;30042032;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+86;cics_4;habilita;30042049;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+87;cics_4;habilita;30042059;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+88;cics_4;habilita;30042069;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+89;cics_4;habilita;30042099;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+90;cics_4;habilita;30043100;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+91;cics_4;habilita;30043220;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+92;cics_4;habilita;30043290;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+93;cics_4;habilita;30043929;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+94;cics_4;habilita;30043939;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+95;cics_4;habilita;30043999;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+96;cics_4;habilita;30044990;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+97;cics_4;habilita;30045010;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+98;cics_4;habilita;30046000;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+99;cics_4;habilita;30049014;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+100;cics_4;habilita;30049019;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+101;cics_4;habilita;30049021;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+102;cics_4;habilita;30049024;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+103;cics_4;habilita;30049029;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;3;2
+104;cics_4;habilita;30049029;MedNac; 5 ;MedIFANac; 10 ;Aparece duas vezes na Resolução.;#VALOR!;Medicamentos;0;0;3;2
+105;cics_4;habilita;30049035;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+106;cics_4;habilita;30049036;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+107;cics_4;habilita;30049039;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+108;cics_4;habilita;30049041;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+109;cics_4;habilita;30049042;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+110;cics_4;habilita;30049045;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+111;cics_4;habilita;30049049;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+112;cics_4;habilita;30049059;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+113;cics_4;habilita;30049063;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+114;cics_4;habilita;30049065;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+115;cics_4;habilita;30049067;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+116;cics_4;habilita;30049068;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+117;cics_4;habilita;30049069;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+118;cics_4;habilita;30049072;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+119;cics_4;habilita;30049076;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+120;cics_4;habilita;30049078;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+121;cics_4;habilita;30049079;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;2
+122;cics_4;habilita;30049095;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;1
+123;cics_4;habilita;30049099;MedNac; 5 ;MedIFANac; 10 ;;#VALOR!;Medicamentos;0;0;2;1
+124;cics_4;habilita;38229000;MedNac; 5 ;MedIFANac; 10 ;Removido na próxima resolução (nº 7);"Reagentes de diagnóstico ou de laboratório em qualquer suporte e reagentes de diagnóstico ou de laboratório preparados, mesmo num suporte, mesmo apresentados sob a forma de estojos, exceto os da posição 30.06; materiais de referência certificados.";Medicamentos;0;0;1;1
+125;cics_4;habilita;84099140;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Partes reconhecíveis como exclusiva ou principalmente destinadas aos motores das posições 84.07 ou 84.08.;TICs;0;0;2;2
+126;cics_4;habilita;84705010;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;1
+127;cics_4;habilita;84795000;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;TICs;0;0;2;1
+128;cics_4;habilita;84798999;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;Sistemas Fotovoltaicos;0;0;2;1
+129;cics_4;habilita;84799090;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;TICs;0;0;2;1
+1;cics_4;habilita;85013120;CFI-A; 10 ;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;0;0;2;2
+2;cics_4;habilita;85013220;CFI-A; 10 ;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;0;1;2;2
+3;cics_4;habilita;85013320;CFI-A; 10 ;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;0;1;2;2
+4;cics_4;habilita;85013420;CFI-A; 10 ;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;0;1;2;2
+5;cics_4;habilita;85018000;CFI-A; 10 ;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;0;1;2;2
+130;cics_4;habilita;85044010;CFI; 10 ;;;;Transformadores elétricos, conversores elétricos estáticos (retificadores, por exemplo), bobinas de reatância e de autoindução.;Ônibus;0;1;2;2
+6;cics_4;habilita;85044090;CFI; 10 ;;;;Transformadores elétricos, conversores elétricos estáticos (retificadores, por exemplo), bobinas de reatância e de autoindução.;Sistemas Fotovoltaicos;1;1;2;2
+131;cics_4;habilita;85076000;CFI; 10 ;;;Removidos da próxima resolução (nº7), sem prejuízos.;Acumuladores elétricos e seus separadores, mesmo de forma quadrada ou retangular.;Ônibus;0;1;1;2
+132;cics_4;habilita;85118030;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;1;1;2;2
+133;cics_4;habilita;85123000;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Aparelhos elétricos de iluminação ou de sinalização (exceto os da posição 85.39), limpadores de para-brisas, degeladores e desembaçadores elétricos, do tipo utilizado em ciclos ou automóveis.;TICs;0;0;2;2
+134;cics_4;habilita;85284200;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Monitores e projetores, que não incorporem aparelho receptor de televisão; aparelhos receptores de televisão, mesmo que incorporem um aparelho receptor de radiodifusão ou um aparelho de gravação ou de reprodução de som ou de imagens.";TICs;0;0;2;2
+135;cics_4;habilita;85285200;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Monitores e projetores, que não incorporem aparelho receptor de televisão; aparelhos receptores de televisão, mesmo que incorporem um aparelho receptor de radiodifusão ou um aparelho de gravação ou de reprodução de som ou de imagens.";TICs;0;0;2;2
+136;cics_4;habilita;85301010;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+137;cics_4;habilita;85308010;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+138;cics_4;habilita;85322310;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Condensadores elétricos, fixos, variáveis ou ajustáveis.;TICs;0;0;2;2
+139;cics_4;habilita;85322410;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Condensadores elétricos, fixos, variáveis ou ajustáveis.;TICs;0;0;2;2
+140;cics_4;habilita;85322510;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Condensadores elétricos, fixos, variáveis ou ajustáveis.;TICs;0;0;2;2
+141;cics_4;habilita;85322910;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Condensadores elétricos, fixos, variáveis ou ajustáveis.;TICs;0;0;2;2
+142;cics_4;habilita;85323010;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Condensadores elétricos, fixos, variáveis ou ajustáveis.;TICs;0;0;2;4
+143;cics_4;habilita;85332120;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Resistências elétricas (incluindo os reostatos e os potenciômetros), exceto de aquecimento.;TICs;0;0;2;2
+7;cics_4;habilita;85354090;CFI; 10 ;;;;#VALOR!;Sistemas Fotovoltaicos;0;0;2;2
+8;cics_4;habilita;85363090;CFI; 10 ;;;;#VALOR!;Sistemas Fotovoltaicos;0;1;2;2
+144;cics_4;habilita;85369030;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;1;2;2
+145;cics_4;habilita;85369040;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+146;cics_4;habilita;85371020;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+147;cics_4;habilita;85371030;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+9;cics_4;habilita;85371090;CFI; 10 ;;;Aparece duas vezes na Resolução.;#VALOR!;Sistemas Fotovoltaicos;0;0;4;2
+10;cics_4;habilita;85371090;CFI ou PPB; 10 ;portaria DesIn; 10 ;Aparece duas vezes na Resolução.;#VALOR!;Sistemas Fotovoltaicos;0;1;4;2
+11;cics_4;habilita;85372090;CFI; 10 ;;;;#VALOR!;Sistemas Fotovoltaicos;0;1;2;2
+148;cics_4;habilita;85389010;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Partes reconhecíveis como exclusiva ou principalmente destinadas aos aparelhos das posições 85.35, 85.36 ou 85.37.;TICs;0;1;2;2
+12;cics_4;habilita;85414300;CFI; 10 ;;;;#VALOR!;Sistemas Fotovoltaicos;0;0;2;2
+149;cics_4;habilita;86071110;CFI; 10 ;;;;Partes de veículos para vias férreas ou semelhantes.;Sistemas Metroferroviários;0;1;2;2
+150;cics_4;habilita;86080012;CFI; 10 ;;;;"Material fixo de vias férreas ou semelhantes; aparelhos mecânicos (incluindo os eletromecânicos) de sinalização, de segurança, de controle ou de comando para vias férreas ou semelhantes, rodoviárias ou fluviais, para áreas ou parques de estacionamento, instalações portuárias ou para aeródromos; suas partes.";Sistemas Metroferroviários;1;1;2;2
+151;cics_4;habilita;87060010;CFI; 10 ;;;;Chassis com motor para os veículos automóveis das posições 87.01 a 87.05.;Ônibus;1;1;2;2
+152;cics_4;habilita;87060090;CFI; 10 ;;;;Chassis com motor para os veículos automóveis das posições 87.01 a 87.05.;Ônibus;1;1;2;2
+153;cics_4;habilita;87079090;CFI; 10 ;;;;Carroçarias para os veículos automóveis das posições 87.01 a 87.05, incluindo as cabinas.;Ônibus;1;1;2;2
+154;cics_4;habilita;90138010;CFI ou PPB; 10 ;portaria DesIn; 10 ;;"Lasers, exceto diodos laser; outros aparelhos e instrumentos de óptica, não especificados nem compreendidos noutras posições do presente Capítulo.";TICs;1;1;2;2
+155;cics_4;habilita;90221910;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+156;cics_4;habilita;90221991;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+157;cics_4;habilita;90221999;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+158;cics_4;habilita;90229090;CFI ou PPB; 10 ;portaria DesIn; 10 ;;#VALOR!;TICs;0;0;2;2
+159;cics_4;habilita;90251990;CFI ou PPB; 10 ;portaria DesIn; 10 ;;Densímetros, areômetros, pesa-líquidos e instrumentos flutuantes semelhantes, termômetros, pirômetros, barômetros, higrômetros e psicrômetros, registradores ou não, mesmo combinados entre si.;TICs;0;0;2;2
+160;cics_4;habilita;90328930;CFI; 10 ;;;;Instrumentos e aparelhos para regulação ou controle, automáticos.;Sistemas Metroferroviários;0;0;2;2
+;cics_3;desabilita;84291110;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84291190;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84291910;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84291990;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84292010;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84292090;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84293000;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84294000;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295111;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295119;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295121;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295129;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295191;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295192;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295199;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295211;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295212;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295219;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295220;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295290;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84295900;CFI;10;;;;Bulldozers, angledozers, niveladores, raspo-transportadores (scrapers), pás mecânicas, escavadores, carregadores e pás carregadoras, compactadores e rolos ou cilindros compressores, autopropulsados.;Linha Amarela;;;;
+;cics_3;desabilita;84301000;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84302000;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84303110;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84303190;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84303910;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84303990;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304110;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304120;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304130;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304190;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304910;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304920;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84304990;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84305000;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84306100;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84306911;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84306919;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84306990;CFI;10;;;;"Outras máquinas e aparelhos de terraplenagem, nivelamento, raspagem, escavação, compactação, extração ou perfuração da terra, de minerais ou minérios; bate-estacas e arranca-estacas; limpa-neves.";Linha Amarela;;;;
+;cics_3;desabilita;84791010;CFI;10;;;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;Linha Amarela;;;;
+;cics_3;desabilita;84791090;CFI;10;;;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;Linha Amarela;;;;
+;cics_3;desabilita;84798210;CFI;10;;;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;Linha Amarela;;;;
+;cics_3;desabilita;84798290;CFI;10;;;;Máquinas e aparelhos mecânicos com função própria, não especificados nem compreendidos noutras posições deste Capítulo.;Linha Amarela;;;;
+;cics_3;desabilita;85013120;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85013220;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85013320;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85013420;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85017100;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85017210;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85017290;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85018000;CFI-A;10;;;;Motores e geradores, elétricos, exceto os grupos eletrogêneos.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85044090;CFI;10;;;;Transformadores elétricos, conversores elétricos estáticos (retificadores, por exemplo), bobinas de reatância e de autoindução.;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85354090;CFI;10;;;;#VALOR!;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85363090;CFI;10;;;;#VALOR!;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85371090;CFI;10;;;;#VALOR!;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85372090;CFI;10;;;;#VALOR!;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;85414300;CFI;10;;;;#VALOR!;Sistemas Fotovoltaicos;;;;
+;cics_3;desabilita;87011000;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87012100;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87012200;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87012300;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87012400;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87012900;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87013000;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019100;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019200;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019300;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019410;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019490;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019510;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
+;cics_3;desabilita;87019590;CFI;10;;;;Tratores (exceto os carros-tratores da posição 87.09).;Linha Amarela;;;;
