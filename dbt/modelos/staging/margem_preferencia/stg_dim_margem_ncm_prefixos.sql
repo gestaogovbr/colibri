@@ -1,7 +1,7 @@
 {{ config(
     materialized='table',
     database='lake',
-    tags=['staging', 'margem']
+    tags=['staging', 'margem_preferencia']
 ) }}
 
 -- Puxa eventos da stg_fato_margem_eventos cruzando com resoluções pra ter data_evento, e renomeia colunas de margem
@@ -19,7 +19,7 @@ WITH eventos AS (
         NULL::VARCHAR                              AS margem_sustentabilidade_comprovante,
         NULL::DECIMAL(3,2)                         AS margem_sustentabilidade_pct
     FROM {{ ref('stg_fato_margem_eventos') }} e
-    JOIN {{ ref('int_dim_margem_resolucoes') }} r
+    JOIN {{ ref('stg_dim_margem_resolucoes') }} r
         ON e.resolucao = r.id
 ),
 

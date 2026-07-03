@@ -1,7 +1,7 @@
 {{ config(
     materialized='table',
     database='lake',
-    tags=['staging', 'margem']
+    tags=['staging', 'margem_preferencia']
 ) }}
 
 WITH base AS (
@@ -315,7 +315,7 @@ eventos AS (
         NULL::DECIMAL(3,2)               AS margem_sustentabilidade_pct,
         r.vigencia_inicio::DATE          AS data_evento
     FROM base
-    JOIN {{ ref('int_dim_margem_resolucoes') }} AS r ON r.id = base.resolucao
+    JOIN {{ ref('stg_dim_margem_resolucoes') }} AS r ON r.id = base.resolucao
 ),
 
 -- Particiona por prefixo_ncm + data_evento + tipo_evento_margem e ordena pela maior margem total
