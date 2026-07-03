@@ -23,21 +23,19 @@ DIRETORIO_MANIFESTOS = DIRETORIO_DADOS / "manifestos"
 NOME_MANIFESTO = "margem_preferencia_manifesto.csv"
 COLUNAS_MANIFESTO = ["arquivo", "hash_sha256", "enviado_em"]
 
-# Caminho local (relativo a dados/) == chave no bucket
-ARQUIVOS_ESTATICOS = [
-    "margem_preferencia/CICS/res_1_CICS.csv",
-    "margem_preferencia/CICS/res_3_CICS.csv",
-    "margem_preferencia/CICS/res_4_CICS.csv",
-    "margem_preferencia/CICS/res_7_CICS.csv",
-    "margem_preferencia/CICS/res_8_CICS.csv",
-    "margem_preferencia/CICS/resolucoes_CICS.csv",
-    "margem_preferencia/CIIA-PAC/res_1_CIIA-PAC.csv",
-    "margem_preferencia/CIIA-PAC/res_3_CIIA-PAC.csv",
-    "margem_preferencia/CIIA-PAC/res_4_CIIA-PAC.csv",
-    "margem_preferencia/CIIA-PAC/res_5_CIIA-PAC.csv",
-    "margem_preferencia/CIIA-PAC/resolucoes_CIIA-PAC.csv",
-    "ncm_prefixos.csv",
-]
+GRUPOS = ["CICS", "CIIA-PAC"]
+
+
+def _listar_arquivos_estaticos() -> list[str]:
+    """Todo CSV dentro de dados/margem_preferencia/{CICS,CIIA-PAC}/, mais o
+    snapshot do catálogo de prefixos NCM. Caminho local (relativo a dados/) == chave no bucket"""
+    raiz = DIRETORIO_DADOS / "margem_preferencia"
+    arquivos = sorted(
+        str(caminho.relative_to(DIRETORIO_DADOS)).replace("\\", "/")
+        for grupo in GRUPOS
+        for caminho in (raiz / grupo).glob("*.csv")
+    )
+    return arquivos + ["ncm_prefixos.csv"]
 
 
 def carregar_manifesto(caminho: Path) -> dict[str, dict]:
@@ -81,7 +79,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     contadores = {"enviado": 0, "ignorado": 0}
     manifesto_modificado = False
 
-    for relativo in ARQUIVOS_ESTATICOS:
+    for relativo in _listar_arquivos_estaticos():
         caminho_local = DIRETORIO_DADOS / relativo
         hash_atual = _hash_arquivo(caminho_local)
 

@@ -498,7 +498,7 @@ def ui(bucket: str, segredo: str):
 
 
 @pipeline.command("run")
-@click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu"]), default=None, help="Rodar só um pipeline")
+@click.option("--apenas", type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia"]), default=None, help="Rodar só um pipeline")
 @click.option("--bucket", default=None, help="Bucket de destino (padrão: definido nas constantes)")
 def run(apenas: str | None, bucket: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
@@ -506,12 +506,14 @@ def run(apenas: str | None, bucket: str | None):
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
     import ingestion.catmats.pipeline as catmats
     import ingestion.nfe_cgu.pipeline as nfe_cgu
+    import ingestion.margem_preferencia.pipeline as margem_preferencia
 
     pipelines = {
         "ncm": (ncm, "[cyan]>>> NCM[/cyan]"),
         "pncp-comprasgov": (pncp_comprasgov,  "[cyan]>>> PNCP ComprasGOV[/cyan]"),
         "catmats": (catmats, "[cyan]>>> CATMATS[/cyan]"),
         "nfe-cgu": (nfe_cgu, "[cyan]>>> NFe-CGU[/cyan]"),
+        "margem-preferencia": (margem_preferencia, "[cyan]>>> Margem de Preferência[/cyan]"),
     }
 
     ordem = list(pipelines.keys()) if apenas is None else [apenas]
@@ -529,6 +531,7 @@ _MANIFESTOS = [
     "pncp_comprasgov_manifesto.csv",
     "catmats_manifesto.csv",
     "nfe_cgu_manifesto.csv",
+    "margem_preferencia_manifesto.csv",
 ]
 
 
