@@ -17,7 +17,7 @@ WITH base AS (
             NULL::VARCHAR                                                    AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_1_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_1_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
 
         UNION ALL
@@ -33,7 +33,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
             round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_1_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_1_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -50,7 +50,7 @@ WITH base AS (
             NULL::VARCHAR                                                    AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_3_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_3_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
 
         UNION ALL
@@ -66,7 +66,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
             round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_3_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_3_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -83,7 +83,7 @@ WITH base AS (
             NULL::VARCHAR                                                    AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_4_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_4_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
 
         UNION ALL
@@ -99,7 +99,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
             round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_4_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_4_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -116,7 +116,7 @@ WITH base AS (
             NULL::VARCHAR                                                    AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_7_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_7_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
 
         UNION ALL
@@ -132,7 +132,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
             round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_7_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_7_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -149,7 +149,7 @@ WITH base AS (
             NULL::VARCHAR                                                    AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_8_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_8_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
 
         UNION ALL
@@ -165,7 +165,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
             round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
             trim(grupo_cics)                                                 AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CICS/res_8_CICS.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/res_8_CICS.csv', sep=';', all_varchar=true)
         WHERE trim(habilita) IS NOT NULL AND trim(habilita) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -183,7 +183,7 @@ WITH base AS (
             NULL::VARCHAR                                                                  AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                                             AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_1_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_1_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_normal) IS NOT NULL AND trim(margem_normal) != ''
 
@@ -200,7 +200,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                                 AS margem_adicional_comprovante,
             round(TRY_CAST(replace(trim(margem_adicional), '%', '') AS DOUBLE) / 100, 4)   AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_1_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_1_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -217,7 +217,7 @@ WITH base AS (
             NULL::VARCHAR                                                                  AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                                             AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_3_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_3_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_normal) IS NOT NULL AND trim(margem_normal) != ''
 
@@ -234,7 +234,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                                 AS margem_adicional_comprovante,
             round(TRY_CAST(replace(trim(margem_adicional), '%', '') AS DOUBLE) / 100, 4)   AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_3_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_3_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -251,7 +251,7 @@ WITH base AS (
             NULL::VARCHAR                                                                  AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                                             AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_4_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_4_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_normal) IS NOT NULL AND trim(margem_normal) != ''
 
@@ -268,7 +268,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                                 AS margem_adicional_comprovante,
             round(TRY_CAST(replace(trim(margem_adicional), '%', '') AS DOUBLE) / 100, 4)   AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_4_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_4_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
@@ -285,7 +285,7 @@ WITH base AS (
             NULL::VARCHAR                                                                  AS margem_adicional_comprovante,
             NULL::DECIMAL(3,2)                                                             AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_5_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_5_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_normal) IS NOT NULL AND trim(margem_normal) != ''
 
@@ -302,7 +302,7 @@ WITH base AS (
             replace(trim(regra_de_qualificacao), ' ', '_')                                 AS margem_adicional_comprovante,
             round(TRY_CAST(replace(trim(margem_adicional), '%', '') AS DOUBLE) / 100, 4)   AS margem_adicional_pct,
             trim(anexo)                                                                    AS grupo_cics
-        FROM read_csv('../dados/margem_preferencia/CIIA-PAC/res_5_CIIA-PAC.csv', sep=';', all_varchar=true)
+        FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/res_5_CIIA-PAC.csv', sep=';', all_varchar=true)
         WHERE trim(ncm) IS NOT NULL AND trim(ncm) != ''
             AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
 
