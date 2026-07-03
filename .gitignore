@@ -4,8 +4,10 @@ dados/*
 *.duckdb
 logs/
 !dados/dim_margem_ncm_utf8.csv
-!dados/catmats/
-!dados/catmats/catmats_api.csv
+!dados/margem_preferencia/
+dados/margem_preferencia/*
+!dados/margem_preferencia/CICS/
+!dados/margem_preferencia/CIIA-PAC/
 
 # python environments
 /dbt-env
