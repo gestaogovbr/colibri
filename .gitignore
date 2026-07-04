@@ -20,7 +20,8 @@ dbt/profiles.yml
 dbt/.user.yml
 
 # Segredos
-.segredos.*
+.segredos*
+!.segredos_template.yml
 
 # DuckLake local
 meta.ducklake
