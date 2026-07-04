@@ -605,8 +605,8 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
     caminho_meta = f"s3://{bucket}/meta.ducklake"
     con = _conectar_lake(bucket, segredo)
 
-    def _executar(sql: str, titulo: str):
-        resultado = con.execute(sql, [dias, dry_run]).fetchdf()
+    def _executar(sql: str, params: list, titulo: str):
+        resultado = con.execute(sql, params).fetchdf()
         console.print(f"[bold]{titulo}[/bold]")
         if resultado.empty:
             console.print("[yellow]Nada a fazer.[/yellow]")
@@ -619,12 +619,18 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
     try:
         _executar(
             "CALL ducklake_expire_snapshots('lake', older_than => now() - INTERVAL (?) DAY, dry_run => ?)",
+            [dias, dry_run],
             "Snapshots que seriam expirados"
             if dry_run
             else "Snapshots expirados",
         )
+        # cleanup_all, não older_than: o "older_than" do cleanup mede a idade do
+        # agendamento da exclusão (feito agora mesmo pelo expire acima), não a
+        # idade do snapshot original — usá-lo aqui faria o cleanup nunca apagar
+        # nada expirado na mesma execução.
         _executar(
-            "CALL ducklake_cleanup_old_files('lake', older_than => now() - INTERVAL (?) DAY, dry_run => ?)",
+            "CALL ducklake_cleanup_old_files('lake', cleanup_all => true, dry_run => ?)",
+            [dry_run],
             "Arquivos que seriam removidos" if dry_run else "Arquivos removidos",
         )
     except Exception as e:
