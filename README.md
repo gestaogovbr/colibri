@@ -60,8 +60,8 @@ versionado (SCD2) das tabelas `compras`, `itens` e `resultados`.
 ## Bucket (R2)
 
 ```bash
-colibri bucket ls <bucket>
-colibri bucket ls <bucket> --prefixo lake/
+colibri bucket list <bucket>
+colibri bucket list <bucket> --prefixo lake/
 
 colibri bucket download <arquivo> <bucket>
 colibri bucket download <arquivo> <bucket> --destino ./local.parquet
@@ -69,9 +69,9 @@ colibri bucket download <arquivo> <bucket> --destino ./local.parquet
 colibri bucket upload <arquivo> <bucket>
 colibri bucket upload <arquivo> <bucket> --chave pasta/nome.csv
 
-colibri bucket rm <arquivo> <bucket>
-colibri bucket rm-all <bucket>
-colibri bucket rm-all <bucket> --prefixo lake/
+colibri bucket delete <arquivo> <bucket>
+colibri bucket purge <bucket>              # pede confirmação antes de apagar tudo
+colibri bucket purge <bucket> --prefixo lake/ --yes
 ```
 
 ---
@@ -79,13 +79,27 @@ colibri bucket rm-all <bucket> --prefixo lake/
 ## Lake (DuckLake)
 
 ```bash
-colibri lake tabelas                    # tabelas no catálogo com contagem de linhas/parquets
-colibri lake download <tabela>          # exporta uma tabela para parquet/csv local
-colibri lake q "<sql>"                  # query livre
+colibri lake tables                     # tabelas/views no catálogo com contagem de linhas/parquets
+colibri lake years <tabela>             # contagem de linhas por ano de uma tabela
+colibri lake download <tabela>          # exporta uma tabela para parquet local
+colibri lake query "<sql>"              # query livre
+colibri lake ui                         # abre a DuckDB UI conectada ao catálogo
+
+colibri lake maintenance                # expira snapshots antigos e apaga os arquivos órfãos
+colibri lake maintenance --dry-run      # só mostra o que seria expirado/apagado, sem alterar nada
+colibri lake maintenance --dias 7       # mantém 7 dias de histórico em vez do padrão (1 dia)
 ```
 
 Requer `meta.ducklake` na raiz do projeto (gerado/baixado automaticamente pelo
 pipeline, ou via `colibri sincronizar`).
+
+DuckLake nunca apaga dados antigos automaticamente: todo `DELETE`/`DROP`/refresh de
+tabela fica preservado como um snapshot navegável (time travel), então o espaço no
+bucket só é recuperado quando alguém roda a manutenção. `colibri lake maintenance`
+expira os snapshots mais antigos que a retenção configurada e em seguida apaga os
+arquivos parquet que ficaram órfãos, sincronizando o catálogo atualizado de volta
+para o bucket. Rode periodicamente (cron/GitHub Action) para controlar o custo de
+armazenamento — use `--dry-run` primeiro para conferir o que seria removido.
 
 ---
 
