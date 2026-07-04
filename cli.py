@@ -1,5 +1,4 @@
 import os
-import shutil
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,12 +12,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
-from ingestion.pncp_comprasgov import pipeline as pncp_comprasgov_pipeline
 from utils.constantes import NOME_SEGREDO, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
-NOME_SEGREDO = "colibri-token-desenvolvedor"
 FUSO = ZoneInfo("America/Sao_Paulo")
 
 NOME = "colibri"
@@ -76,8 +73,8 @@ class ColibriGroup(click.Group):
 
     def _banner(self):
         # Linhas da arte sem espaços à direita (para o centro ficar correto).
-        linhas = [l.rstrip() for l in BANNER.splitlines() if l.strip()]
-        largura = max((len(l) for l in linhas), default=0)
+        linhas = [linha.rstrip() for linha in BANNER.splitlines() if linha.strip()]
+        largura = max((len(linha) for linha in linhas), default=0)
 
         # Se o banner não couber na janela atual, usa um título compacto que não quebra
         if console.size.width < largura:

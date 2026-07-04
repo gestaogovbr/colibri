@@ -3,7 +3,6 @@ import subprocess
 
 from ingestion.pncp_comprasgov.extract import (
     executar_ingestao,
-    resetar_dados_locais,
     subir_manifesto,
 )
 from utils.carregar_segredo import carregar_segredo

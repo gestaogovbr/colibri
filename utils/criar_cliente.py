@@ -1,5 +1,4 @@
 import boto3
-from utils.carregar_segredo import carregar_segredo
 
 
 def criar_cliente(config: dict):

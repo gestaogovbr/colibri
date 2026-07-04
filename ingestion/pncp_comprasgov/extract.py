@@ -23,9 +23,6 @@ import logging
 import shutil
 import boto3
 import botocore
-import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 import duckdb
 import tempfile
 from datetime import date, datetime, timedelta
@@ -292,7 +289,7 @@ def processar_arquivo(
     try:
         s3.Object(bucket_nome, nome_no_bucket).load()  # tenta obter o objeto pela key
         existe_no_bucket = True
-    except botocore.exceptions.ClientError as e:
+    except botocore.exceptions.ClientError:
         existe_no_bucket = False
 
     # Salva no bucket caso arquivo conste no manifesto, no bucket E hash bater com manifesto

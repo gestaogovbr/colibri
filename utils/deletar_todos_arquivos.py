@@ -1,5 +1,4 @@
 import click
-import utils.configurar_logging as log
 
 from botocore.exceptions import ClientError
 from utils.criar_cliente import criar_cliente

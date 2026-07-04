@@ -235,7 +235,7 @@ def processar_periodo(
                 try:
                     s3.Object(bucket, nome_no_bucket).load()
                     existe_no_bucket = True
-                except botocore.exceptions.ClientError as e:
+                except botocore.exceptions.ClientError:
                     existe_no_bucket = False
 
                 if (
