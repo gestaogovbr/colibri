@@ -618,20 +618,14 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 
     try:
         _executar(
-            "CALL ducklake_expire_snapshots('lake', older_than => now() - INTERVAL (?) DAY, dry_run => ?)",
-            [dias, dry_run],
-            "Snapshots que seriam expirados"
-            if dry_run
-            else "Snapshots expirados",
+            "CALL ducklake_expire_snapshots('lake', older_than => now() - INTERVAL (?) DAY, dry_run => true)",
+            [dias],
+            "Snapshots que seriam expirados",
         )
-        # cleanup_all, não older_than: o "older_than" do cleanup mede a idade do
-        # agendamento da exclusão (feito agora mesmo pelo expire acima), não a
-        # idade do snapshot original — usá-lo aqui faria o cleanup nunca apagar
-        # nada expirado na mesma execução.
         _executar(
-            "CALL ducklake_cleanup_old_files('lake', cleanup_all => true, dry_run => ?)",
-            [dry_run],
-            "Arquivos que seriam removidos" if dry_run else "Arquivos removidos",
+            "CALL ducklake_cleanup_old_files('lake', cleanup_all => true, dry_run => true)",
+            [],
+            "Arquivos que seriam removidos",
         )
     except Exception as e:
         console.print(f"[red]x[/red] {e}")
@@ -640,9 +634,38 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 
     if dry_run:
         con.close()
-    else:
-        dl.fechar(con, caminho_meta, segredo)
-        console.print(f"[{VERDE}]+[/] Catálogo sincronizado de volta para o bucket")
+        return
+
+    resposta = click.prompt(
+        "\nDigite 'sim' para confirmar a execução", default="", show_default=False
+    )
+    if resposta.strip().lower() != "sim":
+        console.print("[yellow]Operação cancelada.[/yellow]")
+        con.close()
+        return
+
+    try:
+        # cleanup_all, não older_than: o "older_than" do cleanup mede a idade do
+        # agendamento da exclusão (feito agora mesmo pelo expire acima), não a
+        # idade do snapshot original — usá-lo aqui faria o cleanup nunca apagar
+        # nada expirado na mesma execução.
+        _executar(
+            "CALL ducklake_expire_snapshots('lake', older_than => now() - INTERVAL (?) DAY)",
+            [dias],
+            "Snapshots expirados",
+        )
+        _executar(
+            "CALL ducklake_cleanup_old_files('lake', cleanup_all => true)",
+            [],
+            "Arquivos removidos",
+        )
+    except Exception as e:
+        console.print(f"[red]x[/red] {e}")
+        con.close()
+        return
+
+    dl.fechar(con, caminho_meta, segredo)
+    console.print(f"[{VERDE}]+[/] Catálogo sincronizado de volta para o bucket")
 
 
 @pipeline.command("run")
