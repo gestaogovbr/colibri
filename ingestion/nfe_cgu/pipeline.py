@@ -1,7 +1,10 @@
 import os
 import subprocess
 
-from ingestion.nfe_cgu.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
+from ingestion.nfe_cgu.extract import (
+    executar_ingestao,
+    subir_manifesto,
+)
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
@@ -21,12 +24,16 @@ def main(bucket: str | None = None):
     if houve_mudanca:
         subprocess.run(
             [
-                "dbt", "run",
+                "dbt",
+                "run",
                 "--select",
                 "stg_nfe_cgu__itens stg_nfe_cgu__nf stg_nfe_cgu__eventos",
-                "--vars", f"bucket_lake: {bucket}",
-                "--project-dir", str(DBT_DIR),
-                "--profiles-dir", str(DBT_DIR),
+                "--vars",
+                f"bucket_lake: {bucket}",
+                "--project-dir",
+                str(DBT_DIR),
+                "--profiles-dir",
+                str(DBT_DIR),
             ],
             cwd=str(DBT_DIR),
             check=True,

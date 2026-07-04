@@ -3,6 +3,7 @@ import os
 from botocore.exceptions import ClientError
 from utils.constantes import CATALOGO_LOCAL
 
+
 def baixar_catalogo(cliente, bucket: str, chave: str):
     try:
         cliente.download_file(bucket, chave, CATALOGO_LOCAL)

@@ -1,7 +1,10 @@
 import os
 import subprocess
 
-from ingestion.pncp_em_numeros.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
+from ingestion.pncp_em_numeros.extract import (
+    executar_ingestao,
+    subir_manifesto,
+)
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
@@ -20,11 +23,14 @@ def main():
     if houve_mudanca:
         subprocess.run(
             [
-                "dbt", "run",
+                "dbt",
+                "run",
                 "--select",
                 "stg_pncp_em_numeros__agg_compra int_pncp_em_numeros__agg_compra",
-                "--project-dir", str(DBT_DIR),
-                "--profiles-dir", str(DBT_DIR),
+                "--project-dir",
+                str(DBT_DIR),
+                "--profiles-dir",
+                str(DBT_DIR),
             ],
             cwd=str(DBT_DIR),
             check=True,

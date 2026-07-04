@@ -1,6 +1,3 @@
-from datetime import datetime
-
-
 class No:
     def __init__(self, codigo, descricao):
         """

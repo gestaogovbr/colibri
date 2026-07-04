@@ -1,5 +1,4 @@
 import click
-import utils.configurar_logging as log
 
 from botocore.exceptions import ClientError
 from utils.criar_cliente import criar_cliente
@@ -44,9 +43,7 @@ def deletar_tudo(bucket_name: str, nome_segredo: str):
     except ClientError as e:
         # Identificar qual erro ocorreria, como bucket vazio ou problemas de permissão
         # if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
-        raise Exception(
-            PLACEHOLDER_ERRO_BUCKET % (bucket_name)
-        ) from e
+        raise Exception(PLACEHOLDER_ERRO_BUCKET % (bucket_name)) from e
 
     print(f"{total} objeto(s) deletado(s) de '{bucket_name}'.")
 

@@ -68,6 +68,8 @@ def _registrar_rate_limit(espera: float) -> None:
     global _rl_ate
     with _rl_lock:
         _rl_ate = max(_rl_ate, time.monotonic() + espera)
+
+
 NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 DIRETORIO_DADOS = Path("./dados")
@@ -77,10 +79,21 @@ CAMINHO_CSV = DIRETORIO_CATMATS / "catmats_api.csv"
 NOME_MANIFESTO = "catmats_manifesto.csv"
 
 COLUNAS_CSV = [
-    "codigoGrupo", "nomeGrupo", "codigoClasse", "nomeClasse",
-    "codigoPdm", "nomePdm", "codigoItem", "descricaoItem",
-    "statusItem", "itemSustentavel", "codigo_ncm", "descricao_ncm",
-    "aplica_margem_preferencia", "dataHoraAtualizacao", "api_consultada_em",
+    "codigoGrupo",
+    "nomeGrupo",
+    "codigoClasse",
+    "nomeClasse",
+    "codigoPdm",
+    "nomePdm",
+    "codigoItem",
+    "descricaoItem",
+    "statusItem",
+    "itemSustentavel",
+    "codigo_ncm",
+    "descricao_ncm",
+    "aplica_margem_preferencia",
+    "dataHoraAtualizacao",
+    "api_consultada_em",
 ]
 CAMPOS_API = COLUNAS_CSV[:-1]
 COLUNAS_MANIFESTO = ["pagina", "hash_sha256", "num_registros", "consultada_em"]
@@ -109,7 +122,9 @@ def _buscar_pagina(pagina: int, session: requests.Session) -> dict:
             resp = session.get(f"{BASE_URL}{ENDPOINT}", params=params, timeout=30)
 
             if resp.status_code == 429:
-                espera = float(resp.headers.get("Retry-After", BASE_BACKOFF * (2 ** tentativa)))
+                espera = float(
+                    resp.headers.get("Retry-After", BASE_BACKOFF * (2**tentativa))
+                )
                 logger.warning(f"429 na página {pagina}. Pausa global de {espera:.1f}s")
                 _registrar_rate_limit(espera)
                 time.sleep(espera)
@@ -123,13 +138,18 @@ def _buscar_pagina(pagina: int, session: requests.Session) -> dict:
                 [item.get(c) for c in CAMPOS_API] + [timestamp]
                 for item in resp.json().get("resultado", [])
             ]
-            return {"pagina": pagina, "registros": registros, "hash": hash_atual, "ok": True}
+            return {
+                "pagina": pagina,
+                "registros": registros,
+                "hash": hash_atual,
+                "ok": True,
+            }
 
         except requests.RequestException as e:
             if tentativa == MAX_RETRIES - 1:
                 logger.error(f"Falha definitiva na página {pagina}: {e}")
                 return {"pagina": pagina, "registros": [], "hash": None, "ok": False}
-            time.sleep(BASE_BACKOFF * (2 ** tentativa) + random.uniform(0, 0.5))
+            time.sleep(BASE_BACKOFF * (2**tentativa) + random.uniform(0, 0.5))
 
     return {"pagina": pagina, "registros": [], "hash": None, "ok": False}
 
@@ -143,7 +163,13 @@ def resetar_dados_locais() -> None:
 def subir_manifesto(bucket: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
     bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
-    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
+    _subir_manifesto(
+        DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
+        NOME_MANIFESTO,
+        bucket,
+        NOME_SEGREDO,
+        logger,
+    )
 
 
 def executar_ingestao(bucket: str | None = None) -> bool:
@@ -158,7 +184,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     manifesto = carregar_manifesto(caminho_manifesto)
     csv_ausente = not CAMINHO_CSV.exists()
     if manifesto and csv_ausente:
-        logger.warning(f"Manifesto tem entradas mas {CAMINHO_CSV} não existe localmente. Só reconstruo o CSV se algo realmente tiver mudado.")
+        logger.warning(
+            f"Manifesto tem entradas mas {CAMINHO_CSV} não existe localmente. Só reconstruo o CSV se algo realmente tiver mudado."
+        )
 
     logger.info("Consultando total de páginas do catálogo CATMAT...")
     with requests.Session() as s:
@@ -176,21 +204,27 @@ def executar_ingestao(bucket: str | None = None) -> bool:
             except requests.RequestException as e:
                 if tentativa == MAX_RETRIES - 1:
                     raise RuntimeError(f"Falha ao consultar metadados: {e}")
-                time.sleep(BASE_BACKOFF * (2 ** tentativa))
+                time.sleep(BASE_BACKOFF * (2**tentativa))
 
     total_paginas = meta["totalPaginas"]
-    logger.info(f"Total: {meta['totalRegistros']:,} registros | {total_paginas:,} páginas")
+    logger.info(
+        f"Total: {meta['totalRegistros']:,} registros | {total_paginas:,} páginas"
+    )
 
     todas_paginas = list(range(1, total_paginas + 1))
     pendentes = todas_paginas
-    logger.info(f"Verificando {len(pendentes):,} página(s) | Já no manifesto: {len(manifesto):,}")
+    logger.info(
+        f"Verificando {len(pendentes):,} página(s) | Já no manifesto: {len(manifesto):,}"
+    )
 
     if not pendentes:
         logger.info("Catálogo já atualizado.")
         return False
 
-    buf_registros: list[list] = []   # delta (páginas novas/alteradas), usado quando o CSV já existe
-    buf_completo: list[list] = []    # todas as páginas, só populado se csv_ausente
+    buf_registros: list[
+        list
+    ] = []  # delta (páginas novas/alteradas), usado quando o CSV já existe
+    buf_completo: list[list] = []  # todas as páginas, só populado se csv_ausente
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0}
     manifesto_modificado = False
 
@@ -201,15 +235,21 @@ def executar_ingestao(bucket: str | None = None) -> bool:
                 w.writerows(buf_registros)
             buf_registros.clear()
 
-    chunks = [pendentes[i:i + CHUNK_SIZE] for i in range(0, len(pendentes), CHUNK_SIZE)]
+    chunks = [
+        pendentes[i : i + CHUNK_SIZE] for i in range(0, len(pendentes), CHUNK_SIZE)
+    ]
 
     try:
-        with tqdm(total=len(pendentes), unit="pág", desc="CATMAT") as barra, \
-             requests.Session() as session:
+        with (
+            tqdm(total=len(pendentes), unit="pág", desc="CATMAT") as barra,
+            requests.Session() as session,
+        ):
             session.headers["User-Agent"] = "colibri-ingestao/1.0"
             for idx, chunk in enumerate(chunks):
                 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                    futures = {executor.submit(_buscar_pagina, p, session): p for p in chunk}
+                    futures = {
+                        executor.submit(_buscar_pagina, p, session): p for p in chunk
+                    }
                     for future in as_completed(futures):
                         resultado = future.result()
                         pagina = resultado["pagina"]
@@ -235,7 +275,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
                             "pagina": pagina,
                             "hash_sha256": resultado["hash"],
                             "num_registros": len(resultado["registros"]),
-                            "consultada_em": datetime.now().isoformat(timespec="seconds"),
+                            "consultada_em": datetime.now().isoformat(
+                                timespec="seconds"
+                            ),
                         }
                         manifesto_modificado = True
                         barra.update(1)
@@ -250,7 +292,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
         logger.warning("Interrompido pelo usuário.")
     finally:
         if manifesto_modificado and csv_ausente:
-            logger.info(f"Reconstruindo {CAMINHO_CSV} do zero ({len(buf_completo):,} registro(s)).")
+            logger.info(
+                f"Reconstruindo {CAMINHO_CSV} do zero ({len(buf_completo):,} registro(s))."
+            )
             with open(CAMINHO_CSV, "w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
                 w.writerow(COLUNAS_CSV)
