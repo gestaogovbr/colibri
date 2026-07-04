@@ -1,6 +1,7 @@
 import boto3
 from utils.carregar_segredo import carregar_segredo
 
+
 def criar_cliente(config: dict):
     """
     Cria e retorna um cliente S3 usando as credenciais fornecidas no dicionário de config

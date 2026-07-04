@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Constantes
 
-NCM_URL = "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
+NCM_URL = (
+    "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
+)
 NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 DIRETORIO_RAIZ = Path("./dados")
@@ -53,6 +55,7 @@ COLUNAS_ALTERACOES = ["arquivo_csv"]
 
 
 # Manifesto
+
 
 def carregar_manifesto(caminho: Path) -> list[dict]:
     if not caminho.exists():
@@ -78,13 +81,17 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[str]) -> None:
 
 # Hash
 
+
 def _calcular_hash(dados: dict) -> str:
-    dados_sem_data = {k: v for k, v in dados.items() if k != "Data_Ultima_Atualizacao_NCM"}
+    dados_sem_data = {
+        k: v for k, v in dados.items() if k != "Data_Ultima_Atualizacao_NCM"
+    }
     conteudo = json.dumps(dados_sem_data, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(conteudo.encode()).hexdigest()
 
 
 # Transformação
+
 
 def _flatten_nomenclaturas(nomenclaturas: list, resultado: dict | None = None) -> dict:
     if resultado is None:
@@ -99,8 +106,17 @@ def _flatten_nomenclaturas(nomenclaturas: list, resultado: dict | None = None) -
 
 def _obter_nivel(codigo: str) -> tuple[int | None, str]:
     num_digitos = sum(c.isdigit() for c in codigo)
-    mapa = {2: "Capítulo", 4: "Posição", 5: "Subposição 1", 6: "Subposição 2", 7: "Item", 8: "Subitem"}
-    return (num_digitos if num_digitos in mapa else None), mapa.get(num_digitos, "Desconhecido")
+    mapa = {
+        2: "Capítulo",
+        4: "Posição",
+        5: "Subposição 1",
+        6: "Subposição 2",
+        7: "Item",
+        8: "Subitem",
+    }
+    return (num_digitos if num_digitos in mapa else None), mapa.get(
+        num_digitos, "Desconhecido"
+    )
 
 
 def _obter_pai(codigo: str, mapa_ncm: dict) -> str | None:
@@ -132,7 +148,9 @@ def _construir_arvore(mapa_ncm: dict) -> No:
 
 def _enriquecer(arvore: No) -> list[dict]:
     def _primeiro_no_com_nivel(caminho, nivel):
-        return next((n for n in caminho[1:] if _obter_nivel(n.codigo)[1] == nivel), None)
+        return next(
+            (n for n in caminho[1:] if _obter_nivel(n.codigo)[1] == nivel), None
+        )
 
     resultado = []
     for no in arvore:
@@ -145,32 +163,37 @@ def _enriquecer(arvore: No) -> list[dict]:
         sp2 = _primeiro_no_com_nivel(no.caminho, "Subposição 2")
         itm = _primeiro_no_com_nivel(no.caminho, "Item")
         sub = _primeiro_no_com_nivel(no.caminho, "Subitem")
-        resultado.append({
-            "Codigo":                  no.codigo,
-            "Descricao":               no.descricao,
-            "Nivel":                   nivel,
-            "Caminho":                 no.transformar_caminho_em_string(),
-            "Capitulo_Codigo":         cap.codigo if cap else None,
-            "Capitulo_Descricao":      cap.descricao if cap else None,
-            "Posicao_Codigo":          pos.codigo if pos else None,
-            "Posicao_Descricao":       pos.descricao if pos else None,
-            "Subposicao_1_Codigo":     sp1.codigo if sp1 else None,
-            "Subposicao_1_Descricao":  sp1.descricao if sp1 else None,
-            "Subposicao_2_Codigo":     sp2.codigo if sp2 else None,
-            "Subposicao_2_Descricao":  sp2.descricao if sp2 else None,
-            "Item_Codigo":             itm.codigo if itm else None,
-            "Item_Descricao":          itm.descricao if itm else None,
-            "Subitem_Codigo":          sub.codigo if sub else None,
-            "Subitem_Descricao":       sub.descricao if sub else None,
-        })
+        resultado.append(
+            {
+                "Codigo": no.codigo,
+                "Descricao": no.descricao,
+                "Nivel": nivel,
+                "Caminho": no.transformar_caminho_em_string(),
+                "Capitulo_Codigo": cap.codigo if cap else None,
+                "Capitulo_Descricao": cap.descricao if cap else None,
+                "Posicao_Codigo": pos.codigo if pos else None,
+                "Posicao_Descricao": pos.descricao if pos else None,
+                "Subposicao_1_Codigo": sp1.codigo if sp1 else None,
+                "Subposicao_1_Descricao": sp1.descricao if sp1 else None,
+                "Subposicao_2_Codigo": sp2.codigo if sp2 else None,
+                "Subposicao_2_Descricao": sp2.descricao if sp2 else None,
+                "Item_Codigo": itm.codigo if itm else None,
+                "Item_Descricao": itm.descricao if itm else None,
+                "Subitem_Codigo": sub.codigo if sub else None,
+                "Subitem_Descricao": sub.descricao if sub else None,
+            }
+        )
     return resultado
 
 
 # CSV
 
+
 def _salvar_silver(enriquecido: list[dict], agora: datetime) -> Path:
     DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
-    caminho = DIRETORIO_SAIDA / f"{NOME_BASE_SILVER}_{agora.strftime('%Y-%m-%d-%H%M%S')}.csv"
+    caminho = (
+        DIRETORIO_SAIDA / f"{NOME_BASE_SILVER}_{agora.strftime('%Y-%m-%d-%H%M%S')}.csv"
+    )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(enriquecido[0].keys()))
         writer.writeheader()
@@ -180,6 +203,7 @@ def _salvar_silver(enriquecido: list[dict], agora: datetime) -> Path:
 
 
 # Execução
+
 
 def resetar_dados_locais() -> None:
     """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
@@ -191,7 +215,13 @@ def resetar_dados_locais() -> None:
 def subir_manifesto(bucket: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
     bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
-    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
+    _subir_manifesto(
+        DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
+        NOME_MANIFESTO,
+        bucket,
+        NOME_SEGREDO,
+        logger,
+    )
 
 
 def executar_ingestao(bucket: str | None = None) -> bool:
@@ -211,7 +241,11 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     dados = cju.carregar_json_da_url(NCM_URL)
     hash_atual = _calcular_hash(dados)
 
-    ultimo_hash = max(manifesto, key=lambda e: e["extraido_em"])["hash_sha256"] if manifesto else None
+    ultimo_hash = (
+        max(manifesto, key=lambda e: e["extraido_em"])["hash_sha256"]
+        if manifesto
+        else None
+    )
     if ultimo_hash == hash_atual:
         logger.info("Sem mudanças nos dados de NCM. Ingestão encerrada.")
         salvar_alteracoes(caminho_alteracoes, [])
@@ -223,12 +257,14 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     enriquecido = _enriquecer(arvore)
     caminho_csv = _salvar_silver(enriquecido, agora)
 
-    manifesto.append({
-        "hash_sha256": hash_atual,
-        "arquivo_csv": caminho_csv.name,
-        "num_registros": len(enriquecido),
-        "extraido_em": agora.isoformat(timespec="seconds"),
-    })
+    manifesto.append(
+        {
+            "hash_sha256": hash_atual,
+            "arquivo_csv": caminho_csv.name,
+            "num_registros": len(enriquecido),
+            "extraido_em": agora.isoformat(timespec="seconds"),
+        }
+    )
     salvar_manifesto(caminho_manifesto, manifesto)
     salvar_alteracoes(caminho_alteracoes, [caminho_csv.name])
 

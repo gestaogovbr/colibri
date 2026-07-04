@@ -9,8 +9,12 @@ from utils.criar_cliente import criar_cliente
 log.setup_logging()
 logger = logging.getLogger(__name__)
 
+
 def salvar_arquivo_no_bucket(
-    caminho_arquivo: str, bucket_name: str, nome_segredo: str, nome_no_bucket: str | None = None
+    caminho_arquivo: str,
+    bucket_name: str,
+    nome_segredo: str,
+    nome_no_bucket: str | None = None,
 ) -> None:
     if not os.path.exists(caminho_arquivo):
         logger.error(log.ARQUIVO_NAO_ENCONTRADO % caminho_arquivo)
@@ -24,6 +28,6 @@ def salvar_arquivo_no_bucket(
         cliente.upload_fileobj(arquivo, bucket_name, nome_destino)
     logger.info(f"Upload concluído: {nome_destino}")
 
-    
+
 if __name__ == "__main__":
     salvar_arquivo_no_bucket()

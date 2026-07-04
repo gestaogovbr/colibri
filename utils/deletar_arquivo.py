@@ -5,6 +5,7 @@ import utils.configurar_logging as log
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 
+
 class ArquivoNaoEncontradoError(Exception):
     pass
 

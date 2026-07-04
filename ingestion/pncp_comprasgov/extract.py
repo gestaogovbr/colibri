@@ -67,7 +67,16 @@ TEMPLATE_ARQUIVO_MENSAL = "comprasGOV-mensal-{view}-{ano}-{mes:02d}.csv"
 TEMPLATE_ARQUIVO_ANUAL = "comprasGOV-anual-{view}-{ano}.csv"
 
 NOME_MANIFESTO = "pncp_comprasgov_manifesto.csv"
-COLUNAS_MANIFESTO = ["view", "data", "url", "num_linhas", "tamanho_bytes", "num_colunas", "hash_sha256", "extraido_em"]
+COLUNAS_MANIFESTO = [
+    "view",
+    "data",
+    "url",
+    "num_linhas",
+    "tamanho_bytes",
+    "num_colunas",
+    "hash_sha256",
+    "extraido_em",
+]
 
 # Alterações desta execução (arquivos baixados ou atualizados), consumido pelo dbt
 # pra inserir só o que mudou nas tabelas staging incrementais.
@@ -82,25 +91,41 @@ SALVAR_MANIFESTO_A_CADA = 50
 
 # URLs e caminhos
 
+
 def construir_url_diario(view: str, data: date) -> str:
-    nome = TEMPLATE_ARQUIVO_DIARIO.format(view=view, ano=data.year, mes=data.month, dia=data.day)
+    nome = TEMPLATE_ARQUIVO_DIARIO.format(
+        view=view, ano=data.year, mes=data.month, dia=data.day
+    )
     return f"{URL_BASE_DIARIO}/{data.year}/{data.month:02d}/{data.day:02d}/{nome}"
 
+
 def construir_caminho_diario(view: str, data: date) -> Path:
-    nome = TEMPLATE_ARQUIVO_DIARIO.format(view=view, ano=data.year, mes=data.month, dia=data.day)
-    return DIRETORIO_SAIDA_DIARIO / str(data.year) / f"{data.month:02d}" / f"{data.day:02d}" / nome
+    nome = TEMPLATE_ARQUIVO_DIARIO.format(
+        view=view, ano=data.year, mes=data.month, dia=data.day
+    )
+    return (
+        DIRETORIO_SAIDA_DIARIO
+        / str(data.year)
+        / f"{data.month:02d}"
+        / f"{data.day:02d}"
+        / nome
+    )
+
 
 def construir_url_mensal(view: str, ano: int, mes: int) -> str:
     nome = TEMPLATE_ARQUIVO_MENSAL.format(view=view, ano=ano, mes=mes)
     return f"{URL_BASE_MENSAL}/{ano}/{mes:02d}/{nome}"
 
+
 def construir_caminho_mensal(view: str, ano: int, mes: int) -> Path:
     nome = TEMPLATE_ARQUIVO_MENSAL.format(view=view, ano=ano, mes=mes)
     return DIRETORIO_SAIDA_MENSAL / str(ano) / f"{mes:02d}" / nome
 
+
 def construir_url_anual(view: str, ano: int) -> str:
     nome = TEMPLATE_ARQUIVO_ANUAL.format(view=view, ano=ano)
     return f"{URL_BASE_ANUAL}/{ano}/{nome}"
+
 
 def construir_caminho_anual(view: str, ano: int) -> Path:
     nome = TEMPLATE_ARQUIVO_ANUAL.format(view=view, ano=ano)
@@ -108,6 +133,7 @@ def construir_caminho_anual(view: str, ano: int) -> Path:
 
 
 # Manifesto
+
 
 def carregar_manifesto(caminho: Path) -> dict[str, dict]:
     """Lê o manifesto CSV e retorna o dicionário correspondente, indexado por "view:data" """
@@ -126,9 +152,13 @@ def carregar_manifesto(caminho: Path) -> dict[str, dict]:
 def salvar_manifesto(caminho: Path, manifesto: dict[str, dict]) -> None:
     """Salva o manifesto em CSV, ordenado por view e data (do mais antigo ao mais recente)"""
     with open(caminho, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=COLUNAS_MANIFESTO) # cria objeto pra escrever dicionários com as chaves definidas em COLUNAS_MANIFESTO
-        writer.writeheader() # escreve primeira linha do csv (nomes das colunas)
-        writer.writerows(sorted(manifesto.values(), key=lambda e: (e["view"], e["data"]))) # escreve as demais linhas, ordenadas
+        writer = csv.DictWriter(
+            f, fieldnames=COLUNAS_MANIFESTO
+        )  # cria objeto pra escrever dicionários com as chaves definidas em COLUNAS_MANIFESTO
+        writer.writeheader()  # escreve primeira linha do csv (nomes das colunas)
+        writer.writerows(
+            sorted(manifesto.values(), key=lambda e: (e["view"], e["data"]))
+        )  # escreve as demais linhas, ordenadas
 
 
 def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str, str]]) -> None:
@@ -139,7 +169,9 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str, str]]) -> 
         writer.writerows(alteracoes)
 
 
-def registrar_entrada(manifesto: dict[str, dict], view: str, chave: str, url: str, conteudo: bytes) -> None:
+def registrar_entrada(
+    manifesto: dict[str, dict], view: str, chave: str, url: str, conteudo: bytes
+) -> None:
     linhas = list(csv.reader(io.StringIO(conteudo.decode("utf-8"))))
     manifesto[f"{view}:{chave}"] = {
         "view": view,
@@ -155,6 +187,7 @@ def registrar_entrada(manifesto: dict[str, dict], view: str, chave: str, url: st
 
 # Hash
 
+
 def hash_arquivo(caminho: Path) -> str:
     """Calcula SHA-256 do arquivo em blocos de 64 KB para não estourar memória"""
     h = hashlib.sha256()
@@ -165,6 +198,7 @@ def hash_arquivo(caminho: Path) -> str:
 
 
 # Conversão
+
 
 def csv_para_parquet(conteudo: bytes) -> bytes:
     # Cria o caminho para um parquet num diretório temporário do SO
@@ -179,6 +213,7 @@ def csv_para_parquet(conteudo: bytes) -> bytes:
 
 
 # Download
+
 
 def criar_sessao() -> requests.Session:
     """Cria uma sessão HTTP persistente pra todas as requests"""
@@ -197,13 +232,15 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
                 logger.debug(f"404 — sem dados: {url}")
                 return None
 
-            resposta.raise_for_status() # transforma resposta HTTP de erro em exceção do Python
+            resposta.raise_for_status()  # transforma resposta HTTP de erro em exceção do Python
             return resposta.content
 
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout (tentativa {tentativa}/{MAX_TENTATIVAS}): {url}")
         except requests.exceptions.RequestException as e:
-            logger.warning(f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}")
+            logger.warning(
+                f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}"
+            )
 
         if tentativa < MAX_TENTATIVAS:
             time.sleep(PAUSA_BASE_SEGUNDOS * tentativa)
@@ -214,7 +251,16 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
 
 # Processamento
 
-def processar_arquivo(session: requests.Session, view: str, chave: str, url: str, caminho: Path, manifesto: dict[str, dict], bucket_nome: str) -> str:
+
+def processar_arquivo(
+    session: requests.Session,
+    view: str,
+    chave: str,
+    url: str,
+    caminho: Path,
+    manifesto: dict[str, dict],
+    bucket_nome: str,
+) -> str:
     """
     Baixa um arquivo CSV e salva no bucket, se necessário.
 
@@ -229,9 +275,11 @@ def processar_arquivo(session: requests.Session, view: str, chave: str, url: str
         return "indisponivel"
 
     config = carregar_segredo(NOME_SEGREDO)
-    
+
     # Ex: 'dados/pncp_comprasgov_diario/2021/12/01/comprasGOV-diario-VW_FT_PNCP_COMPRA-2021-12-01.csv'
-    nome_no_bucket = caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
+    nome_no_bucket = (
+        caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
+    )
 
     s3 = boto3.resource(
         "s3",
@@ -242,30 +290,43 @@ def processar_arquivo(session: requests.Session, view: str, chave: str, url: str
     )
     # Verifica se objeto existe no bucket via HEAD request
     try:
-        s3.Object(bucket_nome, nome_no_bucket).load() # tenta obter o objeto pela key
+        s3.Object(bucket_nome, nome_no_bucket).load()  # tenta obter o objeto pela key
         existe_no_bucket = True
     except botocore.exceptions.ClientError as e:
         existe_no_bucket = False
-    
+
     # Salva no bucket caso arquivo conste no manifesto, no bucket E hash bater com manifesto
-    if entrada and existe_no_bucket and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest():
+    if (
+        entrada
+        and existe_no_bucket
+        and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest()
+    ):
         logger.info(f"[{view}] {chave}: hash bate com manifesto, pulando")
         return "ignorado"
     else:
         conteudo_parquet = csv_para_parquet(conteudo)
-        salvar_bytes_no_bucket(conteudo_parquet, bucket_nome, NOME_SEGREDO, nome_no_bucket)
+        salvar_bytes_no_bucket(
+            conteudo_parquet, bucket_nome, NOME_SEGREDO, nome_no_bucket
+        )
         registrar_entrada(manifesto, view, chave, url, conteudo)
         status = "atualizado" if entrada else "baixado"
         e = manifesto[f"{view}:{chave}"]
-        logger.info(f"[{view}] {chave}: {status} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)")
+        logger.info(
+            f"[{view}] {chave}: {status} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)"
+        )
         return status
 
 
 # Execução
 
+
 def resetar_dados_locais() -> None:
     """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
-    for diretorio in (DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL):
+    for diretorio in (
+        DIRETORIO_SAIDA_DIARIO,
+        DIRETORIO_SAIDA_MENSAL,
+        DIRETORIO_SAIDA_ANUAL,
+    ):
         shutil.rmtree(diretorio, ignore_errors=True)
     (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
     (DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES).unlink(missing_ok=True)
@@ -274,18 +335,33 @@ def resetar_dados_locais() -> None:
 def subir_manifesto(bucket_nome: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
     bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
-    _subir_manifesto(DIRETORIO_MANIFESTOS / NOME_MANIFESTO, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO, logger)
+    _subir_manifesto(
+        DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
+        NOME_MANIFESTO,
+        bucket_nome,
+        NOME_SEGREDO,
+        logger,
+    )
 
 
 def executar_ingestao(bucket_nome: str | None = None) -> bool:
     """Retorna True se algum dado novo foi extraído, False se nada mudou"""
-    for d in (DIRETORIO_RAIZ, DIRETORIO_SAIDA_DIARIO, DIRETORIO_SAIDA_MENSAL, DIRETORIO_SAIDA_ANUAL, DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES_DIR):
+    for d in (
+        DIRETORIO_RAIZ,
+        DIRETORIO_SAIDA_DIARIO,
+        DIRETORIO_SAIDA_MENSAL,
+        DIRETORIO_SAIDA_ANUAL,
+        DIRETORIO_MANIFESTOS,
+        DIRETORIO_ALTERACOES_DIR,
+    ):
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
     bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO, logger)
+    baixar_manifesto(
+        caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO, logger
+    )
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
 
@@ -298,11 +374,18 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
     try:
         i = 1
         for view in VIEWS:
-
             # Diário
             data = DATA_INICIO
             while data <= hoje:
-                status = processar_arquivo(session, view, data.isoformat(), construir_url_diario(view, data), construir_caminho_diario(view, data), manifesto, bucket_nome)
+                status = processar_arquivo(
+                    session,
+                    view,
+                    data.isoformat(),
+                    construir_url_diario(view, data),
+                    construir_caminho_diario(view, data),
+                    manifesto,
+                    bucket_nome,
+                )
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
                     manifesto_modificado = True
@@ -316,7 +399,15 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
             ano, mes = DATA_INICIO.year, DATA_INICIO.month
             while (ano, mes) <= (hoje.year, hoje.month):
                 chave = f"{ano}-{mes:02d}"
-                status = processar_arquivo(session, view, chave, construir_url_mensal(view, ano, mes), construir_caminho_mensal(view, ano, mes), manifesto, bucket_nome)
+                status = processar_arquivo(
+                    session,
+                    view,
+                    chave,
+                    construir_url_mensal(view, ano, mes),
+                    construir_caminho_mensal(view, ano, mes),
+                    manifesto,
+                    bucket_nome,
+                )
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
                     manifesto_modificado = True
@@ -331,7 +422,15 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
             # Anual
             for ano in range(DATA_INICIO.year, hoje.year + 1):
                 chave = str(ano)
-                status = processar_arquivo(session, view, chave, construir_url_anual(view, ano), construir_caminho_anual(view, ano), manifesto, bucket_nome)
+                status = processar_arquivo(
+                    session,
+                    view,
+                    chave,
+                    construir_url_anual(view, ano),
+                    construir_caminho_anual(view, ano),
+                    manifesto,
+                    bucket_nome,
+                )
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
                     manifesto_modificado = True

@@ -1,7 +1,11 @@
 import os
 import subprocess
 
-from ingestion.pncp_comprasgov.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
+from ingestion.pncp_comprasgov.extract import (
+    executar_ingestao,
+    resetar_dados_locais,
+    subir_manifesto,
+)
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
@@ -19,16 +23,20 @@ def main(bucket: str | None = None):
     houve_mudanca = executar_ingestao(bucket_nome=bucket)
 
     if houve_mudanca:
-        subprocess.run(-
-            [
-                "dbt", "run",
+        subprocess.run(
+            -[
+                "dbt",
+                "run",
                 "--select",
                 "stg_pncp_comprasgov__compras int_pncp_comprasgov__compras mrt_pncp_comprasgov_compras "
                 "stg_pncp_comprasgov__itens int_pncp_comprasgov__itens mrt_pncp_comprasgov_itens "
                 "stg_pncp_comprasgov__resultados int_pncp_comprasgov__resultados mrt_pncp_comprasgov_resultados",
-                "--vars", f"bucket_lake: {bucket}",
-                "--project-dir", str(DBT_DIR),
-                "--profiles-dir", str(DBT_DIR),
+                "--vars",
+                f"bucket_lake: {bucket}",
+                "--project-dir",
+                str(DBT_DIR),
+                "--profiles-dir",
+                str(DBT_DIR),
             ],
             cwd=str(DBT_DIR),
             check=True,

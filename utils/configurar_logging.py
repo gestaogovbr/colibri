@@ -21,20 +21,19 @@ DIRETORIO_LOGS = Path("./logs/")
 def setup_logging():
     "Função para configurar o logging com um formato consistente"
     root_logger = logging.getLogger()
-    
+
     # Evita adicionar handlers duplicados
     if root_logger.hasHandlers():
         return
-    
+
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
     )
 
-    DIRETORIO_LOGS.mkdir(parents=True, exist_ok=True) 
+    DIRETORIO_LOGS.mkdir(parents=True, exist_ok=True)
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
-    
     file_handler = logging.FileHandler("logs/app.log", encoding="utf-8")
     file_handler.setFormatter(formatter)
 

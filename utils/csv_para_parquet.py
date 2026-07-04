@@ -1,4 +1,4 @@
-import io   
+import io
 import uuid
 import duckdb
 import tempfile
@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 # Conversão
+
 
 def csv_para_parquet(conteudo: bytes) -> bytes:
     # Cria o caminho para um parquet num diretório temporário do SO

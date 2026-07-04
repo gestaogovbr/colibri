@@ -76,7 +76,9 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     return con
 
 
-def conectar(caminho_meta: str, data_path: str, nome_segredo: str) -> duckdb.DuckDBPyConnection:
+def conectar(
+    caminho_meta: str, data_path: str, nome_segredo: str
+) -> duckdb.DuckDBPyConnection:
     """
     Baixa o catálogo remoto e retorna uma conexão duckdb com o lake já anexado, pronta para uso
     """
@@ -91,7 +93,9 @@ def conectar(caminho_meta: str, data_path: str, nome_segredo: str) -> duckdb.Duc
     con = _nova_conexao(config)
 
     # Conecta o catálogo baixado do bucket com o caminho dos parquets no bucket
-    con.execute(f"ATTACH 'ducklake:{CATALOGO_LOCAL}' AS lake (DATA_PATH '{data_path}', OVERRIDE_DATA_PATH TRUE)")
+    con.execute(
+        f"ATTACH 'ducklake:{CATALOGO_LOCAL}' AS lake (DATA_PATH '{data_path}', OVERRIDE_DATA_PATH TRUE)"
+    )
     return con
 
 
