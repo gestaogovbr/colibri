@@ -575,6 +575,74 @@ def ui(bucket: str, segredo: str):
     input("Pressione Enter para fechar o servidor e encerrar o script...")
 
 
+@lake.command("drop-table")
+@click.argument("tabela")
+@click.option(
+    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
+)
+@click.option(
+    "--segredo",
+    default=NOME_SEGREDO,
+    show_default=True,
+    help="Segredo com acesso de escrita ao bucket",
+)
+def deletar_tabela(tabela: str, bucket: str, segredo: str):
+    """Remove uma tabela do catálogo (exclusão lógica, recuperável até a próxima manutenção)"""
+    import utils.ducklake as dl
+
+    if segredo == NOME_SEGREDO_VISUALIZADOR:
+        console.print(
+            "[red]x[/red] Esse comando exige um segredo com acesso de escrita "
+            "(o de visualizador é somente leitura)."
+        )
+        return
+
+    caminho_meta = f"s3://{bucket}/meta.ducklake"
+    con = _conectar_lake(bucket, segredo)
+
+    row = con.execute(
+        """
+        SELECT s.schema_name
+        FROM __ducklake_metadata_lake.main.ducklake_schema s
+        JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
+        WHERE t.table_name = ? AND t.end_snapshot IS NULL
+        LIMIT 1
+        """,
+        [tabela],
+    ).fetchone()
+
+    if not row:
+        console.print(f"[red]x[/red] Tabela não encontrada: [bold]{tabela}[/bold]")
+        con.close()
+        return
+
+    schema_name = row[0]
+    console.print(
+        f"Isso vai remover [bold]{schema_name}.{tabela}[/bold] do catálogo em "
+        f"[bold]{bucket}[/bold] (exclusão lógica — recuperável via time travel "
+        "até a próxima manutenção)."
+    )
+    resposta = click.prompt(
+        "Digite 'sim' para confirmar", default="", show_default=False
+    )
+    if resposta.strip().lower() != "sim":
+        console.print("[yellow]Operação cancelada.[/yellow]")
+        con.close()
+        return
+
+    try:
+        con.execute(f'DROP TABLE lake."{schema_name}"."{tabela}"')
+    except Exception as e:
+        console.print(f"[red]x[/red] {e}")
+        con.close()
+        return
+
+    dl.fechar(con, caminho_meta, segredo)
+    console.print(
+        f"[{VERDE}]+[/] Tabela [bold]{schema_name}.{tabela}[/bold] removida do catálogo"
+    )
+
+
 @lake.command("maintenance")
 @click.option(
     "--dias",
