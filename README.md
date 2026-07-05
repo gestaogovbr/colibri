@@ -85,6 +85,8 @@ colibri lake download <tabela>          # exporta uma tabela para parquet local
 colibri lake query "<sql>"              # query livre
 colibri lake ui                         # abre a DuckDB UI conectada ao catálogo
 
+colibri lake drop-table <tabela>        # remove uma tabela do catálogo (exige credencial de escrita)
+
 colibri lake maintenance                # expira snapshots antigos e apaga os arquivos órfãos
 colibri lake maintenance --dry-run      # só mostra o que seria expirado/apagado, sem alterar nada
 colibri lake maintenance --dias 7       # mantém 7 dias de histórico em vez do padrão (1 dia)
@@ -92,6 +94,12 @@ colibri lake maintenance --dias 7       # mantém 7 dias de histórico em vez do
 
 Requer `meta.ducklake` na raiz do projeto (gerado/baixado automaticamente pelo
 pipeline, ou via `colibri sincronizar`).
+
+`colibri lake drop-table` recusa rodar com o segredo de visualizador (só funciona
+com credencial de escrita), resolve o schema da tabela automaticamente, pede
+confirmação (digite `sim`) antes de executar e sincroniza o catálogo de volta
+para o bucket ao final. É uma exclusão lógica — os dados continuam recuperáveis
+via time travel até a próxima `colibri lake maintenance`.
 
 DuckLake nunca apaga dados antigos automaticamente: todo `DELETE`/`DROP`/refresh de
 tabela fica preservado como um snapshot navegável (time travel), então o espaço no
