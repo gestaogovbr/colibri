@@ -191,6 +191,12 @@ def bucket():
     pass
 
 
+@cli.group(cls=ColibriGroup)
+def dev():
+    """Cria e usa branches isoladas do lake para testar pipelines novos"""
+    pass
+
+
 @bucket.command("list")
 @click.argument("bucket_name")
 @click.option("--segredo", default=NOME_SEGREDO, show_default=True)
@@ -776,6 +782,167 @@ _MANIFESTOS = [
     "catmats_manifesto.csv",
     "nfe_cgu_manifesto.csv",
 ]
+
+
+@dev.command("branch")
+@click.argument("nome")
+@click.option(
+    "--tabelas",
+    multiple=True,
+    help="Tabela a copiar da origem (repita para várias: --tabelas a --tabelas "
+    "b --tabelas c; também aceita uma lista separada por vírgula num só uso). "
+    "Padrão: nenhuma — branch vazia, sem dados de produção",
+)
+@click.option(
+    "--origem",
+    default="colibri-prod",
+    show_default=True,
+    help="Bucket de onde copiar tabelas existentes",
+)
+@click.option(
+    "--destino", default="colibri-dev", show_default=True, help="Bucket onde a branch é criada"
+)
+@click.option(
+    "--segredo",
+    default=NOME_SEGREDO,
+    show_default=True,
+    help="Segredo com acesso de escrita ao destino e leitura à origem",
+)
+def criar_branch(
+    nome: str, tabelas: tuple[str, ...], origem: str, destino: str, segredo: str
+):
+    """Cria uma branch isolada do lake, opcionalmente com cópias de tabelas da origem
+
+    Copia tabela por tabela (CREATE TABLE ... AS SELECT), nunca o arquivo de
+    catálogo da origem — assim o destino nasce com seu próprio data_path,
+    consistente, sem risco de escrita cair no bucket de produção por engano.
+    """
+    import os
+    import utils.ducklake as dl
+
+    chave_branch = f"branches/{nome}/meta.ducklake"
+    data_path_branch = f"s3://{destino}/branches/{nome}/lake/"
+
+    s3 = _cliente(segredo)
+    try:
+        s3.head_object(Bucket=destino, Key=chave_branch)
+        console.print(
+            f"[red]x[/red] Já existe uma branch chamada [bold]{nome}[/bold] em "
+            f"[bold]{destino}[/bold]. Escolha outro nome."
+        )
+        return
+    except ClientError:
+        pass
+
+    prod_local = "_dev_branch_origem.ducklake"
+    branch_local = "_dev_branch_novo.ducklake"
+    for f in (prod_local, branch_local):
+        if os.path.exists(f):
+            os.remove(f)
+
+    config = carregar_segredo(segredo)
+    con = dl._nova_conexao(config)
+    lista_tabelas = [
+        t.strip() for valor in tabelas for t in valor.split(",") if t.strip()
+    ]
+
+    try:
+        if lista_tabelas:
+            s3.download_file(origem, "meta.ducklake", prod_local)
+            con.execute(
+                f"ATTACH 'ducklake:{prod_local}' AS prod "
+                f"(DATA_PATH 's3://{origem}/lake/', OVERRIDE_DATA_PATH TRUE, READ_ONLY)"
+            )
+        con.execute(
+            f"ATTACH 'ducklake:{branch_local}' AS dev_branch (DATA_PATH '{data_path_branch}')"
+        )
+
+        for tabela in lista_tabelas:
+            row = con.execute(
+                """
+                SELECT s.schema_name
+                FROM __ducklake_metadata_prod.main.ducklake_schema s
+                JOIN __ducklake_metadata_prod.main.ducklake_table t USING (schema_id)
+                WHERE t.table_name = ? AND t.end_snapshot IS NULL
+                LIMIT 1
+                """,
+                [tabela],
+            ).fetchone()
+            if not row:
+                console.print(
+                    f"[red]x[/red] Tabela não encontrada em {origem}: [bold]{tabela}[/bold]"
+                )
+                continue
+            schema_name = row[0]
+            con.execute(f'CREATE SCHEMA IF NOT EXISTS dev_branch."{schema_name}"')
+            con.execute(
+                f'CREATE TABLE dev_branch."{schema_name}"."{tabela}" AS '
+                f'SELECT * FROM prod."{schema_name}"."{tabela}"'
+            )
+            console.print(f"[{VERDE}]+[/] Copiada: [bold]{schema_name}.{tabela}[/bold]")
+
+        con.execute("DETACH dev_branch")
+        if lista_tabelas:
+            con.execute("DETACH prod")
+    except Exception as e:
+        console.print(f"[red]x[/red] {e}")
+        con.close()
+        return
+    con.close()
+
+    s3.upload_file(branch_local, destino, chave_branch)
+    for f in (prod_local, branch_local):
+        if os.path.exists(f):
+            os.remove(f)
+
+    console.print(
+        f"[{VERDE}]+[/] Branch [bold]{nome}[/bold] criada em [bold]{destino}[/bold]. "
+        f'Use [bold]colibri dev run {nome} "<sql>"[/bold] pra testar.'
+    )
+
+
+@dev.command("run")
+@click.argument("nome")
+@click.argument("sql")
+@click.option(
+    "--bucket", default="colibri-dev", show_default=True, help="Bucket onde a branch foi criada"
+)
+@click.option(
+    "--segredo",
+    default=NOME_SEGREDO,
+    show_default=True,
+    help="Segredo com acesso de escrita à branch",
+)
+def rodar_branch(nome: str, sql: str, bucket: str, segredo: str):
+    """Executa SQL contra uma branch isolada, sincronizando o catálogo dela ao final"""
+    import utils.ducklake as dl
+
+    caminho_meta = f"s3://{bucket}/branches/{nome}/meta.ducklake"
+    data_path = f"s3://{bucket}/branches/{nome}/lake/"
+
+    try:
+        con = dl.conectar(caminho_meta, data_path, segredo)
+    except Exception as e:
+        console.print(
+            f"[red]x[/red] Branch [bold]{nome}[/bold] não encontrada em "
+            f"[bold]{bucket}[/bold]: {e}"
+        )
+        return
+
+    try:
+        resultado = con.execute(sql).fetchdf()
+    except Exception as e:
+        console.print(f"[red]x[/red] {e}")
+        dl.fechar(con, caminho_meta, segredo)
+        return
+
+    if not resultado.empty:
+        tb = _tabela_dados(*[str(c) for c in resultado.columns])
+        for _, row in resultado.iterrows():
+            tb.add_row(*[str(v) for v in row])
+        console.print(tb)
+
+    dl.fechar(con, caminho_meta, segredo)
 
 
 @cli.command("sincronizar")
