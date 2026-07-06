@@ -68,11 +68,11 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     con.execute("LOAD httpfs")
     con.execute("INSTALL ducklake")
     con.execute("LOAD ducklake")
-    con.execute(f"SET s3_endpoint = '{endpoint}'")
-    con.execute(f"SET s3_access_key_id = '{config['access_key']}'")
-    con.execute(f"SET s3_secret_access_key = '{config['secret_key']}'")
-    con.execute("SET s3_region = 'auto'")
-    con.execute("SET s3_url_style = 'path'")
+    con.execute(f"SET GLOBAL s3_endpoint = '{endpoint}'")
+    con.execute(f"SET GLOBAL s3_access_key_id = '{config['access_key']}'")
+    con.execute(f"SET GLOBAL s3_secret_access_key = '{config['secret_key']}'")
+    con.execute("SET GLOBAL s3_region = 'auto'")
+    con.execute("SET GLOBAL s3_url_style = 'path'")
     return con
 
 
