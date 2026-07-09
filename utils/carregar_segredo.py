@@ -3,11 +3,11 @@ import yaml
 
 import utils.configurar_logging as log
 
-from utils.constantes import CAMINHO_SEGREDOS, NOME_SEGREDO
+from utils.constantes import CAMINHO_SEGREDOS, NOME_SEGREDO_DESENVOLVEDOR
 
 
 def carregar_segredo(
-    nome_segredo: str = NOME_SEGREDO, caminho_arquivo: str = CAMINHO_SEGREDOS
+    nome_segredo: str = NOME_SEGREDO_DESENVOLVEDOR, caminho_arquivo: str = CAMINHO_SEGREDOS
 ) -> dict:
     """
     Lê o arquivo YAML de segredos e retorna o dicionário correspondente ao nome do segredo informado
