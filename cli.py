@@ -12,7 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
-from utils.constantes import NOME_SEGREDO, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
@@ -193,7 +193,7 @@ def bucket():
 
 @bucket.command("list")
 @click.argument("bucket_name")
-@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
 @click.option("--prefixo", default="", help="Filtrar por prefixo")
 def listar(bucket_name: str, segredo: str, prefixo: str):
     """Lista arquivos no bucket"""
@@ -249,7 +249,7 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
 @bucket.command("delete")
 @click.argument("arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
 def deletar(arquivo: str, bucket_name: str, segredo: str):
     """Remove um arquivo do bucket"""
     s3 = _cliente(segredo)
@@ -265,7 +265,7 @@ def deletar(arquivo: str, bucket_name: str, segredo: str):
 
 @bucket.command("purge")
 @click.argument("bucket_name")
-@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
 @click.option("--prefixo", default="", help="Limitar a um prefixo")
 @click.confirmation_option(prompt="!  Isso vai deletar todos os objetos. Confirma?")
 def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
@@ -301,7 +301,7 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
 @bucket.command("download")
 @click.argument("arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
 @click.option(
     "--destino", default=None, help="Caminho local de destino (padrao: ./<arquivo>)"
 )
@@ -327,7 +327,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
 @bucket.command("upload")
 @click.argument("caminho_arquivo")
 @click.argument("bucket_name")
-@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
 @click.option(
     "--chave",
     default=None,
@@ -582,7 +582,7 @@ def ui(bucket: str, segredo: str):
 )
 @click.option(
     "--segredo",
-    default=NOME_SEGREDO,
+    default=NOME_SEGREDO_DESENVOLVEDOR,
     show_default=True,
     help="Segredo com acesso de escrita ao bucket",
 )
@@ -662,7 +662,7 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
 )
 @click.option(
     "--segredo",
-    default=NOME_SEGREDO,
+    default=NOME_SEGREDO_DESENVOLVEDOR,
     show_default=True,
     help="Segredo com acesso de escrita ao bucket",
 )
@@ -779,7 +779,7 @@ _MANIFESTOS = [
 
 
 @cli.command("sincronizar")
-@click.option("--segredo", default=NOME_SEGREDO, show_default=True)
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
 def sincronizar(segredo: str):
     """Baixa os manifestos e o catálogo DuckLake do bucket para a máquina local"""
     import os

@@ -9,13 +9,13 @@ from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
 from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
-from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
+from utils.constantes import BUCKET_PRODUCAO, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO_DESENVOLVEDOR
 
 
 def main(bucket: str | None = None):
     os.chdir(RAIZ_PROJETO)
-    bucket = bucket or BUCKET
-    config = carregar_segredo(NOME_SEGREDO)
+    bucket = bucket or BUCKET_PRODUCAO
+    config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
     cliente = criar_cliente(config)
 
     baixar_catalogo(cliente, bucket, CATALOGO_LOCAL)
@@ -42,7 +42,7 @@ def main(bucket: str | None = None):
         print("[dbt] Sem dados novos na extração, pulando dbt run.")
 
     subir_manifesto(bucket=bucket)
-    salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO, CATALOGO_LOCAL)
+    salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL)
 
 
 if __name__ == "__main__":

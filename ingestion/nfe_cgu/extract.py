@@ -32,7 +32,9 @@ import tempfile
 import zipfile
 from datetime import date, datetime
 from pathlib import Path
+
 from utils.carregar_segredo import carregar_segredo
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
 from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
 from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
 
@@ -46,7 +48,6 @@ logger = logging.getLogger(__name__)
 URL_BASE = "https://dadosabertos-download.cgu.gov.br/PortalDaTransparencia/saida/nfe"
 PERIODO_INICIO = date(2022, 1, 1)
 TABELAS = ["itens", "eventos", "nf"]
-NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 DIRETORIO_DADOS = Path("./dados")
 DIRETORIO_NFE = DIRETORIO_DADOS / "nfe_cgu"
@@ -178,12 +179,12 @@ def resetar_dados_locais() -> None:
 
 def subir_manifesto(bucket: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
     _subir_manifesto(
         DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
         NOME_MANIFESTO,
         bucket,
-        NOME_SEGREDO,
+        NOME_SEGREDO_DESENVOLVEDOR,
         logger,
     )
 
@@ -203,7 +204,7 @@ def processar_periodo(
     if conteudo_zip is None:
         return "indisponivel"
 
-    config = carregar_segredo(NOME_SEGREDO)
+    config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
 
     # Ex: 'nfe_cgu/itens/2022-01.parquet'
     s3 = boto3.resource(
@@ -251,7 +252,7 @@ def processar_periodo(
 
                 conteudo_parquet = csv_para_parquet(conteudo_utf8)
                 salvar_bytes_no_bucket(
-                    conteudo_parquet, bucket, NOME_SEGREDO, nome_no_bucket
+                    conteudo_parquet, bucket, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket
                 )
                 registrar_entrada(manifesto, tabela, periodo, conteudo_utf8)
                 status_geral = "atualizado" if entrada else "baixado"
@@ -276,9 +277,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
 

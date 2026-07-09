@@ -24,6 +24,7 @@ from pathlib import Path
 
 import utils.carregar_json_da_url as cju
 import utils.configurar_logging as log
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
 from utils.carregar_segredo import carregar_segredo
 from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
 from utils.no import No
@@ -39,7 +40,6 @@ logger = logging.getLogger(__name__)
 NCM_URL = (
     "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
 )
-NOME_SEGREDO = "colibri-token-desenvolvedor"
 
 DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA = DIRETORIO_RAIZ / "ncm"
@@ -214,12 +214,12 @@ def resetar_dados_locais() -> None:
 
 def subir_manifesto(bucket: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
     _subir_manifesto(
         DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
         NOME_MANIFESTO,
         bucket,
-        NOME_SEGREDO,
+        NOME_SEGREDO_DESENVOLVEDOR,
         logger,
     )
 
@@ -231,11 +231,11 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     DIRETORIO_ALTERACOES.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = bucket or carregar_segredo(NOME_SEGREDO)["bucket_lake"]
+    bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
     caminho_alteracoes.unlink(missing_ok=True)
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO, logger)
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
 
     dados = cju.carregar_json_da_url(NCM_URL)
