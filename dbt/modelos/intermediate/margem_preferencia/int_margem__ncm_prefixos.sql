@@ -1,10 +1,10 @@
 {{ config(
     materialized='table',
     database='lake',
-    tags=['staging', 'margem_preferencia']
+    tags=['intermediate', 'margem_preferencia']
 ) }}
 
--- Puxa eventos da stg_fato_margem_eventos cruzando com resoluções pra ter data_evento, e renomeia colunas de margem
+-- Puxa eventos da stg_margem__eventos cruzando com resoluções pra ter data_evento, e renomeia colunas de margem
 WITH eventos AS (
     SELECT
         e.prefixo_ncm,
@@ -18,8 +18,8 @@ WITH eventos AS (
         e.margem_adicional_pct,
         NULL::VARCHAR                              AS margem_sustentabilidade_comprovante,
         NULL::DECIMAL(3,2)                         AS margem_sustentabilidade_pct
-    FROM {{ ref('stg_fato_margem_eventos') }} e
-    JOIN {{ ref('stg_dim_margem_resolucoes') }} r
+    FROM {{ ref('stg_margem__eventos') }} e
+    JOIN {{ ref('stg_margem__resolucoes') }} r
         ON e.resolucao = r.id
 ),
 
