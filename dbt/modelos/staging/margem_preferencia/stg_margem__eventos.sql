@@ -5,26 +5,33 @@
 ) }}
 
 {% set resolucoes_cics = ['cics_1', 'cics_3', 'cics_4', 'cics_7', 'cics_8', 'cics_9'] %}
-{% set resolucoes_ciiapac = ['ciiapac_1', 'ciiapac_3', 'ciiapac_4', 'ciiapac_5'] %}
 
--- Monta tabela base UNINDO os eventos de cada resolução (uma p/ resolução: ver macros margem_eventos_cics/margem_eventos_ciiapac)
+-- nome da aba não segue padrão fixo; tem_anexo=false só pra ciiapac_1, que não tem coluna própria de anexo
+{% set resolucoes_ciiapac = [
+    {'id': 'ciiapac_1', 'aba': 'res_ciia_pac_1', 'tem_anexo': false},
+    {'id': 'ciiapac_3', 'aba': 'res_ciia_pac_3', 'tem_anexo': true},
+    {'id': 'ciiapac_4', 'aba': 'res_ciia_pac_4', 'tem_anexo': true},
+    {'id': 'ciiapac_5', 'aba': 'res_5_ciia_pac', 'tem_anexo': true},
+] %}
+
+-- cada resolução CICS desabilita 100% da anterior na lista (padrão observado no histórico)
 WITH base AS (
 
     {% for resolucao in resolucoes_cics %}
-        {{ margem_eventos_cics(resolucao) }}
+        {% set anterior = resolucoes_cics[loop.index0 - 1] if not loop.first else none %}
+        {{ margem_eventos_cics(resolucao, anterior) }}
         {{ "UNION ALL" if not loop.last }}
     {% endfor %}
 
     UNION ALL
 
-    {% for resolucao in resolucoes_ciiapac %}
-        {{ margem_eventos_ciiapac(resolucao) }}
+    {% for r in resolucoes_ciiapac %}
+        {{ margem_eventos_ciiapac(r.id, r.aba, r.tem_anexo) }}
         {{ "UNION ALL" if not loop.last }}
     {% endfor %}
 
 ),
 
--- Pega data_evento cruzando com tabela de resoluções, e já deixa coluna de margem_sustentabilidade_pct pronta pra ser preenchida depois
 eventos AS (
     SELECT
         base.*,
@@ -34,7 +41,6 @@ eventos AS (
     JOIN {{ ref('stg_margem__resolucoes') }} AS r ON r.id = base.resolucao
 ),
 
--- Particiona por prefixo_ncm + data_evento + tipo_evento_margem e ordena pela maior margem total
 enumerated AS (
     SELECT *, ROW_NUMBER() OVER (
         PARTITION BY prefixo_ncm, data_evento, tipo_evento_margem
@@ -43,14 +49,12 @@ enumerated AS (
     FROM eventos
 ),
 
--- Pega só as linhas que o row number é 1 (maior margem total) pra evitar duplicidade
 dedup AS (
     SELECT * EXCLUDE (rn)
     FROM enumerated
     WHERE rn = 1
 )
 
--- Monta tabela fato final, sem duplicidades e pós cruzamento com resoluções pra pegar data_evento
 SELECT
     ROW_NUMBER() OVER (ORDER BY data_evento, tipo_evento_margem, prefixo_ncm)
                                      AS id_evento_margem,

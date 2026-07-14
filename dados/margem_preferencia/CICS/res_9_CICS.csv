@@ -1,9 +1,0 @@
-num_linha;resolucao;habilita;ncm;regra_de_origem;margem_normal;regra_de_qualificacao;margem_adicional;comentario;desc_ncm_4dg;grupo_cics;Está em cics_1;Está em cics_3;Está em cics_4;Está em cics_7;Está em cics_8
-1;cics_9;habilita;82;CFI;10;;;;Ferramentas, artigos de cutelaria e talheres, e suas partes, de metais comuns.;;0;0;0;0;0
-2;cics_9;habilita;83;CFI;10;;;;Obras diversas de metais comuns.;;0;0;0;0;0
-3;cics_9;habilita;84;CFI;10;;;;Reatores nucleares, caldeiras, máquinas, aparelhos e instrumentos mecânicos, e suas partes.;;0;0;0;0;0
-4;cics_9;habilita;85;CFI;10;;;;"Máquinas, aparelhos e materiais elétricos, e suas partes; aparelhos de gravação ou de reprodução de som, aparelhos de gravação ou de reprodução de imagens e de som em televisão, e suas partes e acessórios.";;0;0;0;0;0
-5;cics_9;habilita;87;CFI;10;;;;Veículos automóveis, tratores, ciclos e outros veículos terrestres, suas partes e acessórios.;;0;0;0;0;0
-6;cics_9;habilita;88;CFI;10;;;;Aeronaves e aparelhos espaciais, e suas partes.;;0;0;0;0;0
-7;cics_9;habilita;89;CFI;10;;;;Embarcações e estruturas flutuantes.;;0;0;0;0;0
-8;cics_9;habilita;90;CFI;10;;;;"Instrumentos e aparelhos de óptica, de fotografia, de cinematografia, de medida, de controle ou de precisão; instrumentos e aparelhos médico-cirúrgicos; suas partes e acessórios.";;0;0;0;0;0

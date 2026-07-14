@@ -4,19 +4,14 @@
     tags=['staging', 'margem_preferencia']
 ) }}
 
--- CICS
-SELECT id, vigencia_inicio::DATE AS vigencia_inicio
-FROM read_csv('s3://{{ var("bucket_lake") }}/margem_preferencia/CICS/resolucoes_CICS.csv', delim=';', auto_detect=true)
+{% set path = 's3://' ~ var('bucket_arquivos') ~ '/raw/resolucoes_cics_e_ciia_pac/' ~ var('margem_arquivo_resolucoes') %}
+
+SELECT trim(id) AS id, vigencia_inicio
+FROM read_xlsx('{{ path }}', sheet='resolucoes_cics')
+WHERE trim(id) != ''
 
 UNION ALL
 
--- CIIA-PAC
-SELECT
-    trim(id)                                AS id,
-    strptime(trim(data), '%d/%m/%Y')::DATE  AS vigencia_inicio
-FROM read_csv(
-    's3://{{ var("bucket_lake") }}/margem_preferencia/CIIA-PAC/resolucoes_CIIA-PAC.csv',
-    delim=';', header=false, all_varchar=true,
-    names=['id', 'tipo', 'nome', 'data']
-)
+SELECT trim(id) AS id, vigencia_inicio
+FROM read_xlsx('{{ path }}', sheet='resolucoes_ciia_pac')
 WHERE trim(id) != ''
