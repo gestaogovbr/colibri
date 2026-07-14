@@ -1,42 +1,37 @@
 import os
 import subprocess
 
-from ingestion.margem_preferencia.extract import executar_ingestao, resetar_dados_locais, subir_manifesto
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
 from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
-from utils.constantes import BUCKET, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO
+from utils.constantes import BUCKET_PRODUCAO, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO_DESENVOLVEDOR
 
 MODELOS_DBT = "stg_margem__resolucoes stg_margem__eventos int_margem__ncm_prefixos mrt_margem__ncms mrt_margem__ncms_ativos"
 
 
 def main(bucket: str | None = None):
+    """Sem extração: os modelos leem a planilha de resoluções direto do bucket colibri-arquivos"""
     os.chdir(RAIZ_PROJETO)
-    bucket = bucket or BUCKET
-    config = carregar_segredo(NOME_SEGREDO)
+    bucket = bucket or BUCKET_PRODUCAO
+    config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
     cliente = criar_cliente(config)
 
     baixar_catalogo(cliente, bucket, CATALOGO_LOCAL)
-    houve_mudanca = executar_ingestao(bucket=bucket)
 
-    if houve_mudanca:
-        subprocess.run(
-            [
-                "dbt", "run",
-                "--select", MODELOS_DBT,
-                "--vars", f"bucket_lake: {bucket}",
-                "--project-dir", str(DBT_DIR),
-                "--profiles-dir", str(DBT_DIR),
-            ],
-            cwd=str(DBT_DIR),
-            check=True,
-        )
-    else:
-        print("[dbt] Sem dados novos, pulando dbt run.")
+    subprocess.run(
+        [
+            "dbt", "run",
+            "--select", MODELOS_DBT,
+            "--vars", f"bucket_lake: {bucket}",
+            "--project-dir", str(DBT_DIR),
+            "--profiles-dir", str(DBT_DIR),
+        ],
+        cwd=str(DBT_DIR),
+        check=True,
+    )
 
-    subir_manifesto(bucket=bucket)
-    salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO, CATALOGO_LOCAL)
+    salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL)
 
 
 if __name__ == "__main__":
