@@ -7,10 +7,8 @@
 {% set resolucoes_cics = ['cics_1', 'cics_3', 'cics_4', 'cics_7', 'cics_8', 'cics_9'] %}
 
 {% set resolucoes_ciiapac = [
-    {'id': 'ciiapac_1', 'aba': 'res_ciia_pac_1'},
     {'id': 'ciiapac_3', 'aba': 'res_ciia_pac_3'},
     {'id': 'ciiapac_4', 'aba': 'res_ciia_pac_4'},
-    {'id': 'ciiapac_5', 'aba': 'res_ciia_pac_5'},
 ] %}
 
 -- cada resolução CICS desabilita 100% da anterior na lista (padrão observado no histórico)
