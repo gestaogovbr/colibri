@@ -23,7 +23,7 @@ def main(bucket: str | None = None):
 
     if houve_mudanca:
         subprocess.run(
-            -[
+            [
                 "dbt",
                 "run",
                 "--select",
