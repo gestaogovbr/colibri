@@ -169,14 +169,16 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str, str]]) -> 
 def registrar_entrada(
     manifesto: dict[str, dict], view: str, chave: str, url: str, conteudo: bytes
 ) -> None:
-    linhas = list(csv.reader(io.StringIO(conteudo.decode("utf-8"))))
+    reader = csv.reader(io.StringIO(conteudo.decode("utf-8")))
+    header = next(reader, [])
+    num_linhas = sum(1 for _ in reader)
     manifesto[f"{view}:{chave}"] = {
         "view": view,
         "data": chave,
         "url": url,
-        "num_linhas": len(linhas) - 1,
+        "num_linhas": num_linhas,
         "tamanho_bytes": len(conteudo),
-        "num_colunas": len(linhas[0]),
+        "num_colunas": len(header),
         "hash_sha256": hashlib.sha256(conteudo).hexdigest(),
         "extraido_em": datetime.now().isoformat(timespec="seconds"),
     }
@@ -202,7 +204,9 @@ def csv_para_parquet(conteudo: bytes) -> bytes:
     caminho_tmp = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.parquet"
     try:
         # Lê o csv e escreve ele como um parquet no arquivo temporário
-        duckdb.read_csv(io.BytesIO(conteudo)).write_parquet(str(caminho_tmp))
+        duckdb.read_csv(io.BytesIO(conteudo), sample_size=-1).write_parquet(
+            str(caminho_tmp)
+        )
         # Lê os bytes do parquet
         return caminho_tmp.read_bytes()
     finally:
