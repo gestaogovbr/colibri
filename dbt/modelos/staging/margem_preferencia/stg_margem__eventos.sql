@@ -6,12 +6,11 @@
 
 {% set resolucoes_cics = ['cics_1', 'cics_3', 'cics_4', 'cics_7', 'cics_8', 'cics_9'] %}
 
--- nome da aba não segue padrão fixo; tem_anexo=false só pra ciiapac_1, que não tem coluna própria de anexo
 {% set resolucoes_ciiapac = [
-    {'id': 'ciiapac_1', 'aba': 'res_ciia_pac_1', 'tem_anexo': false},
-    {'id': 'ciiapac_3', 'aba': 'res_ciia_pac_3', 'tem_anexo': true},
-    {'id': 'ciiapac_4', 'aba': 'res_ciia_pac_4', 'tem_anexo': true},
-    {'id': 'ciiapac_5', 'aba': 'res_5_ciia_pac', 'tem_anexo': true},
+    {'id': 'ciiapac_1', 'aba': 'res_ciia_pac_1'},
+    {'id': 'ciiapac_3', 'aba': 'res_ciia_pac_3'},
+    {'id': 'ciiapac_4', 'aba': 'res_ciia_pac_4'},
+    {'id': 'ciiapac_5', 'aba': 'res_ciia_pac_5'},
 ] %}
 
 -- cada resolução CICS desabilita 100% da anterior na lista (padrão observado no histórico)
@@ -26,7 +25,7 @@ WITH base AS (
     UNION ALL
 
     {% for r in resolucoes_ciiapac %}
-        {{ margem_eventos_ciiapac(r.id, r.aba, r.tem_anexo) }}
+        {{ margem_eventos_ciiapac(r.id, r.aba) }}
         {{ "UNION ALL" if not loop.last }}
     {% endfor %}
 
