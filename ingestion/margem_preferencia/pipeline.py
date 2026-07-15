@@ -29,6 +29,7 @@ def main(bucket: str | None = None):
         ],
         cwd=str(DBT_DIR),
         check=True,
+        env={**os.environ, "DBT_BUCKET_LAKE": bucket},
     )
 
     salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL)
