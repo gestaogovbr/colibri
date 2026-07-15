@@ -68,6 +68,6 @@ SELECT
     margem_adicional_comprovante,
     margem_adicional_pct,
     margem_sustentabilidade_pct,
-    grupo_cics
+    grupo_de_produtos
 FROM dedup
 ORDER BY data_evento, tipo_evento_margem, prefixo_ncm
