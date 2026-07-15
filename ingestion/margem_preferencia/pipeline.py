@@ -7,7 +7,7 @@ from utils.baixar_catalogo import baixar_catalogo
 from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 from utils.constantes import BUCKET_PRODUCAO, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO_DESENVOLVEDOR
 
-MODELOS_DBT = "stg_margem__resolucoes stg_margem__eventos int_margem__ncm_prefixos mrt_margem__ncms mrt_margem__ncms_ativos"
+MODELOS_DBT = "stg_margem__resolucoes stg_margem__eventos int_margem__ncm_prefixos mrt_margem__ncms_cics mrt_margem__ncms_cics_ativos mrt_margem__ncms_ciia_pac mrt_margem__ncms_ciia_pac_ativos"
 
 
 def main(bucket: str | None = None):

@@ -5,5 +5,5 @@
 ) }}
 
 SELECT *
-FROM {{ ref('mrt_margem__ncms') }}
+FROM {{ ref('mrt_margem__ncms_ciia_pac') }}
 WHERE ativa
