@@ -1,0 +1,81 @@
+---
+version: 2
+models:
+  - name: stg_margem__resolucoes
+    description: >
+      Datas de vigência das resoluções CICS e CIIA-PAC que instituem margens de
+      preferência, lidas das abas 'resolucoes_cics' e 'resolucoes_ciia_pac' da
+      planilha de resoluções.
+    columns:
+      - name: id
+        description: Identificador da resolução (CICS ou CIIA-PAC), usado para relacionar
+          com stg_margem__eventos.resolucao (ex. 'res_cics_1', 'res_ciia_pac_3').
+      - name: nome
+        description: Nome completo da Resolução, conforme publicado (ex. Resolução
+          SEGES-CICS/MGI Nº 1, de 2 de julho de 2024).
+      - name: data
+        description: Data de criação da resolução, apresentada em seu nome (ex. 02/07/2024).
+      - name: publicacao
+        description: Data da publicação da resolução, que pode não coincidir (ex.
+          03/07/2024).
+      - name: vacatio_legis
+        description: Número de dias de vacatio legis previsto no corpo da resolução
+          (ex. 60).
+      - name: vigencia_inicio
+        description: Data de início de vigência da resolução, já contabilizado o vacatio
+          legis, se houver (ex. 01/09/2024).
+      - name: sumario
+        description: Ementa que introduz o texto da resolução.
+  - name: stg_margem__eventos
+    description: >
+      Eventos de habilitação/desabilitação de margens de preferência por prefixo NCM,
+      extraídos das resoluções CICS e CIIA-PAC (pelas macros margem_eventos_cics e
+      margem_eventos_ciiapac). Cada linha é um evento pontual — os intervalos de
+      vigência contínuos são calculados a partir daqui em int_margem__ncm_prefixos.
+      Historicamente, uma resolução CICS desabilita os códigos NCM da resolução anterior
+      e institui uma nova lista, que tem sido incremental (com raras exceções).
+      Resoluções CIIA-PAC, por sua vez, não geram eventos de desabilitação.
+      Além do instrumento da margem de preferência, a CIIA-PAC também instituiu
+      requisito de conteúdo local como instrumento de compra, nas Resoluções Nº 1
+      e 5 até o momento (tais resoluções são ignoradas aqui).
+    columns:
+      - name: id_evento_margem
+        description: Identificador sequencial sintético do evento, gerado por ROW_NUMBER
+          (não é uma chave natural nem estável entre execuções).
+      - name: tipo_evento_margem
+        description: "Tipo do evento: 'habilita' (resolução passa a valer para o prefixo_ncm)\
+          \ ou 'desabilita' (resolução deixa de valer)."
+      - name: tipo_margem
+        description: "Tipo de margem de preferência do evento: 'conteudo_nacional'\
+          \ ou 'tecnologia_nacional'."
+      - name: resolucao
+        description: Identificador da resolução (CICS ou CIIA-PAC) associada ao evento,
+          no mesmo formato de stg_margem__resolucoes.id (ex. 'res_cics_1', 'res_ciia_pac_3').
+      - name: data_evento
+        description: Data de vigência da resolução associada ao evento (vigencia_inicio
+          de stg_margem__resolucoes).
+      - name: prefixo_ncm
+        description: Prefixo do código NCM (Nomenclatura Comum do Mercosul) ao qual
+          o evento se aplica.
+      - name: margem_normal_comprovante
+        description: Comprovante/regra de origem exigido para aplicação da margem
+          de preferência normal.
+      - name: margem_normal_pct
+        description: Percentual da margem de preferência normal.
+      - name: margem_adicional_comprovante
+        description: Comprovante/regra de qualificação exigido para aplicação da margem
+          de preferência adicional (nulo quando o evento não prevê margem adicional).
+      - name: margem_adicional_pct
+        description: Percentual da margem de preferência adicional (nulo quando o
+          evento não prevê margem adicional).
+      - name: margem_sustentabilidade_pct
+        description: Percentual da margem de preferência de sustentabilidade (sempre
+          nulo nesta fonte; preenchido em modelos posteriores quando aplicável).
+      - name: grupo_de_produtos
+        description: Categoria a que o produto pertence, atribuída informalmente (não
+          pertence necessariamente à Resolução). Para as resoluções CIIA-PAC, pode
+          indicar o anexo da resolução.
+      - name: comentario
+        description: Comentário livre associado ao NCM na planilha de origem da resolução,
+          quando presente. Indica NCMs duplicadas na mesma resolução ou que deixaram
+          de existir entre uma resolução e a seguinte, por exemplo.
