@@ -1,10 +1,7 @@
 import os
 import subprocess
 
-from ingestion.ncm.extract import (
-    executar_ingestao,
-    subir_manifesto,
-)
+from ingestion.ncm.extract import executar_ingestao
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
@@ -19,27 +16,26 @@ def main(bucket: str | None = None):
     cliente = criar_cliente(config)
 
     baixar_catalogo(cliente, bucket, CATALOGO_LOCAL)
-    houve_mudanca = executar_ingestao(bucket=bucket)
+    executar_ingestao(bucket=bucket)
 
-    if houve_mudanca:
-        subprocess.run(
-            [
-                "dbt",
-                "run",
-                "--select",
-                "stg_ncm int_ncm int_ncm_prefixos stg_dim_margem_ncm",
-                "--project-dir",
-                str(DBT_DIR),
-                "--profiles-dir",
-                str(DBT_DIR),
-            ],
-            cwd=str(DBT_DIR),
-            check=True,
-        )
-    else:
-        print("[dbt] Sem dados novos na extração, pulando dbt run.")
+    subprocess.run(
+        [
+            "dbt",
+            "run",
+            "--select",
+            "int_ncm__prefixos int_ncm__tradutor_prefixo_subitem mrt_ncm__codigos",
+            "--vars",
+            f"bucket_lake: {bucket}",
+            "--project-dir",
+            str(DBT_DIR),
+            "--profiles-dir",
+            str(DBT_DIR),
+        ],
+        cwd=str(DBT_DIR),
+        check=True,
+        env={**os.environ, "DBT_BUCKET_LAKE": bucket},
+    )
 
-    subir_manifesto(bucket=bucket)
     salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL)
 
 
