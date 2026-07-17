@@ -610,9 +610,18 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
         FROM __ducklake_metadata_lake.main.ducklake_schema s
         JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
         WHERE t.table_name = ? AND t.end_snapshot IS NULL
+
+        UNION
+
+        SELECT s.schema_name
+        FROM __ducklake_metadata_lake.main.ducklake_schema s
+        JOIN __ducklake_metadata_lake.main.ducklake_view v USING (schema_id)
+        WHERE v.view_name = ? AND v.end_snapshot IS NULL
+
+        ORDER BY schema_name DESC
         LIMIT 1
         """,
-        [tabela],
+        [tabela, tabela],
     ).fetchone()
 
     if not row:
@@ -636,10 +645,13 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
 
     try:
         con.execute(f'DROP TABLE lake."{schema_name}"."{tabela}"')
-    except Exception as e:
-        console.print(f"[red]x[/red] {e}")
-        con.close()
-        return
+    except Exception:
+        try:
+            con.execute(f'DROP VIEW lake."{schema_name}"."{tabela}"')
+        except Exception as e:
+            console.print(f"[red]x[/red] {e}")
+            con.close()
+            return
 
     dl.fechar(con, caminho_meta, segredo)
     console.print(
