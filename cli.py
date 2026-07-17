@@ -756,7 +756,7 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 @click.option(
     "--apenas",
     type=click.Choice(
-        ["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia"]
+        ["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia", "tradutor-catmat-ncm"]
     ),
     default=None,
     help="Rodar só um pipeline",
@@ -771,6 +771,7 @@ def run(apenas: str | None, bucket: str | None):
     import ingestion.catmats.pipeline as catmats
     import ingestion.nfe_cgu.pipeline as nfe_cgu
     import ingestion.margem_preferencia.pipeline as margem_preferencia
+    import ingestion.tradutor_catmat_ncm.pipeline as tradutor_catmat_ncm
 
     pipelines = {
         "ncm": (ncm, "[cyan]>>> NCM[/cyan]"),
@@ -780,6 +781,10 @@ def run(apenas: str | None, bucket: str | None):
         "margem-preferencia": (
             margem_preferencia,
             "[cyan]>>> Margem de Preferência[/cyan]",
+        ),
+        "tradutor-catmat-ncm": (
+            tradutor_catmat_ncm,
+            "[cyan]>>> Tradutor CATMAT -> NCM[/cyan]",
         ),
     }
 
