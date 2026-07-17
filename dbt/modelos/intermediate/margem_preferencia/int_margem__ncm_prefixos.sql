@@ -1,7 +1,8 @@
 {{ config(
     materialized='table',
     database='lake',
-    tags=['intermediate', 'margem_preferencia']
+    tags=['intermediate', 'margem_preferencia'],
+    contract={'enforced': true}
 ) }}
 
 WITH eventos AS (

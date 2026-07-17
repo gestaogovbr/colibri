@@ -1,7 +1,8 @@
 {{ config(
     materialized='table',
     database='lake',
-    tags=['staging', 'margem_preferencia']
+    tags=['staging', 'margem_preferencia'],
+    contract={'enforced': true}
 ) }}
 
 {% set resolucoes_cics = ['cics_1', 'cics_3', 'cics_4', 'cics_7', 'cics_8', 'cics_9'] %}
