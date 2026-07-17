@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: mrt_ncm__codigos
+    description: >
+      Uma linha por código NCM de 8 dígitos (nível Subitem, a folha da
+      hierarquia) - a lista "limpa" dos NCMs válidos, sem os níveis
+      intermediários (capítulo/posição/subposição/item), que só existem
+      como agregadores hierárquicos.
+    columns:
+      - name: codigo
+        data_type: varchar
+        description: Código NCM completo de 8 dígitos.
+      - name: descricao
+        data_type: varchar
+        description: Descrição do código NCM.
+      - name: caminho
+        data_type: varchar
+        description: Caminho completo da hierarquia até este código.
+      - name: capitulo_codigo
+        data_type: varchar
+        description: Código do capítulo (2 dígitos) ancestral.
+      - name: capitulo_descricao
+        data_type: varchar
+        description: Descrição do capítulo ancestral.
+      - name: posicao_codigo
+        data_type: varchar
+        description: Código da posição (4 dígitos) ancestral.
+      - name: posicao_descricao
+        data_type: varchar
+        description: Descrição da posição ancestral.
+      - name: subposicao_1_codigo
+        data_type: varchar
+        description: Código da subposição 1 (5 dígitos) ancestral, se existir.
+      - name: subposicao_1_descricao
+        data_type: varchar
+        description: Descrição da subposição 1 ancestral.
+      - name: subposicao_2_codigo
+        data_type: varchar
+        description: Código da subposição 2 (6 dígitos) ancestral, se existir.
+      - name: subposicao_2_descricao
+        data_type: varchar
+        description: Descrição da subposição 2 ancestral.
+      - name: item_codigo
+        data_type: varchar
+        description: Código do item (7 dígitos) ancestral, se existir.
+      - name: item_descricao
+        data_type: varchar
+        description: Descrição do item ancestral.
+      - name: subitem_codigo
+        data_type: varchar
+        description: Código do subitem - igual à coluna codigo (o próprio registro é o subitem).
+      - name: subitem_descricao
+        data_type: varchar
+        description: Descrição do subitem - igual à coluna descricao.
