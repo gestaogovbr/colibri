@@ -4,12 +4,14 @@
     tags=['staging', 'tradutor_catmat_ncm']
 ) }}
 
+{% set path = 's3://' ~ var('bucket_arquivos') ~ '/raw/Catálogo de Materiais - parcial.xlsx' %}
+
 SELECT
-        trim("Código do Grupo")                     AS codigo_do_grupo,
-        trim("Nome do Grupo")                        AS nome_do_grupo,
-        trim("Código da Classe")                     AS codigo_da_classe,
+        trim("Código do Grupo")                       AS codigo_do_grupo,
+        trim("Nome do Grupo")                         AS nome_do_grupo,
+        trim("Código da Classe")                      AS codigo_da_classe,
         trim("Nome da Classe")                        AS nome_da_classe,
-        trim("Código do PDM")                        AS codigo_do_pdm,
+        trim("Código do PDM")                         AS codigo_do_pdm,
         trim("Nome do PDM")                           AS nome_do_pdm,
         trim("Código do Item")                        AS codigo_do_item,
         trim("Descrição do Item")                     AS descricao_do_item,
