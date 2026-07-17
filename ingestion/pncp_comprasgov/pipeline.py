@@ -9,7 +9,13 @@ from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
 from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
-from utils.constantes import BUCKET_PRODUCAO, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO_DESENVOLVEDOR
+from utils.constantes import (
+    BUCKET_PRODUCAO,
+    CATALOGO_LOCAL,
+    DBT_DIR,
+    RAIZ_PROJETO,
+    NOME_SEGREDO_DESENVOLVEDOR,
+)
 
 
 def main(bucket: str | None = None):
@@ -36,6 +42,8 @@ def main(bucket: str | None = None):
                 str(DBT_DIR),
                 "--profiles-dir",
                 str(DBT_DIR),
+                "--target",
+                "prod",
             ],
             cwd=str(DBT_DIR),
             check=True,
@@ -46,7 +54,9 @@ def main(bucket: str | None = None):
     # Só sobe manifesto/catálogo se chegou até aqui: se o dbt quebrar, a exceção
     # interrompe a função antes disso, e o bucket fica intacto pra próxima tentativa.
     subir_manifesto(bucket_nome=bucket)
-    salvar_arquivo_no_bucket(CATALOGO_LOCAL, bucket, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL)
+    salvar_arquivo_no_bucket(
+        CATALOGO_LOCAL, bucket, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL
+    )
 
 
 if __name__ == "__main__":

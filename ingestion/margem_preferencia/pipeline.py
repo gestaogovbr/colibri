@@ -37,6 +37,8 @@ def main(bucket: str | None = None):
             str(DBT_DIR),
             "--profiles-dir",
             str(DBT_DIR),
+            "--target",
+            "prod",
         ],
         cwd=str(DBT_DIR),
         check=True,
