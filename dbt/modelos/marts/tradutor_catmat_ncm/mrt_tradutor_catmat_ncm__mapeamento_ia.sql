@@ -1,7 +1,7 @@
 {{ config(
     materialized='view',
     database='lake',
-    
+    contract={'enforced': true},
     tags=['marts', 'tradutor_catmat_ncm']
 ) }}
 
@@ -19,7 +19,6 @@ WITH fonte AS (
 -- O mapeamento humano sempre prevalece quando existe
 SELECT
     catmat,
-    ncm_humano,
     CASE
         WHEN usa_humano THEN LEFT(ncm_humano, 2)
         ELSE ncm_capitulo_sugerido_cod
