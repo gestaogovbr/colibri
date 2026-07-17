@@ -1,0 +1,96 @@
+version: 2
+
+models:
+  - name: int_ncm__prefixos
+    description: >
+      Uma linha por código NCM (prefixo de 2, 4, 5, 6, 7 ou 8 dígitos),
+      enriquecido com a hierarquia completa (capítulo/posição/subposição/item/
+      subitem ancestrais). O enriquecimento é feito em Python (ver
+      ingestion/ncm/extract.py) e o resultado sobe como CSV pra raw/ncm/*.csv
+      no bucket em que a pipeline está rodando (bucket_lake:
+      colibri-dev/colibri-prod), junto do JSON bruto - cada execução do
+      extrator sobe um arquivo novo com timestamp no nome, e o modelo lê só
+      o CSV mais recente. Materializado como table simples.
+    columns:
+      - name: codigo
+        data_type: varchar
+        description: Código NCM (prefixo de 2 a 8 dígitos, sem pontos).
+      - name: descricao
+        data_type: varchar
+        description: Descrição do código NCM.
+      - name: nivel
+        data_type: varchar
+        description: Nível hierárquico (Capítulo, Posição, Subposição 1/2, Item, Subitem).
+      - name: caminho
+        data_type: varchar
+        description: >
+          Caminho completo da hierarquia até este código, com as descrições
+          de cada nível ancestral separadas por " > ".
+      - name: capitulo_codigo
+        data_type: varchar
+        description: Código do capítulo (2 dígitos) ancestral deste código.
+      - name: capitulo_descricao
+        data_type: varchar
+        description: Descrição do capítulo ancestral.
+      - name: posicao_codigo
+        data_type: varchar
+        description: Código da posição (4 dígitos) ancestral deste código, se existir.
+      - name: posicao_descricao
+        data_type: varchar
+        description: Descrição da posição ancestral.
+      - name: subposicao_1_codigo
+        data_type: varchar
+        description: Código da subposição 1 (5 dígitos) ancestral deste código, se existir.
+      - name: subposicao_1_descricao
+        data_type: varchar
+        description: Descrição da subposição 1 ancestral.
+      - name: subposicao_2_codigo
+        data_type: varchar
+        description: Código da subposição 2 (6 dígitos) ancestral deste código, se existir.
+      - name: subposicao_2_descricao
+        data_type: varchar
+        description: Descrição da subposição 2 ancestral.
+      - name: item_codigo
+        data_type: varchar
+        description: Código do item (7 dígitos) ancestral deste código, se existir.
+      - name: item_descricao
+        data_type: varchar
+        description: Descrição do item ancestral.
+      - name: subitem_codigo
+        data_type: varchar
+        description: >
+          Código do subitem (8 dígitos) deste código. Preenchido inclusive
+          quando o próprio registro já é um subitem.
+      - name: subitem_descricao
+        data_type: varchar
+        description: Descrição do subitem.
+
+  - name: int_ncm__tradutor_prefixo_subitem
+    description: >
+      A "tabela mágica": para cada prefixo NCM (capítulo, posição, subposição
+      1/2 ou item), lista todos os subitens de 8 dígitos que pertencem a ele.
+      Serve pra "explodir" qualquer lista de prefixos NCM nos códigos completos
+      de 8 dígitos correspondentes, via um simples JOIN por prefixo.
+      Porta a lógica de hermes/ncm/expandir_e_salvar_ncm_csv.py pra SQL puro.
+    columns:
+      - name: prefixo
+        data_type: varchar
+        description: Código do nó ancestral (capítulo/posição/subposição/item, sem pontos).
+      - name: codigo
+        data_type: varchar
+        description: Código do subitem (8 dígitos, sem pontos) que pertence a esse prefixo.
+      - name: descricao
+        data_type: varchar
+        description: Descrição do subitem.
+      - name: nivel
+        data_type: varchar
+        description: Nível do código na coluna `codigo` (sempre "Subitem").
+      - name: capitulo_codigo
+        data_type: varchar
+        description: Código do capítulo ancestral do subitem.
+      - name: capitulo_descricao
+        data_type: varchar
+        description: Descrição do capítulo ancestral do subitem.
+      - name: caminho
+        data_type: varchar
+        description: Caminho completo da hierarquia até o subitem.
