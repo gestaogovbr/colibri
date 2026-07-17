@@ -12,4 +12,4 @@ Resolve #<Número da Issue>
 - [ ] Formatar todos os arquivos python usando `ruff format .`
 - [ ] Formatar todos os arquivos yaml usando `yamlfix .`
 - [ ] Executar testes unitários usando `pytest`
-- [ ] Executar testes dbt usando `dbt test --profiles-dir dbt --project-dir dbt`
+- [ ] Executar testes dbt usando `cd dbt && ../env/bin/dbt test --project-dir . --profiles-dir . --target prod && cd ..`
