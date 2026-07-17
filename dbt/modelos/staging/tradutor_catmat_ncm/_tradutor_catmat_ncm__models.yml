@@ -1,5 +1,5 @@
+---
 version: 2
-
 models:
   - name: stg_tradutor_catmat_ncm__mapeamento_ia
     description: >
@@ -7,32 +7,34 @@ models:
       (bucket colibri-arquivos), com o mapeamento de itens CATMAT para NCM
       sugerido por um encoder, além do mapeamento humano já registrado
       quando existente.
+      Mais informações sobre o mapeamento podem ser encontradas em
+      https://github.com/artdelpi/classificador-compras-gov.git.
     columns:
-      - name: codigo_do_grupo
-        data_type: varchar
+      - name: grupo_cod
+        data_type: integer
         description: Código do grupo de materiais do CATMAT ao qual o item pertence.
-      - name: nome_do_grupo
+      - name: grupo_descr
         data_type: varchar
         description: Nome do grupo de materiais.
-      - name: codigo_da_classe
-        data_type: varchar
+      - name: classe_cod
+        data_type: integer
         description: Código da classe de materiais do CATMAT (subdivisão do grupo).
-      - name: nome_da_classe
+      - name: classe_descr
         data_type: varchar
         description: Nome da classe de materiais.
-      - name: codigo_do_pdm
-        data_type: varchar
+      - name: pdm_cod
+        data_type: integer
         description: Código do PDM (Padrão Descritivo de Material) do item.
-      - name: nome_do_pdm
+      - name: pdm_nome
         data_type: varchar
         description: Nome do PDM (Padrão Descritivo de Material).
-      - name: codigo_do_item
-        data_type: varchar
+      - name: catmat
+        data_type: integer
         description: Código CATMAT do item de material.
-      - name: descricao_do_item
+      - name: catmat_descr
         data_type: varchar
         description: Descrição textual completa do item de material no CATMAT.
-      - name: codigo_ncm
+      - name: ncm
         data_type: varchar
         description: >
           Código NCM atribuído manualmente por uma pessoa (mapeamento humano).
@@ -40,25 +42,26 @@ models:
           humana. Pode ter de 2 a 8 dígitos, dependendo do nível de precisão
           que a pessoa registrou (capítulo, posição ou subitem completo); nem
           sempre é o código completo de 8 dígitos.
-      - name: capitulo_ncm_sugerido
+      - name: ncm_capitulo_sugerido_cod
         data_type: varchar
         description: Capítulo NCM (2 dígitos) sugerido pelo modelo de IA para o item.
-      - name: descricao_do_capitulo_sugerido
+      - name: ncm_capitulo_sugerido_descr
         data_type: varchar
         description: Descrição do capítulo NCM sugerido pela IA.
-      - name: posicao_ncm_sugerida
+      - name: ncm_posicao_sugerida_cod
         data_type: varchar
         description: Posição NCM (4 dígitos) sugerida pelo modelo de IA.
-      - name: descricao_da_posicao_sugerida
+      - name: ncm_posicao_sugerida_descr
         data_type: varchar
         description: Descrição da posição NCM sugerida pela IA.
-      - name: ncm_sugerido_top_5
-        data_type: varchar
+      - name: ncm_subitem_sugerido_top_5_cod
+        data_type: varchar[]
         description: >
-          Até 5 códigos de subitem NCM (8 dígitos) sugeridos pela IA, em ordem
-          de confiança, separados por vírgula (ex. "87085099,87085080,87085091").
+          Lista de até 5 códigos de subitem NCM (8 dígitos) sugeridos pela IA, em
+          ordem
+          de confiança (ex. "87085099,87085080,87085091").
           O primeiro da lista é o mais provável.
-      - name: descricao_do_ncm_sugerido_top_5
-        data_type: varchar
-        description: >
-          Descrição de cada NCM sugerido no top 5, na mesma ordem, separadas por " | ".
+      - name: ncm_subitem_sugerido_top_5_descr
+        data_type: varchar[]
+        description: >-
+          Lista contendo a descrição de cada NCM sugerido no top 5, na mesma ordem.

@@ -1,18 +1,34 @@
+---
 version: 2
-
 models:
-  - name: mrt_tradutor_catmat_ncm__mapeamento
+  - name: mrt_tradutor_catmat_ncm__mapeamento_ia
     description: >
       Tradutor de CATMAT para NCM: um registro por catmat com o NCM final
       (capítulo/posição/subitem), priorizando classificação humana sobre
       sugestão de IA. Use metodo_de_mapeamento pra saber a origem. Pode não haver
-      sugestão nenhuma (colunas de NCM vêm nulas nesse caso), então pra saber se o item está
+      sugestão nenhuma (colunas de NCM vêm nulas nesse caso), então pra saber se o
+      item está
       de fato classificado é preciso checar se capitulo_ncm/posicao_ncm/subitem_ncm
       não são nulos, não só olhar o método.
+      Embora o mapeamento por IA baseie-se na proximidade semântica das descrições,
+      a classificação correta baseia-se em critérios adicionais (ex. bicarbonato
+      de sódio pode ser medicamento ou produto da indústria química; triângulo pode
+      ser um produto de aço ou um instrumento musical etc).
+      A comparação da sugestão da IA versus a classificação humana (somente disponível
+      para alguns tipos de produto, sobretudo medicamentos, bens de capital
+      e manufaturados) resultou nos seguintes índices de acerto:
+      Capítulo da NCM (2 dígitos): 96,0%
+      Posição da NCM (4 dígitos): 91,9%
+      Um dentre os Top 5 Subitens da NCM (8 dígitos): 67,2%
+      Não foi calculado índice de acerto para os demais tipos de produto.
+      Recomenda-se cautela e revisão humana durante a utilização deste tradutor.
+      Mais informações sobre o mapeamento podem ser encontradas em
+      https://github.com/artdelpi/classificador-compras-gov.git.
     columns:
       - name: catmat
-        data_type: varchar
-        description: Código CATMAT do item de material. Chave da tabela (um registro por catmat).
+        data_type: integer
+        description: Código CATMAT do item de material. Chave da tabela (um registro
+          por catmat).
       - name: capitulo_ncm
         data_type: varchar
         description: >
@@ -33,7 +49,7 @@ models:
           não tiver sugerido nada pra esse item.
       - name: metodo_de_mapeamento
         data_type: varchar
-        description: >
+        description: >-
           Origem da classificação: "humano" quando existe um código NCM
           atribuído manualmente pra esse catmat, ou "ia" quando não existe e a
           sugestão do modelo foi usada no lugar. Sempre que houver um
