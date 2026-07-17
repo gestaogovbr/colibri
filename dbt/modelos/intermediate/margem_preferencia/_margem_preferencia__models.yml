@@ -12,41 +12,56 @@ models:
       completo, com 8 dígitos, conforme apresentado na resolução CICS ou CIIA-PAC.
     columns:
       - name: prefixo_ncm
+        data_type: varchar
         description: Prefixo do código NCM (Nomenclatura Comum do Mercosul) ao qual
           a margem de preferência se aplica.
       - name: resolucao
+        data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC) que instituiu a
           margem vigente neste intervalo (ex. 'res_cics_1', 'res_ciia_pac_3').
       - name: tipo_margem
+        data_type: varchar
         description: Tipo de margem de preferência do intervalo.
       - name: data_inicio
+        data_type: date
         description: Data de início de vigência do intervalo.
       - name: data_fim
+        data_type: timestamp
         description: Data de fim de vigência do intervalo (nula se ainda vigente).
       - name: margem_normal_comprovante
+        data_type: varchar
         description: Comprovante exigido para aplicação da margem de preferência normal.
       - name: margem_normal_pct
+        data_type: double
         description: Percentual da margem de preferência normal.
       - name: margem_adicional_comprovante
+        data_type: varchar
         description: Comprovante exigido para aplicação da margem de preferência adicional.
       - name: margem_adicional_pct
+        data_type: double
         description: Percentual da margem de preferência adicional.
       - name: margem_sustentabilidade_comprovante
+        data_type: varchar
         description: Comprovante exigido para aplicação da margem de preferência de
           sustentabilidade.
       - name: margem_sustentabilidade_pct
+        data_type: decimal(3,2)
         description: Percentual da margem de preferência de sustentabilidade.
       - name: grupo_de_produtos
+        data_type: varchar
         description: Categoria a que o produto pertence, atribuída informalmente (não
           pertence necessariamente à Resolução). Para as resoluções CIIA-PAC, pode
           indicar o anexo da resolução.
       - name: comentario
+        data_type: varchar
         description: Comentário livre associado ao NCM na planilha de origem da resolução,
           quando presente. Indica NCMs duplicadas na mesma resolução ou que deixaram
           de existir entre uma resolução e a seguinte, por exemplo.
       - name: ultima
+        data_type: boolean
         description: Indica se este é o intervalo mais recente (por data_inicio) para
           o prefixo_ncm.
       - name: ativa
+        data_type: boolean
         description: Indica se este intervalo está atualmente vigente (é o mais recente
           e data_fim é nula).
