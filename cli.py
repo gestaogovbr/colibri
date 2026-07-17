@@ -12,7 +12,11 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich import box
-from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR, NOME_SEGREDO_VISUALIZADOR, CATALOGO_LOCAL
+from utils.constantes import (
+    NOME_SEGREDO_DESENVOLVEDOR,
+    NOME_SEGREDO_VISUALIZADOR,
+    CATALOGO_LOCAL,
+)
 from utils.carregar_segredo import carregar_segredo
 
 console = Console()
@@ -739,7 +743,9 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 @pipeline.command("run")
 @click.option(
     "--apenas",
-    type=click.Choice(["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia"]),
+    type=click.Choice(
+        ["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia"]
+    ),
     default=None,
     help="Rodar só um pipeline",
 )
@@ -759,7 +765,10 @@ def run(apenas: str | None, bucket: str | None):
         "pncp-comprasgov": (pncp_comprasgov, "[cyan]>>> PNCP ComprasGOV[/cyan]"),
         "catmats": (catmats, "[cyan]>>> CATMATS[/cyan]"),
         "nfe-cgu": (nfe_cgu, "[cyan]>>> NFe-CGU[/cyan]"),
-        "margem-preferencia": (margem_preferencia, "[cyan]>>> Margem de Preferência[/cyan]"),
+        "margem-preferencia": (
+            margem_preferencia,
+            "[cyan]>>> Margem de Preferência[/cyan]",
+        ),
     }
 
     ordem = list(pipelines.keys()) if apenas is None else [apenas]
@@ -777,7 +786,6 @@ _MANIFESTOS = [
     "pncp_comprasgov_manifesto.csv",
     "catmats_manifesto.csv",
     "nfe_cgu_manifesto.csv",
-    "margem_preferencia_manifesto.csv",
 ]
 
 

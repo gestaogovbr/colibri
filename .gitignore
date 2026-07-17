@@ -3,7 +3,6 @@ __pycache__/
 dados/*
 *.duckdb
 logs/
-dados/margem_preferencia/*
 
 # python environments
 /dbt-env
