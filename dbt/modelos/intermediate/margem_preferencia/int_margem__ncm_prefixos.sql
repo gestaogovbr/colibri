@@ -16,7 +16,9 @@ WITH eventos AS (
         e.margem_adicional_comprovante,
         e.margem_adicional_pct,
         NULL::VARCHAR                              AS margem_sustentabilidade_comprovante,
-        NULL::DECIMAL(3,2)                         AS margem_sustentabilidade_pct
+        NULL::DECIMAL(3,2)                         AS margem_sustentabilidade_pct,
+        e.grupo_de_produtos,
+        e.comentario
     FROM {{ ref('stg_margem__eventos') }} e
     JOIN {{ ref('stg_margem__resolucoes') }} r
         ON e.resolucao = r.id
@@ -26,7 +28,7 @@ eventos_ordenados AS (
     SELECT
         *,
         LEAD(data_evento) OVER (
-            PARTITION BY prefixo_ncm, tipo_margem
+            PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm, tipo_margem
             -- desabilita antes de habilita no mesmo dia: evita que o LEAD do habilita aponte pro desabilita do mesmo dia
             ORDER BY data_evento, tipo_evento_margem ASC
         ) AS proxima_data_evento
@@ -45,7 +47,9 @@ intervalos AS (
         margem_adicional_comprovante,
         margem_adicional_pct,
         margem_sustentabilidade_comprovante,
-        margem_sustentabilidade_pct
+        margem_sustentabilidade_pct,
+        grupo_de_produtos,
+        comentario
     FROM eventos_ordenados
     WHERE tipo_evento_margem = 'habilita'
 ),
@@ -54,7 +58,7 @@ numerados AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY prefixo_ncm
+            PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm
             ORDER BY data_inicio DESC
         ) AS rn
     FROM intervalos
@@ -69,7 +73,7 @@ marcadores AS (
 
 enumerated AS (
     SELECT *, ROW_NUMBER() OVER (
-        PARTITION BY prefixo_ncm, data_inicio
+        PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm, data_inicio
         ORDER BY (margem_normal_pct + margem_adicional_pct + margem_sustentabilidade_pct) DESC
     ) AS rn
     FROM marcadores

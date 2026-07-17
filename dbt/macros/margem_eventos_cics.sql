@@ -2,6 +2,7 @@
     {% set aba = 'res_cics_' ~ resolucao.split('_')[-1] %}
     {% set path = 's3://' ~ var('bucket_arquivos') ~ '/raw/resolucoes_cics_e_ciia_pac/' ~ var('margem_arquivo_resolucoes') %}
 
+    -- Margens de conteúdo nacional:
     SELECT
         '{{ resolucao }}'                                                AS resolucao,
         'habilita'::VARCHAR                                              AS tipo_evento_margem,
@@ -11,12 +12,14 @@
         round(TRY_CAST(trim(margem_normal)         AS DOUBLE) / 100, 4)  AS margem_normal_pct,
         NULL::VARCHAR                                                    AS margem_adicional_comprovante,
         NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
-        trim(grupo_de_produtos)                                                 AS grupo_de_produtos
+        trim(grupo_de_produtos)                                                 AS grupo_de_produtos,
+        trim(comentario)                                                 AS comentario
     FROM read_xlsx('{{ path }}', sheet='{{ aba }}', all_varchar=true)
     WHERE trim(resolucao) = '{{ resolucao }}' AND trim(ncm) IS NOT NULL AND trim(ncm) != ''
 
     UNION ALL
 
+    -- Margens de tecnologia nacional:
     SELECT
         '{{ resolucao }}'                                                AS resolucao,
         'habilita'::VARCHAR                                              AS tipo_evento_margem,
@@ -26,7 +29,8 @@
         round(TRY_CAST(trim(margem_normal)         AS DOUBLE) / 100, 4)  AS margem_normal_pct,
         replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
         round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
-        trim(grupo_de_produtos)                                                 AS grupo_de_produtos
+        trim(grupo_de_produtos)                                                 AS grupo_de_produtos,
+        trim(comentario)                                                 AS comentario
     FROM read_xlsx('{{ path }}', sheet='{{ aba }}', all_varchar=true)
     WHERE trim(resolucao) = '{{ resolucao }}' AND trim(ncm) IS NOT NULL AND trim(ncm) != ''
         AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
@@ -45,7 +49,8 @@
         round(TRY_CAST(trim(margem_normal)         AS DOUBLE) / 100, 4)  AS margem_normal_pct,
         NULL::VARCHAR                                                    AS margem_adicional_comprovante,
         NULL::DECIMAL(3,2)                                               AS margem_adicional_pct,
-        trim(grupo_de_produtos)                                          AS grupo_de_produtos
+        trim(grupo_de_produtos)                                          AS grupo_de_produtos,
+        trim(comentario)                                                 AS comentario
     FROM read_xlsx('{{ path }}', sheet='{{ aba_anterior }}', all_varchar=true)
     WHERE trim(resolucao) = '{{ anterior }}' AND trim(ncm) IS NOT NULL AND trim(ncm) != ''
 
@@ -60,7 +65,8 @@
         round(TRY_CAST(trim(margem_normal)         AS DOUBLE) / 100, 4)  AS margem_normal_pct,
         replace(trim(regra_de_qualificacao), ' ', '_')                   AS margem_adicional_comprovante,
         round(TRY_CAST(trim(margem_adicional)      AS DOUBLE) / 100, 4)  AS margem_adicional_pct,
-        trim(grupo_de_produtos)                                          AS grupo_de_produtos
+        trim(grupo_de_produtos)                                          AS grupo_de_produtos,
+        trim(comentario)                                                 AS comentario,
     FROM read_xlsx('{{ path }}', sheet='{{ aba_anterior }}', all_varchar=true)
     WHERE trim(resolucao) = '{{ anterior }}' AND trim(ncm) IS NOT NULL AND trim(ncm) != ''
         AND trim(margem_adicional) IS NOT NULL AND trim(margem_adicional) != ''
