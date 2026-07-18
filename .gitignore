@@ -30,3 +30,7 @@ colibri-arquivos/
 
 # MacOS
 .DS_Store
+
+# Quarto (docs/)
+docs/.quarto/
+docs/_book/
