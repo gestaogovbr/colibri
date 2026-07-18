@@ -1,0 +1,196 @@
+# O Produto Minimamente Viável (MVP) do colibri
+
+O lançamento do MVP do Colibri está previsto para agosto de 2026. Já nessa
+primeira versão, pesquisadores que utilizam R ou Python vão conseguir se
+conectar aos dados de contratações públicas de forma mais rápida do que
+consumindo diretamente as APIs oficiais.
+
+O Ministério da Gestão e Inovação em Gestão Pública (MGI), em parceria com o
+Transparência Brasil e o Open Contracting Partnership (OCP), está
+construindo um MVP da plataforma Colibri, que disponibilizará um pequeno
+conjunto de bases de dados para usuários externos com perfil de analista ou
+cientista de dados acessarem de forma mais fácil do que por meio de uma API.
+
+O objetivo é disponibilizar tabelas que tenham atualização periódica
+automática, com métodos de extração e transformação transparentes, catálogo
+de dados com documentação de cada campo, possibilidade de download das
+tabelas em diferentes formatos (inclusive o formato internacional OCDS,
+sempre que possível), interface que permita ao usuário explorar as tabelas
+do catálogo e executar consultas em SQL.
+
+## Engenharia de dados
+
+### Fontes dos dados
+
+As bases de disponibilização programada estão listadas abaixo. Dados já
+divulgados em outras plataformas estão sinalizados com 📣; dados ainda não
+divulgados estão marcados com 🆕.
+
+| # | Status de divulgação | Base | Descrição |
+|:-:|:------:|:----:|-----------|
+| 1 | 📣 | **ComprasGov** | Microdados de compras, itens e resultados |
+| 2 | 📣 | **CATMAT** | Catálogo de materiais utilizado no ComprasGov |
+| 3 | 📣 | **CATSER** | Catálogo de serviços utilizado no ComprasGov |
+| 4 | 🆕 | **ComprasGov - Fase Externa** | Propostas apresentadas pelos licitantes nos pregões eletrônicos do ComprasGov |
+| 5 | 🆕 | **PNCP em Números** | Microdados que alimentam o painel PNCP em Números |
+| 6 | 🆕 | **Mapeamento CATMAT → NCM (v 0.1)** | Expansão do mapeamento feito manualmente, baseada em busca semântica com inteligência artificial |
+| 7 | 📣 | **NCM** | Tabelas que facilitam o uso da Nomenclatura Comum do MERCOSUL |
+| 8 | 🆕 | **Margens de preferência** | NCMs cobertas por margem de preferência em cada Resolução CICS |
+| 9 | 📣 | **NF-e do Executivo Federal** | Notas Fiscais Eletrônicas (NF-e) emitidas para o Executivo Federal durante a aquisição de bens, limpas e compiladas em uma tabela de notas fiscais e uma dos itens que compõem cada nota fiscal |
+| 10 | 🆕 | **Mapeamentos de grupos de produtos e serviços** | Mapeamentos dos critérios (NCM, CNAE, CNPJ etc.) que caracterizam um grupo de produtos ou serviços. Exemplos: (i) mapeamento do MDIC dos produtos (NCM e CNAE do fornecedor) contemplados na Missão 1 do Nova Indústria Brasil (NIB); (ii) produtos (NCM) que compõem cada grupo de interesse do projeto EcoAdvance da GIZ; (iii) produtos e serviços (CATMAT e CATSER) que utilizam aço como insumo, conforme mapeado pela WRI |
+
+### _Pipelines_ transparentes
+
+O repositório Colibri conterá os scripts que extraem os dados de cada fonte.
+Eles podem ser executados pelos usuários que possuírem as credenciais de
+acesso exigidas por cada fonte que não for aberta.
+
+### Armazenamento em S3
+
+Todos os dados extraídos, modelados e disponibilizados serão salvos em uma
+plataforma tipo S3 (_Simple Storage Service_), tal como Cloudflare, AWS, GCS
+etc. Diversos _buckets_ serão criados com o objetivo de organizar o
+desenvolvimento dos pipelines e garantir a governança dos dados. _Buckets_
+previstos:
+
+1. `raw`: para acúmulo dos dados brutos de cada fonte
+2. `dev`: para modelagem dos dados (ambiente de desenvolvimento)
+3. `prod`: para disponibilização dos dados modelados (ambiente de produção)
+
+### _Lakehouse_
+
+O bucket de produção é um _lakehouse_, mais especificamente um
+[DuckLake](https://ducklake.select/).
+
+Isso significa que as tabelas criadas serão salvas em formato parquet,
+portanto compactadas para economia de espaço e de acesso rápido para
+consultas de cientistas de dados.
+
+Para que os arquivos parquet não precisem ser acessados diretamente, o
+DuckLake cria um catálogo que torna os dados organizados para o usuário.
+Além disso, esse catálogo guarda informações sobre as diversas versões de
+cada tabela, permitindo que versões anteriores sejam recuperadas, sempre que
+uma análise de dados passados for necessária.
+
+## Ciência de dados
+
+### Acesso via SQL
+
+O Colibri é uma plataforma que disponibiliza tabelas modeladas para
+analistas e cientistas de dados. Por se tratar de um _lakehouse_, o acesso a
+tais tabelas dá-se por SQL, que é a linguagem padrão internacional de acesso
+a bases de dados relacionais[^1]
+
+[^1]: A [ISO/IEC 9075](https://www.iso.org/standard/76583.html) é uma norma
+    internacional que estabelece os conceitos, definições e regras gerais da
+    linguagem SQL, utilizada por sistemas de banco de dados em todo o mundo.
+
+Grande parte das análises poderão ser feitas em SQL puro. Usuários mais
+familiarizados com outras linguagens de programação, como R ou Python, por
+exemplo, podem preferir fazer o download das tabelas inteiras ou resultantes
+de consultas SQL para seu computador, a fim de lê-las no ambiente de sua
+predileção. Alguns usuários de linguagens de programação como R ou Python
+também podem preferir a conexão direta ao ducklake utilizando bibliotecas
+específicas de cada linguagem, como `DBI` e `duckdb`, no caso do R, ou
+`duckdb` e `pyducklake` no Python.
+
+### Interface gráfica
+
+O DuckDB conta com uma [interface de usuário](https://duckdb.org/2025/03/12/duckdb-ui)
+(ou UI: _user interface_) nativa, que apesar de simples é bastante eficaz.
+
+Nela, o usuário pode rapidamente explorar as tabelas disponíveis, o tipo de
+dado e o percentual de dados faltantes em cada coluna, por exemplo.
+
+A interface é a mesma de um caderno estilo _Jupyter notebook_, o que
+possibilita ao usuário executar um fragmento de código SQL por vez e
+visualizar os resultados gradualmente. Os cadernos são salvos
+automaticamente no computador do usuário, para futuros acessos à interface.
+
+### Visualização dos dados
+
+Utilizaremos a ferramenta de BI licenciada ao MGI para construção de
+painéis: QlikSense.
+
+### "Tela Preta" (CLI)
+
+Uma interface de linha de comando (ou CLI: _command line interface_)
+possibilitará ao usuário do Colibri acessar funcionalidades como, por
+exemplo:
+
+- `colibri lake tabelas`: Exibir catálogo.
+- `colibri docs`: Exibir documentação dos modelos dbt, com explicações sobre
+  cada tabela e suas colunas.
+- `colibri lake q "SELECT * FROM pncp_comprasgov.itens WHERE uf = 'DF'"`:
+  Retorna o resultado de uma consulta em SQL
+- `colibri sincronizar`: Sincroniza o catálogo baixado com o disponível
+  online
+
+Alguns comandos são exclusivos para desenvolvedores:
+
+- `colibri pipeline run`: Executar as pipelines manualmente
+- `colibri bucket list prod`: Lista os arquivos em um bucket
+
+::: {.callout-note}
+Os nomes exatos de comandos e subcomandos evoluem com a CLI. Veja o
+[Guia do analista de dados do colibri](06-guia-analista.qmd) e o
+[Guia do desenvolvedor do colibri](05-guia-desenvolvedor.qmd) para a lista
+de comandos efetivamente disponível hoje.
+:::
+
+## Teste com parceiros
+
+Além de atuarem como parceiros no desenvolvimento do Colibri, o
+Transparência Brasil e a Open Contracting Partnership (OCP) também estão
+atuando em parceria com o MGI em dois projetos intensivos em análise de
+dados. A plataforma Colibri será útil para o compartilhamento de dados e
+roteiros de análise ao longo da execução desses projetos, a saber:
+
+- Monitoramento da Estratégia Nacional de Contratações Públicas (ENCP)
+- Taxonomia de Aquisições da Alimentação Escolar
+
+A CNI e a WRI também terão acesso à plataforma para conduzirem análises em
+projetos que envolvem análise dos mesmos dados e darem _feedback_ sobre a
+experiência do usuário. Os projetos em questão são:
+
+- Monitoramento da Política de Margens de Preferência
+  **Parceiro:** [Confederação Nacional da Indústria - CNI](https://cni.portaldaindustria.com.br/home)
+  **Executor:** [Banco Mundial - Development Impact Group](https://www.worldbank.org/en/about/unit/unit-dec/impactevaluation)
+- Estudo da Demanda por Aço de Baixo Carbono nas Contratações Públicas
+  **Parceiro:** [WRI](https://www.wri.org/)
+  **Executor:** [Instituto É+](https://emaisenergia.org/)
+
+## Após o MVP
+
+Algumas funcionalidades importantes estão fora do escopo do MVP, porque
+atrasariam seu desenvolvimento.
+
+No âmbito da **engenharia de dados**, não pretendemos lidar com dados
+sigilosos no momento, por demandarem criptografia do lado do cliente, que
+teríamos de desenvolver por conta própria.
+
+Uma implicação prática dessa decisão é que uma base sigilosa como a
+[Relação Anual de Informações Sociais (RAIS)](https://www.gov.br/pt-br/servicos/solicitar-acesso-aos-dados-identificados-rais-e-caged),
+ainda que importante para estudo do impacto social de compras públicas a
+partir da análise da força de trabalho que fornece para o poder público,
+terá de ser deixada de fora do _lakehouse_. Os usuários que tiverem acesso à
+RAIS identificada, no entanto, poderão utilizar as tabelas do lakehouse e
+cruzá-las com a RAIS localmente em seus computadores.
+
+No âmbito da **ciência de dados**, a forma de acesso que está sendo
+priorizada no MVP é a da consulta em SQL. Prevemos que uma biblioteca em
+[R](https://www.r-project.org/) ou [Python](https://www.python.org/) poderá
+ampliar o uso das tabelas modeladas no _lakehouse_, mas a prova de conceito
+do MVP irá determinar o quanto esse desenvolvimento é pertinente.
+
+Além disso, uma plataforma em Databricks está sendo
+[desenvolvida em parceria com a UnB](https://ted.transferegov.sistema.gov.br/ted/plano-acao/detalhe/5748/plano-trabalho/metas-etapas)
+na infraestrutura de TI do MGI, para acesso de servidores e parceiros do
+MGI, com entrega do produto final prevista para março de 2027. Enquanto o
+desenvolvimento dessa plataforma robusta se desenrola, o Colibri
+possibilitará que o Observatório e seus parceiros analisem dados de
+contratações públicas com custo de entrada inferior ao da utilização direta
+de APIs, e com maior replicabilidade dos estudos. Terminado o desenvolvimento
+da plataforma em Databricks, espera-se que o Colibri possa ser usado para
+disponibilização de dados modelados a um público mais amplo que aquele que
+poderá ter acesso ao Databricks.

@@ -1,0 +1,31 @@
+---
+project:
+  type: book
+lang: pt-BR
+book:
+  title: Colibri
+  subtitle: Documentação do mini lakehouse do Observatório de Contratações Públicas
+  author: MGI, Transparência Brasil e Open Contracting Partnership (OCP)
+  date: today
+  date-format: MMMM [de] YYYY
+  repo-url: https://github.com/gestaogovbr/colibri
+  cover-image: images/colibri_fundo_verde.png
+  page-footer:
+    left: Colibri — Observatório de Contratações Públicas
+    right: Construído com [Quarto](https://quarto.org)
+  chapters:
+    - index.qmd
+    - 01-observatorio-nao-precisa-lakehouse.qmd
+    - 02-o-que-esperar-do-colibri.qmd
+    - 03-mvp-colibri.qmd
+    - 04-guia-instalacao.qmd
+    - 05-guia-desenvolvedor.qmd
+    - 06-guia-analista.qmd
+format:
+  html:
+    theme: [cosmo, colibri.scss]
+    toc: true
+    number-sections: true
+    code-copy: true
+    code-link: false
+    smooth-scroll: true

@@ -1,0 +1,88 @@
+# O que esperar do colibri
+
+## Data warehouse, data lake e lakehouse
+
+Esses três termos aparecem com frequência na engenharia de dados e é fácil
+confundi-los:
+
+- **Data warehouse**: um banco de dados relacional otimizado para consulta
+  analítica (em vez de transações). Os dados chegam já modelados em um
+  esquema fixo, geralmente tabelas de fatos e dimensões. É rápido de
+  consultar, mas rígido: mudar o esquema ou incorporar uma fonte de dados
+  nova costuma exigir retrabalho.
+- **Data lake**: um repositório de arquivos (em geral em object storage tipo
+  S3) que guarda dados brutos ou pouco processados, em qualquer formato. É
+  flexível e barato de escalar, mas sem um catálogo e uma camada de
+  modelagem por cima, vira rapidamente um amontoado de arquivos difícil de
+  consultar e de confiar.
+- **Lakehouse**: uma tentativa de juntar o melhor dos dois — arquivos
+  columnares baratos e versionados (como Parquet) em object storage, mas com
+  um catálogo por cima que dá a eles a mesma confiabilidade e capacidade de
+  consulta em SQL de um data warehouse tradicional, incluindo controle de
+  versões e *time travel*.
+
+O Colibri é um lakehouse construído com [DuckLake](https://ducklake.select/):
+os dados modelados são salvos como arquivos Parquet no bucket de produção, e
+o DuckLake mantém um catálogo que organiza essas tabelas para o usuário,
+sabendo consultá-las com a mesma praticidade de um banco relacional comum —
+com a vantagem adicional de guardar o histórico de versões de cada tabela.
+
+## Por que "mini" lakehouse?
+
+Diferente de um data warehouse ou lakehouse corporativo tradicional, que roda
+em um cluster de servidores dedicado, o Colibri é pensado para ser operado a
+partir do laptop de quem está analisando os dados — daí o "mini". Isso é
+possível porque o DuckDB, o motor por trás do DuckLake, é um banco analítico
+*in-process*: ele processa consultas sobre bases de dados grandes usando os
+recursos da própria máquina do usuário, sem exigir um servidor de banco de
+dados rodando em algum outro lugar.
+
+Essa arquitetura tem uma consequência prática importante: como as consultas
+rodam localmente, é possível mesclar as tabelas publicadas no servidor de
+arquivos do Colibri com tabelas que só existem no computador de quem está
+analisando — sem nunca precisar publicá-las em lugar nenhum. Dois exemplos:
+
+- Uma base de dados confidencial, como a Relação Anual de Informações Sociais
+  identificada (RAIS identificada) — que contém dados pessoais de todos os
+  empregados formais do Brasil e por isso não pode ser publicada no lakehouse
+  do Colibri —, pode ser cruzada localmente por quem já tem acesso a ela.
+- Uma planilha Excel simples, com os códigos NCM de produtos associados a
+  cada uma das cinco categorias de produtos que você está analisando, pode
+  ser lida diretamente pelo DuckDB e cruzada com as tabelas de compras
+  públicas do Colibri, sem que essa planilha precise sair do seu computador.
+
+É daí que vem o nome do projeto: um colibri passeia por diversas flores ao
+longo do seu dia de trabalho, com leveza e rapidez. A plataforma Colibri faz o mesmo com dados: transita entre as bases publicadas e as bases pessoais de cada usuário,
+combinando-as rapidamente — sem a infraestrutura pesada de um data warehouse
+ou lakehouse tradicional.
+
+## O problema de estudar contratações públicas hoje
+
+Para a maioria dos pesquisadores, cidadãos e gestores públicos, o caminho
+disponível hoje para estudar dados de contratações públicas é consumir APIs
+diretamente. Na prática, isso costuma significar:
+
+- Escrever código de paginação e controle de *rate limit* específico para
+  cada API, antes de sequer começar a olhar para os dados.
+- Lidar com formatos e granularidades diferentes entre fontes que, no fundo,
+  falam sobre o mesmo universo de compras públicas.
+- Reescrever essa camada de extração do zero a cada novo estudo, porque o
+  código anterior raramente é reaproveitável fora do contexto em que foi
+  escrito.
+- Não ter como cruzar facilmente uma fonte com outra (por exemplo, itens de
+  compra com o material do CATMAT, ou o material com sua NCM), porque cada
+  API resolve isso de um jeito diferente, quando resolve.
+
+O efeito colateral mais custoso disso é sobre a **replicabilidade** dos
+estudos: quando cada análise depende de um pipeline de extração artesanal e
+não documentado, é difícil para outra pessoa — ou para o mesmo pesquisador,
+meses depois — reproduzir exatamente os mesmos números.
+
+## Para onde isso aponta
+
+É esse o problema que o MVP do Colibri ataca: em vez de cada pessoa
+resolver, por conta própria, o mesmo problema de extração e integração de
+dados de contratações públicas, o Colibri disponibiliza um pequeno conjunto
+de tabelas já modeladas, com pipelines transparentes e atualização
+automática, prontas para consulta em SQL ou conexão direta via R ou Python.
+O capítulo seguinte detalha exatamente o que esse MVP entrega.
