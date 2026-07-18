@@ -1,0 +1,352 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Colibri",
+    "section": "",
+    "text": "Boas-vindas\nO Colibri é o mini lakehouse do Observatório de Contratações Públicas: uma plataforma que reúne, modela e disponibiliza bases de dados sobre compras públicas brasileiras em formato tabular, pronto para consulta em SQL e para conexão direta a partir de R ou Python — sem exigir que cada pesquisador reescreva sua própria integração com APIs.\nEste book documenta o projeto de ponta a ponta: por que ele existe, o que o seu Produto Minimamente Viável (MVP) entrega, e como instalar, desenvolver e analisar dados nele. É voltado a quatro públicos:",
+    "crumbs": [
+      "Boas-vindas"
+    ]
+  },
+  {
+    "objectID": "index.html#como-este-book-está-organizado",
+    "href": "index.html#como-este-book-está-organizado",
+    "title": "Colibri",
+    "section": "Como este book está organizado",
+    "text": "Como este book está organizado\n\nO Observatório não precisa de um lakehouse — por que essa infraestrutura de dados é uma necessidade do Brasil, não de um observatório específico.\nO que esperar do colibri — data warehouse, data lake, lakehouse, e por que consultar dados públicos via API é uma barreira para estudos replicáveis.\nO Produto Minimamente Viável (MVP) do colibri — o projeto do MVP, suas fontes de dados, arquitetura e parceiros de teste.\nGuia de instalação do colibri — passo a passo para instalar o ambiente no Windows ou no Mac.\nGuia do desenvolvedor do colibri — o ritual de desenvolvimento de pipelines e modelos dbt.\nGuia do analista de dados do colibri — como se conectar ao lakehouse para visualizar, baixar e consultar tabelas.",
+    "crumbs": [
+      "Boas-vindas"
+    ]
+  },
+  {
+    "objectID": "01-observatorio-nao-precisa-lakehouse.html",
+    "href": "01-observatorio-nao-precisa-lakehouse.html",
+    "title": "1  O Observatório não precisa de um lakehouse",
+    "section": "",
+    "text": "1.1 Uma necessidade nacional, não de um observatório\nUma pergunta razoável sobre o Colibri é por que um Observatório de Contratações Públicas precisaria construir — e manter — um lakehouse inteiro, com pipelines, catálogo versionado, credenciais e infraestrutura em nuvem. A resposta curta é que ele não precisa. Quem precisa é o Brasil.\nDados de contratações públicas hoje são publicados principalmente via API (comprasGOV, PNCP, e outras fontes setoriais), em formatos e granularidades que variam de fonte para fonte. Isso impõe um custo de entrada real a qualquer pessoa que queira estudar o tema: pesquisadores acadêmicos, órgãos de controle, imprensa, sociedade civil organizada e outros órgãos de governo — todos precisam, hoje, resolver o mesmo problema de extração, limpeza e integração de dados antes de sequer começar a análise.\nEsse é um problema de infraestrutura de dados do país, não de um único observatório. Um lakehouse único, com pipelines transparentes e dados já integrados entre si (por exemplo, cruzando CATMAT com NCM, ou compras com notas fiscais), evita que dezenas de instituições dupliquem o mesmo esforço de engenharia de dados para chegar ao mesmo ponto de partida.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>O Observatório não precisa de um lakehouse</span>"
+    ]
+  },
+  {
+    "objectID": "01-observatorio-nao-precisa-lakehouse.html#onde-entra-um-observatório-de-contratações-públicas",
+    "href": "01-observatorio-nao-precisa-lakehouse.html#onde-entra-um-observatório-de-contratações-públicas",
+    "title": "1  O Observatório não precisa de um lakehouse",
+    "section": "1.2 Onde entra um Observatório de Contratações Públicas",
+    "text": "1.2 Onde entra um Observatório de Contratações Públicas\nUm Observatório de Contratações Públicas existe para usar esse tipo de infraestrutura de dados a serviço do monitoramento de política pública — não para ser dono dela. A lógica é a mesma de qualquer área de política pública que se apoia em estatísticas oficiais: quem produz e organiza a base de dados não precisa ser a mesma instituição que a utiliza para analisar tendências, detectar irregularidades ou avaliar impacto.\nNesse desenho, o Colibri é a infraestrutura de dados compartilhada; o Observatório — e qualquer outro pesquisador, órgão ou parceiro com acesso — é um dos seus consumidores.\n\n\n\n\n\n\nAvisoPendente de revisão\n\n\n\nEsta seção ainda precisa da base normativa e institucional exata:\n\nO que é a DECS e qual norma/competência formal lhe atribui a criação de um Observatório de Contratações Públicas.\nComo a Estratégia Nacional de Contratações Públicas (ENCP) se conecta a esse movimento e o impulsionou.\n\nPreencher com as referências corretas (decreto, portaria, plano da ENCP etc.) antes de publicar este capítulo.",
+    "crumbs": [
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>O Observatório não precisa de um lakehouse</span>"
+    ]
+  },
+  {
+    "objectID": "02-o-que-esperar-do-colibri.html",
+    "href": "02-o-que-esperar-do-colibri.html",
+    "title": "2  O que esperar do colibri",
+    "section": "",
+    "text": "2.1 Data warehouse, data lake e lakehouse\nEsses três termos aparecem com frequência na engenharia de dados e é fácil confundi-los:\nO Colibri é um lakehouse construído com DuckLake: os dados modelados são salvos como arquivos Parquet no bucket de produção, e o DuckLake mantém um catálogo que organiza essas tabelas para o usuário, sabendo consultá-las com a mesma praticidade de um banco relacional comum — com a vantagem adicional de guardar o histórico de versões de cada tabela.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>O que esperar do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "02-o-que-esperar-do-colibri.html#data-warehouse-data-lake-e-lakehouse",
+    "href": "02-o-que-esperar-do-colibri.html#data-warehouse-data-lake-e-lakehouse",
+    "title": "2  O que esperar do colibri",
+    "section": "",
+    "text": "Data warehouse: um banco de dados relacional otimizado para consulta analítica (em vez de transações). Os dados chegam já modelados em um esquema fixo, geralmente tabelas de fatos e dimensões. É rápido de consultar, mas rígido: mudar o esquema ou incorporar uma fonte de dados nova costuma exigir retrabalho.\nData lake: um repositório de arquivos (em geral em object storage tipo S3) que guarda dados brutos ou pouco processados, em qualquer formato. É flexível e barato de escalar, mas sem um catálogo e uma camada de modelagem por cima, vira rapidamente um amontoado de arquivos difícil de consultar e de confiar.\nLakehouse: uma tentativa de juntar o melhor dos dois — arquivos columnares baratos e versionados (como Parquet) em object storage, mas com um catálogo por cima que dá a eles a mesma confiabilidade e capacidade de consulta em SQL de um data warehouse tradicional, incluindo controle de versões e time travel.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>O que esperar do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "02-o-que-esperar-do-colibri.html#por-que-mini-lakehouse",
+    "href": "02-o-que-esperar-do-colibri.html#por-que-mini-lakehouse",
+    "title": "2  O que esperar do colibri",
+    "section": "2.2 Por que “mini” lakehouse?",
+    "text": "2.2 Por que “mini” lakehouse?\nDiferente de um data warehouse ou lakehouse corporativo tradicional, que roda em um cluster de servidores dedicado, o Colibri é pensado para ser operado a partir do laptop de quem está analisando os dados — daí o “mini”. Isso é possível porque o DuckDB, o motor por trás do DuckLake, é um banco analítico in-process: ele processa consultas sobre bases de dados grandes usando os recursos da própria máquina do usuário, sem exigir um servidor de banco de dados rodando em algum outro lugar.\nEssa arquitetura tem uma consequência prática importante: como as consultas rodam localmente, é possível mesclar as tabelas publicadas no servidor de arquivos do Colibri com tabelas que só existem no computador de quem está analisando — sem nunca precisar publicá-las em lugar nenhum. Dois exemplos:\n\nUma base de dados confidencial, como a Relação Anual de Informações Sociais identificada (RAIS identificada) — que contém dados pessoais de todos os empregados formais do Brasil e por isso não pode ser publicada no lakehouse do Colibri —, pode ser cruzada localmente por quem já tem acesso a ela.\nUma planilha Excel simples, com os códigos NCM de produtos associados a cada uma das cinco categorias de produtos que você está analisando, pode ser lida diretamente pelo DuckDB e cruzada com as tabelas de compras públicas do Colibri, sem que essa planilha precise sair do seu computador.\n\nÉ daí que vem o nome do projeto: um colibri passeia por diversas flores ao longo do seu dia de trabalho, com leveza e rapidez. A plataforma Colibri faz o mesmo com dados: transita entre as bases publicadas e as bases pessoais de cada usuário, combinando-as rapidamente — sem a infraestrutura pesada de um data warehouse ou lakehouse tradicional.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>O que esperar do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "02-o-que-esperar-do-colibri.html#o-problema-de-estudar-contratações-públicas-hoje",
+    "href": "02-o-que-esperar-do-colibri.html#o-problema-de-estudar-contratações-públicas-hoje",
+    "title": "2  O que esperar do colibri",
+    "section": "2.3 O problema de estudar contratações públicas hoje",
+    "text": "2.3 O problema de estudar contratações públicas hoje\nPara a maioria dos pesquisadores, cidadãos e gestores públicos, o caminho disponível hoje para estudar dados de contratações públicas é consumir APIs diretamente. Na prática, isso costuma significar:\n\nEscrever código de paginação e controle de rate limit específico para cada API, antes de sequer começar a olhar para os dados.\nLidar com formatos e granularidades diferentes entre fontes que, no fundo, falam sobre o mesmo universo de compras públicas.\nReescrever essa camada de extração do zero a cada novo estudo, porque o código anterior raramente é reaproveitável fora do contexto em que foi escrito.\nNão ter como cruzar facilmente uma fonte com outra (por exemplo, itens de compra com o material do CATMAT, ou o material com sua NCM), porque cada API resolve isso de um jeito diferente, quando resolve.\n\nO efeito colateral mais custoso disso é sobre a replicabilidade dos estudos: quando cada análise depende de um pipeline de extração artesanal e não documentado, é difícil para outra pessoa — ou para o mesmo pesquisador, meses depois — reproduzir exatamente os mesmos números.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>O que esperar do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "02-o-que-esperar-do-colibri.html#para-onde-isso-aponta",
+    "href": "02-o-que-esperar-do-colibri.html#para-onde-isso-aponta",
+    "title": "2  O que esperar do colibri",
+    "section": "2.4 Para onde isso aponta",
+    "text": "2.4 Para onde isso aponta\nÉ esse o problema que o MVP do Colibri ataca: em vez de cada pessoa resolver, por conta própria, o mesmo problema de extração e integração de dados de contratações públicas, o Colibri disponibiliza um pequeno conjunto de tabelas já modeladas, com pipelines transparentes e atualização automática, prontas para consulta em SQL ou conexão direta via R ou Python. O capítulo seguinte detalha exatamente o que esse MVP entrega.",
+    "crumbs": [
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>O que esperar do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "03-mvp-colibri.html",
+    "href": "03-mvp-colibri.html",
+    "title": "3  O Produto Minimamente Viável (MVP) do colibri",
+    "section": "",
+    "text": "3.1 Engenharia de dados\nO lançamento do MVP do Colibri está previsto para agosto de 2026. Já nessa primeira versão, pesquisadores que utilizam R ou Python vão conseguir se conectar aos dados de contratações públicas de forma mais rápida do que consumindo diretamente as APIs oficiais.\nO Ministério da Gestão e Inovação em Gestão Pública (MGI), em parceria com o Transparência Brasil e o Open Contracting Partnership (OCP), está construindo um MVP da plataforma Colibri, que disponibilizará um pequeno conjunto de bases de dados para usuários externos com perfil de analista ou cientista de dados acessarem de forma mais fácil do que por meio de uma API.\nO objetivo é disponibilizar tabelas que tenham atualização periódica automática, com métodos de extração e transformação transparentes, catálogo de dados com documentação de cada campo, possibilidade de download das tabelas em diferentes formatos (inclusive o formato internacional OCDS, sempre que possível), interface que permita ao usuário explorar as tabelas do catálogo e executar consultas em SQL.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>O Produto Minimamente Viável (MVP) do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "03-mvp-colibri.html#engenharia-de-dados",
+    "href": "03-mvp-colibri.html#engenharia-de-dados",
+    "title": "3  O Produto Minimamente Viável (MVP) do colibri",
+    "section": "",
+    "text": "3.1.1 Fontes dos dados\nAs bases de disponibilização programada estão listadas abaixo. Dados já divulgados em outras plataformas estão sinalizados com 📣; dados ainda não divulgados estão marcados com 🆕.\n\n\n\n\n\n\n\n\n\n#\nStatus de divulgação\nBase\nDescrição\n\n\n\n\n1\n📣\nComprasGov\nMicrodados de compras, itens e resultados\n\n\n2\n📣\nCATMAT\nCatálogo de materiais utilizado no ComprasGov\n\n\n3\n📣\nCATSER\nCatálogo de serviços utilizado no ComprasGov\n\n\n4\n🆕\nComprasGov - Fase Externa\nPropostas apresentadas pelos licitantes nos pregões eletrônicos do ComprasGov\n\n\n5\n🆕\nPNCP em Números\nMicrodados que alimentam o painel PNCP em Números\n\n\n6\n🆕\nMapeamento CATMAT → NCM (v 0.1)\nExpansão do mapeamento feito manualmente, baseada em busca semântica com inteligência artificial\n\n\n7\n📣\nNCM\nTabelas que facilitam o uso da Nomenclatura Comum do MERCOSUL\n\n\n8\n🆕\nMargens de preferência\nNCMs cobertas por margem de preferência em cada Resolução CICS\n\n\n9\n📣\nNF-e do Executivo Federal\nNotas Fiscais Eletrônicas (NF-e) emitidas para o Executivo Federal durante a aquisição de bens, limpas e compiladas em uma tabela de notas fiscais e uma dos itens que compõem cada nota fiscal\n\n\n10\n🆕\nMapeamentos de grupos de produtos e serviços\nMapeamentos dos critérios (NCM, CNAE, CNPJ etc.) que caracterizam um grupo de produtos ou serviços. Exemplos: (i) mapeamento do MDIC dos produtos (NCM e CNAE do fornecedor) contemplados na Missão 1 do Nova Indústria Brasil (NIB); (ii) produtos (NCM) que compõem cada grupo de interesse do projeto EcoAdvance da GIZ; (iii) produtos e serviços (CATMAT e CATSER) que utilizam aço como insumo, conforme mapeado pela WRI\n\n\n\n\n\n3.1.2 Pipelines transparentes\nO repositório Colibri conterá os scripts que extraem os dados de cada fonte. Eles podem ser executados pelos usuários que possuírem as credenciais de acesso exigidas por cada fonte que não for aberta.\n\n\n3.1.3 Armazenamento em S3\nTodos os dados extraídos, modelados e disponibilizados serão salvos em uma plataforma tipo S3 (Simple Storage Service), tal como Cloudflare, AWS, GCS etc. Diversos buckets serão criados com o objetivo de organizar o desenvolvimento dos pipelines e garantir a governança dos dados. Buckets previstos:\n\nraw: para acúmulo dos dados brutos de cada fonte\ndev: para modelagem dos dados (ambiente de desenvolvimento)\nprod: para disponibilização dos dados modelados (ambiente de produção)\n\n\n\n3.1.4 Lakehouse\nO bucket de produção é um lakehouse, mais especificamente um DuckLake.\nIsso significa que as tabelas criadas serão salvas em formato parquet, portanto compactadas para economia de espaço e de acesso rápido para consultas de cientistas de dados.\nPara que os arquivos parquet não precisem ser acessados diretamente, o DuckLake cria um catálogo que torna os dados organizados para o usuário. Além disso, esse catálogo guarda informações sobre as diversas versões de cada tabela, permitindo que versões anteriores sejam recuperadas, sempre que uma análise de dados passados for necessária.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>O Produto Minimamente Viável (MVP) do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "03-mvp-colibri.html#ciência-de-dados",
+    "href": "03-mvp-colibri.html#ciência-de-dados",
+    "title": "3  O Produto Minimamente Viável (MVP) do colibri",
+    "section": "3.2 Ciência de dados",
+    "text": "3.2 Ciência de dados\n\n3.2.1 Acesso via SQL\nO Colibri é uma plataforma que disponibiliza tabelas modeladas para analistas e cientistas de dados. Por se tratar de um lakehouse, o acesso a tais tabelas dá-se por SQL, que é a linguagem padrão internacional de acesso a bases de dados relacionais1\nGrande parte das análises poderão ser feitas em SQL puro. Usuários mais familiarizados com outras linguagens de programação, como R ou Python, por exemplo, podem preferir fazer o download das tabelas inteiras ou resultantes de consultas SQL para seu computador, a fim de lê-las no ambiente de sua predileção. Alguns usuários de linguagens de programação como R ou Python também podem preferir a conexão direta ao ducklake utilizando bibliotecas específicas de cada linguagem, como DBI e duckdb, no caso do R, ou duckdb e pyducklake no Python.\n\n\n3.2.2 Interface gráfica\nO DuckDB conta com uma interface de usuário (ou UI: user interface) nativa, que apesar de simples é bastante eficaz.\nNela, o usuário pode rapidamente explorar as tabelas disponíveis, o tipo de dado e o percentual de dados faltantes em cada coluna, por exemplo.\nA interface é a mesma de um caderno estilo Jupyter notebook, o que possibilita ao usuário executar um fragmento de código SQL por vez e visualizar os resultados gradualmente. Os cadernos são salvos automaticamente no computador do usuário, para futuros acessos à interface.\n\n\n3.2.3 Visualização dos dados\nUtilizaremos a ferramenta de BI licenciada ao MGI para construção de painéis: QlikSense.\n\n\n3.2.4 “Tela Preta” (CLI)\nUma interface de linha de comando (ou CLI: command line interface) possibilitará ao usuário do Colibri acessar funcionalidades como, por exemplo:\n\ncolibri lake tabelas: Exibir catálogo.\ncolibri docs: Exibir documentação dos modelos dbt, com explicações sobre cada tabela e suas colunas.\ncolibri lake q \"SELECT * FROM pncp_comprasgov.itens WHERE uf = 'DF'\": Retorna o resultado de uma consulta em SQL\ncolibri sincronizar: Sincroniza o catálogo baixado com o disponível online\n\nAlguns comandos são exclusivos para desenvolvedores:\n\ncolibri pipeline run: Executar as pipelines manualmente\ncolibri bucket list prod: Lista os arquivos em um bucket\n\n\n\n\n\n\n\nNota\n\n\n\nOs nomes exatos de comandos e subcomandos evoluem com a CLI. Veja o Guia do analista de dados do colibri e o Guia do desenvolvedor do colibri para a lista de comandos efetivamente disponível hoje.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>O Produto Minimamente Viável (MVP) do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "03-mvp-colibri.html#teste-com-parceiros",
+    "href": "03-mvp-colibri.html#teste-com-parceiros",
+    "title": "3  O Produto Minimamente Viável (MVP) do colibri",
+    "section": "3.3 Teste com parceiros",
+    "text": "3.3 Teste com parceiros\nAlém de atuarem como parceiros no desenvolvimento do Colibri, o Transparência Brasil e a Open Contracting Partnership (OCP) também estão atuando em parceria com o MGI em dois projetos intensivos em análise de dados. A plataforma Colibri será útil para o compartilhamento de dados e roteiros de análise ao longo da execução desses projetos, a saber:\n\nMonitoramento da Estratégia Nacional de Contratações Públicas (ENCP)\nTaxonomia de Aquisições da Alimentação Escolar\n\nA CNI e a WRI também terão acesso à plataforma para conduzirem análises em projetos que envolvem análise dos mesmos dados e darem feedback sobre a experiência do usuário. Os projetos em questão são:\n\nMonitoramento da Política de Margens de Preferência Parceiro: Confederação Nacional da Indústria - CNI Executor: Banco Mundial - Development Impact Group\nEstudo da Demanda por Aço de Baixo Carbono nas Contratações Públicas Parceiro: WRI Executor: Instituto É+",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>O Produto Minimamente Viável (MVP) do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "03-mvp-colibri.html#após-o-mvp",
+    "href": "03-mvp-colibri.html#após-o-mvp",
+    "title": "3  O Produto Minimamente Viável (MVP) do colibri",
+    "section": "3.4 Após o MVP",
+    "text": "3.4 Após o MVP\nAlgumas funcionalidades importantes estão fora do escopo do MVP, porque atrasariam seu desenvolvimento.\nNo âmbito da engenharia de dados, não pretendemos lidar com dados sigilosos no momento, por demandarem criptografia do lado do cliente, que teríamos de desenvolver por conta própria.\nUma implicação prática dessa decisão é que uma base sigilosa como a Relação Anual de Informações Sociais (RAIS), ainda que importante para estudo do impacto social de compras públicas a partir da análise da força de trabalho que fornece para o poder público, terá de ser deixada de fora do lakehouse. Os usuários que tiverem acesso à RAIS identificada, no entanto, poderão utilizar as tabelas do lakehouse e cruzá-las com a RAIS localmente em seus computadores.\nNo âmbito da ciência de dados, a forma de acesso que está sendo priorizada no MVP é a da consulta em SQL. Prevemos que uma biblioteca em R ou Python poderá ampliar o uso das tabelas modeladas no lakehouse, mas a prova de conceito do MVP irá determinar o quanto esse desenvolvimento é pertinente.\nAlém disso, uma plataforma em Databricks está sendo desenvolvida em parceria com a UnB na infraestrutura de TI do MGI, para acesso de servidores e parceiros do MGI, com entrega do produto final prevista para março de 2027. Enquanto o desenvolvimento dessa plataforma robusta se desenrola, o Colibri possibilitará que o Observatório e seus parceiros analisem dados de contratações públicas com custo de entrada inferior ao da utilização direta de APIs, e com maior replicabilidade dos estudos. Terminado o desenvolvimento da plataforma em Databricks, espera-se que o Colibri possa ser usado para disponibilização de dados modelados a um público mais amplo que aquele que poderá ter acesso ao Databricks.",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>O Produto Minimamente Viável (MVP) do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "03-mvp-colibri.html#footnotes",
+    "href": "03-mvp-colibri.html#footnotes",
+    "title": "3  O Produto Minimamente Viável (MVP) do colibri",
+    "section": "",
+    "text": "A ISO/IEC 9075 é uma norma internacional que estabelece os conceitos, definições e regras gerais da linguagem SQL, utilizada por sistemas de banco de dados em todo o mundo.↩︎",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>O Produto Minimamente Viável (MVP) do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "04-guia-instalacao.html",
+    "href": "04-guia-instalacao.html",
+    "title": "4  Guia de instalação do colibri",
+    "section": "",
+    "text": "4.1 Pré-requisitos\nEste guia detalha, passo a passo, a instalação descrita no README do repositório, com variações para Windows (PowerShell) e Mac/Linux.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Guia de instalação do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "04-guia-instalacao.html#pré-requisitos",
+    "href": "04-guia-instalacao.html#pré-requisitos",
+    "title": "4  Guia de instalação do colibri",
+    "section": "",
+    "text": "Python 3.12 ou superior instalado.\ngit instalado.\nCredenciais do Colibri (veja Credenciais de acesso abaixo) — ou, alternativamente, um bucket S3-compatível próprio (veja Instalar o ambiente em um S3 próprio).",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Guia de instalação do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "04-guia-instalacao.html#passo-a-passo",
+    "href": "04-guia-instalacao.html#passo-a-passo",
+    "title": "4  Guia de instalação do colibri",
+    "section": "4.2 Passo a passo",
+    "text": "4.2 Passo a passo\n\n4.2.1 1. Clonar o repositório\n\nMac / LinuxWindows (PowerShell)\n\n\ngit clone https://github.com/gestaogovbr/colibri\ncd colibri\n\n\ngit clone https://github.com/gestaogovbr/colibri\ncd colibri\n\n\n\n\n\n4.2.2 2. Criar e ativar um ambiente virtual (recomendado)\nO repositório não exige um ambiente virtual especificamente, mas é a forma mais segura de isolar as dependências do Colibri do resto do sistema.\n\nMac / LinuxWindows (PowerShell)\n\n\npython3 -m venv env\nsource env/bin/activate\n\n\npython -m venv env\n.\\env\\Scripts\\Activate.ps1\nSe o PowerShell bloquear a ativação com um erro de política de execução, rode uma vez (como o próprio usuário, sem precisar de administrador):\nSet-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned\n\n\n\n\n\n4.2.3 3. Instalar a CLI do colibri\nInstala a CLI localmente, junto com as dependências Python do projeto.\npip install -e .\n\n\n4.2.4 4. Instalar as dependências do dbt\ncd dbt\ndbt deps\ncd ..\n\n\n4.2.5 5. Configurar os segredos do bucket R2\nCopie o template e preencha com suas credenciais:\ncp .segredos_template.yml .segredos.yml\n\n\n4.2.6 6. Configurar o profiles.yml do dbt\nO template já vem pronto, sem caminhos para editar — os caminhos são relativos ao diretório dbt/:\ncp dbt/profiles_template.yml dbt/profiles.yml\n\n\n4.2.7 Desinstalação da CLI\npip uninstall colibri",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Guia de instalação do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "04-guia-instalacao.html#credenciais-de-acesso",
+    "href": "04-guia-instalacao.html#credenciais-de-acesso",
+    "title": "4  Guia de instalação do colibri",
+    "section": "4.3 Credenciais de acesso",
+    "text": "4.3 Credenciais de acesso\nO Colibri distingue dois perfis de credencial, ambos configurados em .segredos.yml:\n\ncolibri-token-desenvolvedor: credencial de leitura e escrita, usada por padrão nos comandos de pipeline, upload/purge de bucket e nos comandos de lake que alteram dados (drop-table, maintenance).\ncolibri-token-visualizador: credencial somente leitura, usada por padrão nos comandos de consulta e exploração (lake tables, years, download, query, ui). O comando colibri lake drop-table recusa rodar com essa credencial.\n\n\n\n\n\n\n\nImportante\n\n\n\nEnquanto o Colibri está sendo testado, ambas as credenciais ainda são concedidas apenas a usuários selecionados. Se você não recebeu as suas, entre em contato com a equipe do projeto — ou monte seu próprio ambiente apontando para um bucket S3 próprio, como descrito a seguir.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Guia de instalação do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "04-guia-instalacao.html#instalar-o-ambiente-em-um-s3-próprio",
+    "href": "04-guia-instalacao.html#instalar-o-ambiente-em-um-s3-próprio",
+    "title": "4  Guia de instalação do colibri",
+    "section": "4.4 Instalar o ambiente em um S3 próprio",
+    "text": "4.4 Instalar o ambiente em um S3 próprio\nQuem quiser rodar o Colibri de ponta a ponta sem depender das credenciais oficiais pode apontar o projeto para um bucket S3-compatível próprio (Cloudflare R2, AWS S3, GCS etc.).\n\nCrie um bucket (ou dois: um para dados brutos, outro para o lakehouse) na plataforma de sua escolha e gere uma chave de acesso com permissão de leitura e escrita.\nEm .segredos.yml, preencha os campos do template com esses dados:\ncolibri-token-desenvolvedor:\n  endpoint: \"https://&lt;ACCOUNTID&gt;.r2.cloudflarestorage.com\"\n  access_key: \"&lt;SUA ACCESS KEY&gt;\"\n  secret_key: \"&lt;SUA SECRET KEY&gt;\"\n  bucket_raw: \"&lt;NOME DO SEU BUCKET RAW&gt;\"\n  bucket_lake: \"&lt;NOME DO SEU BUCKET LAKE&gt;\"\nEm dbt/profiles.yml, ajuste o bloco de segredo S3 e o attach para apontar para o mesmo bucket:\nsecrets:\n  - type: s3\n    provider: config\n    key_id: &lt;SUA ACCESS KEY&gt;\n    secret: &lt;SUA SECRET KEY&gt;\n    endpoint: \"&lt;ACCOUNTID&gt;.r2.cloudflarestorage.com\"\n    region: auto\n    url_style: path\n    use_ssl: true\nattach:\n  - path: \"ducklake:../meta.ducklake\"\n    alias: lake\n    options:\n      data_path: \"s3://&lt;NOME DO SEU BUCKET LAKE&gt;/lake/\"\nRode colibri pipeline run para popular o bucket do zero — o meta.ducklake local é criado automaticamente na primeira execução.\n\nA partir daí, todos os comandos da CLI e do dbt operam normalmente contra o seu próprio bucket, sem depender da infraestrutura oficial do Colibri.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Guia de instalação do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html",
+    "href": "05-guia-desenvolvedor.html",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "",
+    "text": "5.1 Camadas do dbt\nEste guia detalha o ritual de desenvolvimento de pipelines de ingestão e modelos dbt no repositório Colibri, assumindo que você já seguiu o Guia de instalação.\nOs modelos dbt vivem em dbt/modelos/ (note: modelos, não models), organizados em três camadas, cada uma com um subdiretório por fonte de dados (ex.: pncp_comprasgov/, ncm/, catmats/, nfe_cgu/, margem_preferencia/, tradutor_catmat_ncm/):\nEsses padrões são definidos globalmente em dbt/dbt_project.yml e podem ser sobrescritos por modelo, via bloco { config(...) } no início do arquivo SQL — por exemplo, os modelos de staging do comprasGOV usam materialized='incremental' em vez do table padrão da camada.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html#camadas-do-dbt",
+    "href": "05-guia-desenvolvedor.html#camadas-do-dbt",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "",
+    "text": "Camada\nMaterialização padrão\nSchema\nConvenção de nome\n\n\n\n\nstaging/\ntable\nstaging\nstg_&lt;fonte&gt;__&lt;entidade&gt;.sql\n\n\nintermediate/\nview\nintermediate\nint_&lt;fonte&gt;__&lt;entidade&gt;.sql\n\n\nmarts/\nview\nmarts\nmrt_&lt;fonte&gt;__&lt;entidade&gt;.sql",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html#contratos-e-testes",
+    "href": "05-guia-desenvolvedor.html#contratos-e-testes",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "5.2 Contratos e testes",
+    "text": "5.2 Contratos e testes\nUse contract={'enforced': true} no config() de um modelo quando quiser que o dbt valide o schema (tipos e ordem de colunas) em tempo de build — hoje isso só é usado nos modelos de tradutor_catmat_ncm, como referência.\nTestes de dados usam a sintaxe data_tests (não a antiga tests) nos arquivos _&lt;fonte&gt;__models.yml:\n- name: catmat\n  data_type: integer\n  description: Código CATMAT do item de material.\n  data_tests:\n    - not_null\n    - unique\nO teste genérico unique (e outros testes de coluna) aceita uma expressão em column_name, não só o nome literal de uma coluna — útil para testar unicidade de chaves compostas:\ndata_tests:\n  - unique:\n      column_name: ncm || '-' || tipo_margem\nAo usar argumentos em testes genéricos (como accepted_values), lembre-se de que este projeto roda em dbt-fusion, que exige os argumentos aninhados sob arguments::\ndata_tests:\n  - accepted_values:\n      arguments:\n        values: ['humano', 'ia']\nHoje, data_tests só está presente nos modelos de tradutor_catmat_ncm — ao adicionar ou revisar um modelo em outra fonte, é uma boa oportunidade para acrescentar testes de not_null/unique nas colunas-chave.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html#o-padrão-scd2-histórico-versionado",
+    "href": "05-guia-desenvolvedor.html#o-padrão-scd2-histórico-versionado",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "5.3 O padrão SCD2 (histórico versionado)",
+    "text": "5.3 O padrão SCD2 (histórico versionado)\nOs modelos incrementais do comprasGOV (compras, itens, resultados) seguem um padrão slowly changing dimension tipo 2:\n\nDeduplicar registros do mesmo período usando ROW_NUMBER() particionado pela chave natural, preferindo a linha mais completa (via uma macro tipo contar_colunas_preenchidas).\nCalcular valido_de/valido_ate/is_current com LEAD() sobre a janela ordenada pela chave, marcando quando cada versão de um registro deixou de valer.\n\nEsse padrão é o que permite consultar o estado de uma compra “como ela estava” em uma data específica, e não só o estado mais recente.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html#ritual-de-scaffolding-com-codegen",
+    "href": "05-guia-desenvolvedor.html#ritual-de-scaffolding-com-codegen",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "5.4 Ritual de scaffolding com codegen",
+    "text": "5.4 Ritual de scaffolding com codegen\nO pacote dbt-labs/codegen (listado em dbt/packages.yml) é usado para gerar o esqueleto de documentação de colunas de um modelo novo:\ncd dbt\ndbt run-operation generate_model_yaml --args '{\"model_names\": [\"stg_nova_fonte__entidade\"]}'\ncd ..\nCole o YAML gerado no arquivo _&lt;fonte&gt;__models.yml correspondente e complete as descrições e testes manualmente.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html#adicionar-uma-pipeline-de-ingestão-nova",
+    "href": "05-guia-desenvolvedor.html#adicionar-uma-pipeline-de-ingestão-nova",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "5.5 Adicionar uma pipeline de ingestão nova",
+    "text": "5.5 Adicionar uma pipeline de ingestão nova\nCada fonte de dados tem um pacote próprio em ingestion/&lt;fonte&gt;/, com dois arquivos:\n\nextract.py: baixa/parseia os dados brutos da fonte. Usa um manifesto CSV (ex.: ncm_manifesto.csv) com o hash SHA-256 do conteúdo extraído (excluindo campos de data) para decidir se há algo novo a extrair — se o hash não mudou, a extração é pulada. O manifesto é sincronizado com o bucket para persistir entre execuções e ambientes.\npipeline.py: orquestra a extração e o dbt. Expõe uma função main(bucket=None) que carrega o segredo de desenvolvedor, baixa o catálogo, roda executar_ingestao(), e — só se houve mudança — dispara dbt run --select &lt;modelos da fonte&gt; via subprocess, e por fim reenvia o manifesto e o catálogo atualizados para o bucket. Essa ordem (dbt roda antes do reupload) garante que o estado do bucket só avança se o dbt run tiver sucesso.\n\nPara que uma fonte nova apareça em colibri pipeline run --apenas &lt;fonte&gt;, registre-a em três pontos de cli.py (raiz do repo):\n\nNas opções (choices) do parâmetro --apenas do comando pipeline run.\nNo dicionário pipelines = {...} que mapeia o nome da fonte ao módulo ingestion.&lt;fonte&gt;.pipeline.\nEm _MANIFESTOS, se a fonte gerar um manifesto que precise ser sincronizado por colibri sincronizar.\n\nHelpers compartilhados entre pipelines vivem em utils/ (raiz do repo, não ingestion/utils/): carregar_segredo.py, criar_cliente.py, baixar_catalogo.py, manifesto_bucket.py, salvar_arquivo_no_bucket.py, csv_para_parquet.py, ducklake.py, entre outros.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "05-guia-desenvolvedor.html#checklist-antes-de-abrir-um-pr",
+    "href": "05-guia-desenvolvedor.html#checklist-antes-de-abrir-um-pr",
+    "title": "5  Guia do desenvolvedor do colibri",
+    "section": "5.6 Checklist antes de abrir um PR",
+    "text": "5.6 Checklist antes de abrir um PR\nO template de PR exige rodar, na raiz do repositório:\nruff format .\nyamlfix .\npytest\ncd dbt && ../env/bin/dbt test --project-dir . --profiles-dir . --target prod && cd ..\nNote que o dbt test do checklist roda contra o target prod, usando o binário do dbt instalado no próprio ambiente virtual do projeto (env/bin/dbt) — não o dbt do PATH do sistema.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Guia do desenvolvedor do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html",
+    "href": "06-guia-analista.html",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "",
+    "text": "6.1 Sincronizar o catálogo local\nEste guia cobre o ritual de conexão ao lakehouse do Colibri para visualização, download de tabelas e consultas em SQL, R ou Python. Assume que você já seguiu o Guia de instalação e tem a credencial de visualizador (colibri-token-visualizador) configurada em .segredos.yml.\nAntes do primeiro uso (e sempre que quiser garantir que está vendo os dados mais recentes), baixe o catálogo meta.ducklake e os manifestos para a raiz do projeto:",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#sincronizar-o-catálogo-local",
+    "href": "06-guia-analista.html#sincronizar-o-catálogo-local",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "",
+    "text": "colibri sincronizar",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#explorar-o-catálogo-pela-interface-gráfica",
+    "href": "06-guia-analista.html#explorar-o-catálogo-pela-interface-gráfica",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "6.2 Explorar o catálogo pela interface gráfica",
+    "text": "6.2 Explorar o catálogo pela interface gráfica\ncolibri lake ui\nAbre a DuckDB UI local, conectada ao catálogo do Colibri — uma interface em estilo notebook, onde é possível rodar fragmentos de SQL um de cada vez, ver o resultado imediatamente, e inspecionar tipo de dado e percentual de valores faltantes por coluna. Os cadernos ficam salvos localmente para acessos futuros.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#explorar-e-consultar-pela-linha-de-comando",
+    "href": "06-guia-analista.html#explorar-e-consultar-pela-linha-de-comando",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "6.3 Explorar e consultar pela linha de comando",
+    "text": "6.3 Explorar e consultar pela linha de comando\ncolibri lake tables                     # tabelas/views no catálogo, com contagem de linhas/parquets\ncolibri lake years &lt;tabela&gt;             # contagem de linhas por ano de uma tabela\ncolibri lake download &lt;tabela&gt;          # exporta uma tabela para parquet local\ncolibri lake query \"&lt;sql&gt;\"              # roda uma consulta SQL livre\n\n\n\n\n\n\nNota\n\n\n\nO comando correto é colibri lake query, não colibri lake q — essa abreviação aparece por engano em alguns exemplos mais antigos.\n\n\nExemplo de validação, comparando a tabela mrt_pncp_comprasgov__resumo_anual com os totais publicados no painel “PNCP em Números”:\ncolibri lake query \"SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual ORDER BY ano_compra\"",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#tabelas-disponíveis-hoje",
+    "href": "06-guia-analista.html#tabelas-disponíveis-hoje",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "6.4 Tabelas disponíveis hoje",
+    "text": "6.4 Tabelas disponíveis hoje\n\n\n\n\n\n\n\n\nTabela\nFonte\nAtualização\n\n\n\n\nncm_prefixos\nPortal Único Siscomex\nFull replace quando há mudança\n\n\nint_pncp_comprasgov__compras\ncomprasGOV (diário/mensal/anual)\nIncremental, histórico versionado (SCD2) por cod_compra\n\n\nint_pncp_comprasgov__itens\ncomprasGOV (diário/mensal/anual)\nIncremental, histórico versionado (SCD2) por id_compra_item\n\n\nint_pncp_comprasgov__resultados\ncomprasGOV (diário/mensal/anual)\nIncremental, histórico versionado (SCD2) por (id_compra_item, sequencial_resultado)\n\n\nmrt_pncp_comprasgov__resumo_anual\nagregação de int_pncp_comprasgov__compras\nRecalculada a cada execução\n\n\n\nUse colibri docs para ver a documentação completa de todas as tabelas e colunas geradas pelos modelos dbt:\ncolibri docs                # gera e abre a documentação dos modelos dbt\ncolibri docs --sem-servidor # apenas gera, sem subir o servidor local",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#conexão-direta-via-r",
+    "href": "06-guia-analista.html#conexão-direta-via-r",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "6.5 Conexão direta via R",
+    "text": "6.5 Conexão direta via R\nlibrary(DBI)\nlibrary(duckdb)\n\ncon &lt;- dbConnect(duckdb())\ndbExecute(con, \"INSTALL httpfs; LOAD httpfs;\")\ndbExecute(con, \"INSTALL ducklake; LOAD ducklake;\")\n\ndbExecute(con, \"\n  CREATE SECRET (\n    TYPE s3,\n    KEY_ID '&lt;SUA ACCESS KEY&gt;',\n    SECRET '&lt;SUA SECRET KEY&gt;',\n    ENDPOINT '&lt;ACCOUNTID&gt;.r2.cloudflarestorage.com',\n    REGION 'auto',\n    URL_STYLE 'path'\n  );\n\")\n\ndbExecute(con, \"ATTACH 'ducklake:meta.ducklake' AS lake (DATA_PATH 's3://&lt;BUCKET LAKE&gt;/lake/');\")\n\nresultado &lt;- dbGetQuery(con, \"\n  SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual\n  ORDER BY ano_compra\n\")\n\ndbDisconnect(con, shutdown = TRUE)",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#conexão-direta-via-python",
+    "href": "06-guia-analista.html#conexão-direta-via-python",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "6.6 Conexão direta via Python",
+    "text": "6.6 Conexão direta via Python\nimport duckdb\n\ncon = duckdb.connect()\ncon.execute(\"INSTALL httpfs; LOAD httpfs;\")\ncon.execute(\"INSTALL ducklake; LOAD ducklake;\")\n\ncon.execute(\"\"\"\n    CREATE SECRET (\n        TYPE s3,\n        KEY_ID '&lt;SUA ACCESS KEY&gt;',\n        SECRET '&lt;SUA SECRET KEY&gt;',\n        ENDPOINT '&lt;ACCOUNTID&gt;.r2.cloudflarestorage.com',\n        REGION 'auto',\n        URL_STYLE 'path'\n    );\n\"\"\")\n\ncon.execute(\"ATTACH 'ducklake:meta.ducklake' AS lake (DATA_PATH 's3://&lt;BUCKET LAKE&gt;/lake/');\")\n\ndf = con.execute(\"\"\"\n    SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual\n    ORDER BY ano_compra\n\"\"\").df()\nTambém é possível usar o pacote pyducklake, que simplifica esses mesmos passos de ATTACH. As credenciais (endpoint, access_key, secret_key, bucket_lake) são as mesmas configuradas em .segredos.yml — veja o Guia de instalação.",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  },
+  {
+    "objectID": "06-guia-analista.html#baixar-tabelas-para-análise-local",
+    "href": "06-guia-analista.html#baixar-tabelas-para-análise-local",
+    "title": "6  Guia do analista de dados do colibri",
+    "section": "6.7 Baixar tabelas para análise local",
+    "text": "6.7 Baixar tabelas para análise local\nSe preferir trabalhar totalmente offline, baixe a tabela inteira em Parquet e leia-a com a ferramenta de sua preferência (pandas, arrow, data.table etc.):\ncolibri lake download mrt_pncp_comprasgov__resumo_anual",
+    "crumbs": [
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Guia do analista de dados do colibri</span>"
+    ]
+  }
+]
