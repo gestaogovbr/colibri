@@ -1,13 +1,10 @@
 """
 Ingestão dos dados de NCM (Nomenclatura Comum do Mercosul) via API do Siscomex.
 
-Manifesto incremental (ncm_manifesto.csv):
-  Registra metadados de cada extração: hash SHA-256 (excluindo o campo de data),
-  basename do CSV gerado, número de registros e timestamp. O hash compara o
-  conteúdo atual com a última extração; se idêntico, encerra sem gravar nada.
-  O manifesto é sincronizado com o bucket para persistir entre ambientes.
-  O arquivo de alterações (ncm_alteracoes.csv) informa ao stg_ncm o basename
-  do CSV gerado nesta execução.
+Cada execução baixa o JSON completo da API, monta a hierarquia (capítulo/
+posição/subposição/item/subitem) em memória e sobe dois arquivos pro bucket,
+os dois em raw/ncm/ com timestamp no nome: o JSON bruto e o CSV já
+enriquecido. O modelo int_ncm__prefixos do dbt lê só o CSV mais recente.
 
 Uso:
   Executado via `ingestion.ncm.pipeline`, ou diretamente:
@@ -15,10 +12,8 @@ Uso:
 """
 
 import csv
-import hashlib
 import json
 import logging
-import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -26,7 +21,8 @@ import utils.carregar_json_da_url as cju
 import utils.configurar_logging as log
 from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
 from utils.carregar_segredo import carregar_segredo
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
+from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
 from utils.no import No
 
 
@@ -43,51 +39,8 @@ NCM_URL = (
 
 DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA = DIRETORIO_RAIZ / "ncm"
-DIRETORIO_MANIFESTOS = DIRETORIO_RAIZ / "manifestos"
-DIRETORIO_ALTERACOES = DIRETORIO_RAIZ / "alteracoes"
-NOME_BASE_SILVER = "ncm_silver"
-
-NOME_MANIFESTO = "ncm_manifesto.csv"
-COLUNAS_MANIFESTO = ["hash_sha256", "arquivo_csv", "num_registros", "extraido_em"]
-
-NOME_ALTERACOES = "ncm_alteracoes.csv"
-COLUNAS_ALTERACOES = ["arquivo_csv"]
-
-
-# Manifesto
-
-
-def carregar_manifesto(caminho: Path) -> list[dict]:
-    if not caminho.exists():
-        return []
-    with open(caminho, newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
-
-
-def salvar_manifesto(caminho: Path, manifesto: list[dict]) -> None:
-    with open(caminho, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=COLUNAS_MANIFESTO)
-        writer.writeheader()
-        writer.writerows(manifesto)
-
-
-def salvar_alteracoes(caminho: Path, alteracoes: list[str]) -> None:
-    with open(caminho, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(COLUNAS_ALTERACOES)
-        for a in alteracoes:
-            writer.writerow([a])
-
-
-# Hash
-
-
-def _calcular_hash(dados: dict) -> str:
-    dados_sem_data = {
-        k: v for k, v in dados.items() if k != "Data_Ultima_Atualizacao_NCM"
-    }
-    conteudo = json.dumps(dados_sem_data, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(conteudo.encode()).hexdigest()
+NOME_BASE_ENRIQUECIDO = "ncm_enriquecido"
+PREFIXO_RAW = "raw/ncm"
 
 
 # Transformação
@@ -152,6 +105,9 @@ def _enriquecer(arvore: No) -> list[dict]:
             (n for n in caminho[1:] if _obter_nivel(n.codigo)[1] == nivel), None
         )
 
+    def _codigo_sem_ponto(no: No | None) -> str | None:
+        return no.codigo.replace(".", "") if no else None
+
     resultado = []
     for no in arvore:
         if no.codigo == "Raiz NCM":
@@ -165,112 +121,78 @@ def _enriquecer(arvore: No) -> list[dict]:
         sub = _primeiro_no_com_nivel(no.caminho, "Subitem")
         resultado.append(
             {
-                "Codigo": no.codigo,
+                "Codigo": no.codigo.replace(".", ""),
                 "Descricao": no.descricao,
                 "Nivel": nivel,
                 "Caminho": no.transformar_caminho_em_string(),
-                "Capitulo_Codigo": cap.codigo if cap else None,
+                "Capitulo_Codigo": _codigo_sem_ponto(cap),
                 "Capitulo_Descricao": cap.descricao if cap else None,
-                "Posicao_Codigo": pos.codigo if pos else None,
+                "Posicao_Codigo": _codigo_sem_ponto(pos),
                 "Posicao_Descricao": pos.descricao if pos else None,
-                "Subposicao_1_Codigo": sp1.codigo if sp1 else None,
+                "Subposicao_1_Codigo": _codigo_sem_ponto(sp1),
                 "Subposicao_1_Descricao": sp1.descricao if sp1 else None,
-                "Subposicao_2_Codigo": sp2.codigo if sp2 else None,
+                "Subposicao_2_Codigo": _codigo_sem_ponto(sp2),
                 "Subposicao_2_Descricao": sp2.descricao if sp2 else None,
-                "Item_Codigo": itm.codigo if itm else None,
+                "Item_Codigo": _codigo_sem_ponto(itm),
                 "Item_Descricao": itm.descricao if itm else None,
-                "Subitem_Codigo": sub.codigo if sub else None,
+                "Subitem_Codigo": _codigo_sem_ponto(sub),
                 "Subitem_Descricao": sub.descricao if sub else None,
             }
         )
     return resultado
 
 
+# Bucket
+
+
+def _subir_raw(dados: dict, agora: datetime, bucket: str) -> None:
+    """Sobe o JSON bruto da API (sem transformação) pro bucket, mantendo histórico do dado original"""
+    conteudo = json.dumps(dados, ensure_ascii=False).encode("utf-8")
+    nome = f"ncm_{agora.strftime('%Y-%m-%d-%H%M%S')}.json"
+    salvar_bytes_no_bucket(conteudo, bucket, NOME_SEGREDO_DESENVOLVEDOR, f"{PREFIXO_RAW}/{nome}")
+    logger.info(f"Raw subido: {PREFIXO_RAW}/{nome}")
+
+
+def _subir_enriquecido(caminho_csv: Path, bucket: str) -> None:
+    """Sobe o CSV enriquecido pro bucket, junto do JSON bruto, mantendo histórico"""
+    nome_no_bucket = f"{PREFIXO_RAW}/{caminho_csv.name}"
+    salvar_arquivo_no_bucket(str(caminho_csv), bucket, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket)
+    logger.info(f"Enriquecido subido: {nome_no_bucket}")
+
+
 # CSV
 
 
-def _salvar_silver(enriquecido: list[dict], agora: datetime) -> Path:
+def _salvar_enriquecido(enriquecido: list[dict], agora: datetime) -> Path:
     DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
     caminho = (
-        DIRETORIO_SAIDA / f"{NOME_BASE_SILVER}_{agora.strftime('%Y-%m-%d-%H%M%S')}.csv"
+        DIRETORIO_SAIDA / f"{NOME_BASE_ENRIQUECIDO}_{agora.strftime('%Y-%m-%d-%H%M%S')}.csv"
     )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(enriquecido[0].keys()))
         writer.writeheader()
         writer.writerows(enriquecido)
-    logger.info(f"Silver gravado: {caminho} ({len(enriquecido)} linhas)")
+    logger.info(f"Enriquecido gravado: {caminho} ({len(enriquecido)} linhas)")
     return caminho
 
 
 # Execução
 
 
-def resetar_dados_locais() -> None:
-    """Apaga os CSVs extraídos, o manifesto e as alterações locais (usado por --do-zero)"""
-    shutil.rmtree(DIRETORIO_SAIDA, ignore_errors=True)
-    (DIRETORIO_MANIFESTOS / NOME_MANIFESTO).unlink(missing_ok=True)
-    (DIRETORIO_ALTERACOES / NOME_ALTERACOES).unlink(missing_ok=True)
-
-
-def subir_manifesto(bucket: str | None = None) -> None:
-    """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
+def executar_ingestao(bucket: str | None = None) -> None:
+    """Baixa a NCM da API, enriquece e sobe o raw e o enriquecido pro bucket. Roda sempre, sem dedup."""
     bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
-    _subir_manifesto(
-        DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
-        NOME_MANIFESTO,
-        bucket,
-        NOME_SEGREDO_DESENVOLVEDOR,
-        logger,
-    )
-
-
-def executar_ingestao(bucket: str | None = None) -> bool:
-    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
-    DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
-    DIRETORIO_MANIFESTOS.mkdir(parents=True, exist_ok=True)
-    DIRETORIO_ALTERACOES.mkdir(parents=True, exist_ok=True)
-    caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
-    caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
-
-    caminho_alteracoes.unlink(missing_ok=True)
-
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
-    manifesto = carregar_manifesto(caminho_manifesto)
 
     dados = cju.carregar_json_da_url(NCM_URL)
-    hash_atual = _calcular_hash(dados)
-
-    ultimo_hash = (
-        max(manifesto, key=lambda e: e["extraido_em"])["hash_sha256"]
-        if manifesto
-        else None
-    )
-    if ultimo_hash == hash_atual:
-        logger.info("Sem mudanças nos dados de NCM. Ingestão encerrada.")
-        salvar_alteracoes(caminho_alteracoes, [])
-        return False
-
     agora = datetime.now()
+
     mapa_ncm = _flatten_nomenclaturas(dados["Nomenclaturas"])
     arvore = _construir_arvore(mapa_ncm)
     enriquecido = _enriquecer(arvore)
-    caminho_csv = _salvar_silver(enriquecido, agora)
+    caminho_csv = _salvar_enriquecido(enriquecido, agora)
 
-    manifesto.append(
-        {
-            "hash_sha256": hash_atual,
-            "arquivo_csv": caminho_csv.name,
-            "num_registros": len(enriquecido),
-            "extraido_em": agora.isoformat(timespec="seconds"),
-        }
-    )
-    salvar_manifesto(caminho_manifesto, manifesto)
-    salvar_alteracoes(caminho_alteracoes, [caminho_csv.name])
-
-    logger.info(f"Manifesto: {caminho_manifesto} ({len(manifesto)} entrada(s))")
-    logger.info(f"Alterações: {caminho_alteracoes} (1 arquivo)")
-    return True
+    _subir_raw(dados, agora, bucket)
+    _subir_enriquecido(caminho_csv, bucket)
 
 
 if __name__ == "__main__":

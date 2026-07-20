@@ -4,20 +4,19 @@
     tags=['intermediate', 'ncm']
 ) }}
 
--- Tabela de lookup: para cada prefixo NCM (capítulo/posição/subposição/item),
--- lista todos os subitens (8 dígitos) que pertencem a ele.
--- Porta a lógica de gold/transform_prefixos.py para SQL puro.
+-- Para cada prefixo NCM (capítulo/posição/subposição/item),
+-- lista todos os subitens (8 dígitos) que pertencem a ele - explode qualquer
+-- lista de prefixos NCM para os códigos completos de 8 dígitos correspondentes.
 
 WITH ncm_raw AS (
     SELECT
-        REPLACE(codigo, '.', '') AS codigo,
+        codigo,
         descricao,
         nivel,
         capitulo_codigo,
         capitulo_descricao,
         caminho
-    FROM {{ ref('int_ncm') }}
-    WHERE is_current
+    FROM {{ ref('int_ncm__prefixos') }}
 ),
 
 capitulo AS (
