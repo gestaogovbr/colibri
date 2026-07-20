@@ -1,10 +1,9 @@
-import os
 import logging
-import utils.configurar_logging as log
+import os
 
+import utils.configurar_logging as log
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
-
 
 log.setup_logging()
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 import click
-
 from botocore.exceptions import ClientError
+
 from utils.criar_cliente import criar_cliente
 
 # Template provisório de log

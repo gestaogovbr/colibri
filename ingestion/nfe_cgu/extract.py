@@ -18,29 +18,29 @@ Uso:
   python -m ingestion.nfe_cgu.extract
 """
 
-import io
-import uuid
-import time
 import csv
 import hashlib
+import io
 import logging
 import shutil
-import boto3
-import botocore
-import duckdb
 import tempfile
+import time
+import uuid
 import zipfile
 from datetime import date, datetime
 from pathlib import Path
 
-from utils.carregar_segredo import carregar_segredo
-from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
-
+import boto3
+import botocore
+import duckdb
 import requests
 
 import utils.configurar_logging as log
+from utils.carregar_segredo import carregar_segredo
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
+from utils.manifesto_bucket import baixar_manifesto
+from utils.manifesto_bucket import subir_manifesto as _subir_manifesto
+from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
@@ -122,9 +122,7 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout (tentativa {tentativa}/{MAX_TENTATIVAS}): {url}")
         except requests.exceptions.RequestException as e:
-            logger.warning(
-                f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}"
-            )
+            logger.warning(f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}")
 
         if tentativa < MAX_TENTATIVAS:
             time.sleep(PAUSA_BASE_SEGUNDOS * tentativa)
@@ -144,9 +142,7 @@ def salvar_manifesto(caminho: Path, manifesto: dict[str, dict]) -> None:
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=COLUNAS_MANIFESTO)
         w.writeheader()
-        w.writerows(
-            sorted(manifesto.values(), key=lambda e: (e["tabela"], e["periodo"]))
-        )
+        w.writerows(sorted(manifesto.values(), key=lambda e: (e["tabela"], e["periodo"])))
 
 
 def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str]]) -> None:
@@ -156,9 +152,7 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str]]) -> None:
         w.writerows(alteracoes)
 
 
-def registrar_entrada(
-    manifesto: dict[str, dict], tabela: str, periodo: str, conteudo: bytes
-) -> None:
+def registrar_entrada(manifesto: dict[str, dict], tabela: str, periodo: str, conteudo: bytes) -> None:
     linhas = conteudo.decode("utf-8").strip().splitlines()
     manifesto[f"{tabela}:{periodo}"] = {
         "tabela": tabela,
@@ -189,9 +183,7 @@ def subir_manifesto(bucket: str | None = None) -> None:
     )
 
 
-def processar_periodo(
-    session: requests.Session, periodo: str, manifesto: dict[str, dict], bucket: str
-) -> str:
+def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[str, dict], bucket: str) -> str:
     """
     Baixa o ZIP do período, extrai cada tabela em memória e salva no bucket se necessário.
 
@@ -221,7 +213,7 @@ def processar_periodo(
             nome_itens, nome_eventos, nome_nf = _identificar_csvs(nomes)
 
             status_geral = "ignorado"
-            for tabela, nome in zip(TABELAS, [nome_itens, nome_eventos, nome_nf]):
+            for tabela, nome in zip(TABELAS, [nome_itens, nome_eventos, nome_nf], strict=True):
                 conteudo_utf8 = z.read(nome).decode("latin-1").encode("utf-8")
                 linhas = conteudo_utf8.decode().strip().splitlines()
                 if len(linhas) < 2:
@@ -242,23 +234,19 @@ def processar_periodo(
                 if (
                     entrada
                     and existe_no_bucket
-                    and entrada["hash_sha256"]
-                    == hashlib.sha256(conteudo_utf8).hexdigest()
+                    and entrada["hash_sha256"] == hashlib.sha256(conteudo_utf8).hexdigest()
                 ):
-                    logger.info(
-                        f"[{tabela}] {periodo}: hash bate com manifesto, pulando"
-                    )
+                    logger.info(f"[{tabela}] {periodo}: hash bate com manifesto, pulando")
                     continue
 
                 conteudo_parquet = csv_para_parquet(conteudo_utf8)
-                salvar_bytes_no_bucket(
-                    conteudo_parquet, bucket, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket
-                )
+                salvar_bytes_no_bucket(conteudo_parquet, bucket, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket)
                 registrar_entrada(manifesto, tabela, periodo, conteudo_utf8)
                 status_geral = "atualizado" if entrada else "baixado"
                 e = manifesto[chave]
                 logger.info(
-                    f"[{tabela}] {periodo}: {status_geral} ({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)"
+                    f"[{tabela}] {periodo}: {status_geral} "
+                    f"({int(e['tamanho_bytes']) / 1_048_576:.2f} MB, {e['num_linhas']} linhas)"
                 )
 
         return status_geral
@@ -279,9 +267,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
     bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(
-        caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger
-    )
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
 

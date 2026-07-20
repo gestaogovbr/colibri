@@ -25,9 +25,7 @@ def deletar_arquivo(nome_arquivo: str, bucket_name: str, nome_segredo: str):
         cliente.head_object(Bucket=bucket_name, Key=nome_arquivo)
     except ClientError as e:
         if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
-            raise ArquivoNaoEncontradoError(
-                log.ARQUIVO_NAO_ENCONTRADO_NO_BUCKET % (nome_arquivo, bucket_name)
-            ) from e
+            raise ArquivoNaoEncontradoError(log.ARQUIVO_NAO_ENCONTRADO_NO_BUCKET % (nome_arquivo, bucket_name)) from e
 
     cliente.delete_object(Bucket=bucket_name, Key=nome_arquivo)
     print(f"Deletado: {nome_arquivo}")

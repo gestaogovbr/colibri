@@ -34,6 +34,14 @@ dev = [
 [project.scripts]
 colibri = "cli:cli"
 
+[tool.ruff]
+line-length = 119
+target-version = "py312"
+
+[tool.ruff.lint]
+# Começamos com um conjunto conservador e vamos ampliando aos poucos.
+select = ["E", "F", "I", "UP", "B"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

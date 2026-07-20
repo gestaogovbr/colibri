@@ -8,13 +8,14 @@ Uso típico:
 """
 
 import os
+from urllib.parse import urlparse
+
 import duckdb
 
-from urllib.parse import urlparse
-from utils.carregar_segredo import carregar_segredo
 from utils.baixar_catalogo import baixar_catalogo
-from utils.criar_cliente import criar_cliente
+from utils.carregar_segredo import carregar_segredo
 from utils.constantes import CATALOGO_LOCAL, SESSION_DB
+from utils.criar_cliente import criar_cliente
 
 
 def _parsear_s3(caminho_meta: str) -> tuple[str, str]:
@@ -76,9 +77,7 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     return con
 
 
-def conectar(
-    caminho_meta: str, data_path: str, nome_segredo: str
-) -> duckdb.DuckDBPyConnection:
+def conectar(caminho_meta: str, data_path: str, nome_segredo: str) -> duckdb.DuckDBPyConnection:
     """
     Baixa o catálogo remoto e retorna uma conexão duckdb com o lake já anexado, pronta para uso
     """
@@ -93,9 +92,7 @@ def conectar(
     con = _nova_conexao(config)
 
     # Conecta o catálogo baixado do bucket com o caminho dos parquets no bucket
-    con.execute(
-        f"ATTACH 'ducklake:{CATALOGO_LOCAL}' AS lake (DATA_PATH '{data_path}', OVERRIDE_DATA_PATH TRUE)"
-    )
+    con.execute(f"ATTACH 'ducklake:{CATALOGO_LOCAL}' AS lake (DATA_PATH '{data_path}', OVERRIDE_DATA_PATH TRUE)")
     return con
 
 

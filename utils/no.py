@@ -37,7 +37,7 @@ class No:
         :rtype: int
         """
         contagem = 0
-        for filho in self:
+        for _filho in self:
             contagem += 1
         return contagem - 1 if contagem > 0 else 0
 
@@ -104,9 +104,7 @@ class No:
         :param tamanho: Tamanho máximo do caminho para manter os nós
         :type tamanho: int
         """
-        self.filhos = [
-            filho for filho in self.filhos if filho.caminho_tamanho <= tamanho
-        ]
+        self.filhos = [filho for filho in self.filhos if filho.caminho_tamanho <= tamanho]
         for filho in self.filhos:
             filho.podar_por_tamanho_do_caminho(tamanho)
 

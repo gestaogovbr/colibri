@@ -1,8 +1,8 @@
 import os
+
 import yaml
 
 import utils.configurar_logging as log
-
 from utils.constantes import CAMINHO_SEGREDOS, NOME_SEGREDO_DESENVOLVEDOR
 
 
@@ -17,7 +17,7 @@ def carregar_segredo(
     if not os.path.exists(caminho_arquivo):
         raise FileNotFoundError(log.ARQUIVO_NAO_ENCONTRADO % caminho_arquivo)
 
-    with open(caminho_arquivo, "r", encoding="utf-8") as f:
+    with open(caminho_arquivo, encoding="utf-8") as f:
         dados = yaml.safe_load(f)
 
     if not nome_segredo:

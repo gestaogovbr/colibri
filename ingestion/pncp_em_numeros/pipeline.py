@@ -5,17 +5,17 @@ from ingestion.pncp_em_numeros.extract import (
     executar_ingestao,
     subir_manifesto,
 )
-from utils.carregar_segredo import carregar_segredo
-from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
-from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
+from utils.carregar_segredo import carregar_segredo
 from utils.constantes import (
     BUCKET_PRODUCAO,
     CATALOGO_LOCAL,
     DBT_DIR,
-    RAIZ_PROJETO,
     NOME_SEGREDO_DESENVOLVEDOR,
+    RAIZ_PROJETO,
 )
+from utils.criar_cliente import criar_cliente
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 
 
 def main():
@@ -47,9 +47,7 @@ def main():
     # Só sobe manifesto/catálogo se chegou até aqui: se o dbt quebrar, a exceção
     # interrompe a função antes disso, e o bucket fica intacto pra próxima tentativa.
     subir_manifesto()
-    salvar_arquivo_no_bucket(
-        CATALOGO_LOCAL, BUCKET_PRODUCAO, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL
-    )
+    salvar_arquivo_no_bucket(CATALOGO_LOCAL, BUCKET_PRODUCAO, NOME_SEGREDO_DESENVOLVEDOR, CATALOGO_LOCAL)
 
 
 if __name__ == "__main__":

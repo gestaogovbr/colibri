@@ -1,9 +1,9 @@
 import io
-import uuid
-import duckdb
 import tempfile
-
+import uuid
 from pathlib import Path
+
+import duckdb
 
 # Conversão
 
