@@ -1,3 +1,4 @@
+---
 packages:
   - name: codegen
     package: dbt-labs/codegen

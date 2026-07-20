@@ -1,14 +1,13 @@
+---
 name: colibri
-version: '0.1.0'
+version: 0.1.0
 profile: colibri
 vars:
-  timezone: 'America/Sao_Paulo'
-  bucket_lake: 'colibri-prod'
-  bucket_arquivos: 'colibri-arquivos'
-  margem_arquivo_resolucoes: '2026-07-14 Resoluções CICS e CIIA-PAC.xlsx'
-
-model-paths: ["modelos"]
-
+  timezone: America/Sao_Paulo
+  bucket_lake: colibri-prod
+  bucket_arquivos: colibri-arquivos
+  margem_arquivo_resolucoes: 2026-07-14 Resoluções CICS e CIIA-PAC.xlsx
+model-paths: [modelos]
 models:
   colibri:
     staging:

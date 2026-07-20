@@ -1,3 +1,4 @@
+---
 colibri:
   target: dev
   outputs:
@@ -5,20 +6,18 @@ colibri:
       type: duckdb
       path: ../dados/lakehouse_dev.duckdb
       threads: 4
-      extensions:
-        - httpfs
-        - ducklake
+      extensions: [httpfs, ducklake]
       secrets:
         - type: s3
           provider: config
           key_id: R2_KEY
           secret: R2_SECRET
-          endpoint: "<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
+          endpoint: <R2_ACCOUNT_ID>.r2.cloudflarestorage.com
           region: auto
           url_style: path
           use_ssl: true
       config_options:
-        temp_directory: "../dados/duckdb_tmp"
+        temp_directory: ../dados/duckdb_tmp
       settings:
         http_timeout: 3600000
         http_retries: 10
@@ -26,7 +25,7 @@ colibri:
         http_retry_backoff: 2
         preserve_insertion_order: false
       attach:
-        - path: "ducklake:../meta.ducklake"
+        - path: ducklake:../meta.ducklake
           alias: lake
           options:
-            data_path: "s3://<R2_BUCKET>/lake/"
+            data_path: s3://<R2_BUCKET>/lake/

@@ -336,7 +336,9 @@ def resetar_dados_locais() -> None:
 
 def subir_manifesto(bucket_nome: str | None = None) -> None:
     """Sobe o manifesto local pro bucket. Só deve ser chamado depois do dbt rodar com sucesso"""
-    bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
+    bucket_nome = (
+        bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
+    )
     _subir_manifesto(
         DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
         NOME_MANIFESTO,
@@ -359,10 +361,16 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
-    bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
+    bucket_nome = (
+        bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
+    )
 
     baixar_manifesto(
-        caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, logger
+        caminho_manifesto,
+        NOME_MANIFESTO,
+        bucket_nome,
+        NOME_SEGREDO_DESENVOLVEDOR,
+        logger,
     )
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()

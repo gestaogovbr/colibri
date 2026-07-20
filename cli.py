@@ -756,7 +756,14 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 @click.option(
     "--apenas",
     type=click.Choice(
-        ["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia", "tradutor-catmat-ncm"]
+        [
+            "ncm",
+            "pncp-comprasgov",
+            "catmats",
+            "nfe-cgu",
+            "margem-preferencia",
+            "tradutor-catmat-ncm",
+        ]
     ),
     default=None,
     help="Rodar só um pipeline",

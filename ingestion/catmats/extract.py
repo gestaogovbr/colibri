@@ -179,7 +179,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
+    baixar_manifesto(
+        caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger
+    )
     manifesto = carregar_manifesto(caminho_manifesto)
     csv_ausente = not CAMINHO_CSV.exists()
     if manifesto and csv_ausente:

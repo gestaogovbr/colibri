@@ -279,7 +279,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
     bucket = bucket or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
+    baixar_manifesto(
+        caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger
+    )
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
 

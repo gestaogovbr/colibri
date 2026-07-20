@@ -235,7 +235,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
 
     caminho_alteracoes.unlink(missing_ok=True)
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
+    baixar_manifesto(
+        caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger
+    )
     manifesto = carregar_manifesto(caminho_manifesto)
 
     dados = cju.carregar_json_da_url(NCM_URL)

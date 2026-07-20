@@ -49,7 +49,7 @@ from utils.baixar_arquivo import baixar_arquivo_do_bucket
 from utils.carregar_segredo import carregar_segredo
 from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
 from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from utils.salvar_arquivo_timestamp import salvar_arquivo_no_bucket
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
@@ -169,12 +169,12 @@ def resetar_dados_locais() -> None:
 def subir_manifesto() -> None:
     """Sobe o manifesto e os snapshots de referência pro bucket. Só deve ser
     chamado depois do dbt rodar com sucesso"""
-    bucket = carregar_segredo(SEGREDO_BUCKET_DESENVOLVEDOR)["bucket_lake"]
+    bucket = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
     _subir_manifesto(
         DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
         NOME_MANIFESTO,
         bucket,
-        SEGREDO_BUCKET_DESENVOLVEDOR,
+        NOME_SEGREDO_DESENVOLVEDOR,
         logger,
     )
     for nome_logico in FONTES:
@@ -182,7 +182,7 @@ def subir_manifesto() -> None:
         if caminho.exists():
             try:
                 salvar_arquivo_no_bucket(
-                    str(caminho), bucket, SEGREDO_BUCKET_DESENVOLVEDOR, caminho.name
+                    str(caminho), bucket, NOME_SEGREDO_DESENVOLVEDOR, caminho.name
                 )
             except Exception as e:
                 logger.warning(
@@ -198,9 +198,11 @@ def executar_ingestao() -> bool:
 
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = carregar_segredo(SEGREDO_BUCKET_DESENVOLVEDOR)["bucket_lake"]
+    bucket = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, SEGREDO_BUCKET_DESENVOLVEDOR, logger)
+    baixar_manifesto(
+        caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger
+    )
     manifesto = carregar_manifesto(caminho_manifesto)
     alteracoes: list[tuple[str, str]] = []
     manifesto_modificado = False
@@ -218,7 +220,7 @@ def executar_ingestao() -> bool:
                     baixar_arquivo_do_bucket(
                         caminho_snapshot.name,
                         bucket,
-                        SEGREDO_BUCKET_DESENVOLVEDOR,
+                        NOME_SEGREDO_DESENVOLVEDOR,
                         str(caminho_snapshot),
                     )
                 except Exception:

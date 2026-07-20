@@ -1,6 +1,7 @@
+---
 colibri-token-desenvolvedor:
-  endpoint: "https://<ACCOUNTID>.r2.cloudflarestorage.com"
-  access_key: "<SUA ACCESS KEY>"
-  secret_key: "<SUA SECRET KEY>"
-  bucket_raw: "<NOME DO SEU BUCKET RAW>"
-  bucket_lake: "<NOME DO SEU BUCKET LAKE>"
+  endpoint: https://<ACCOUNTID>.r2.cloudflarestorage.com
+  access_key: <SUA ACCESS KEY>
+  secret_key: <SUA SECRET KEY>
+  bucket_raw: <NOME DO SEU BUCKET RAW>
+  bucket_lake: <NOME DO SEU BUCKET LAKE>
