@@ -15,4 +15,3 @@ class Tarefa(NamedTuple):
     url: str
     chave_bucket: Path
     alteracoes: list[tuple[str, ...]]
-    nome_no_zip: str | None = None
