@@ -766,12 +766,8 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 )
 def run(apenas: str | None, bucket: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
-    import ingestion.ncm.pipeline as ncm
-    import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
-    import ingestion.catmats.pipeline as catmats
-    import ingestion.nfe_cgu.pipeline as nfe_cgu
-    import ingestion.margem_preferencia.pipeline as margem_preferencia
-    import ingestion.tradutor_catmat_ncm.pipeline as tradutor_catmat_ncm
+    import ingestion.extratores.pncp_comprasgov.pipeline as pncp_comprasgov
+    import ingestion.extratores.nfe_cgu.pipeline as nfe_cgu
 
     pipelines = {
         "ncm": (ncm, "[cyan]>>> NCM[/cyan]"),
