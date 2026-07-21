@@ -62,6 +62,7 @@ class ExtratorAuditor(Extrator):
         bucket_nome: str,
         conteudo: bytes,
         conteudo_final: bytes,
+        nome_arquivo: str | None = None,
     ) -> str:
         """
         Salva `conteudo_final` no bucket e registra `conteudo` no manifesto, caso necessário:
@@ -69,7 +70,10 @@ class ExtratorAuditor(Extrator):
         """
         chave = f"{tarefa.tabela}:{tarefa.identificador}" # ex: VW_FT_PNCP_COMPRA:2021-12-01
         entrada = estado.get(chave)
-        nome_no_bucket = f"{self.PREFIXO_BUCKET}/{tarefa.chave_bucket.as_posix()}"
+        if nome_arquivo:
+            nome_no_bucket = f"{self.PREFIXO_BUCKET}/{tarefa.chave_bucket.as_posix()}/{f'{nome_arquivo.rsplit('.', 1)[0]}.parquet'}"
+        else:
+            nome_no_bucket = f"{self.PREFIXO_BUCKET}/{tarefa.chave_bucket.as_posix()}"
 
         # Caso zip, permite sobrescrita de entrada no manifesto (evita pular a partir do segundo elemento do zip)
         tipo_conteudo = self.downloader.obter_tipo_conteudo(tarefa.url).lower()

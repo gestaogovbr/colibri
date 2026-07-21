@@ -86,8 +86,8 @@ class Extrator(ABC):
                 for nome in nomes:
                     conteudo_arquivo = z.read(nome).decode("latin-1").encode("utf-8")
                     conteudo_final = Conversor.csv_para_parquet(conteudo_arquivo)
-                    status = self._processar_arquivo(tarefa, estado, bucket_nome, conteudo, conteudo_final)
-                return status
+                    status = self._processar_arquivo(tarefa, estado, bucket_nome, conteudo, conteudo_final, nome_arquivo=nome)
+            return status
         except (zipfile.BadZipFile, StopIteration) as e:
             self.logger.error(f"Não foi possível identificar as tabelas no ZIP: {e}")
 
