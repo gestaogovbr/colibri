@@ -47,8 +47,8 @@ class ExtratorNfeCgu(ExtratorAuditor):
 
 
     @override
-    def chave_periodo(self, tabela: str, periodo: str) -> Path:
-        return Path("nfe_cgu") / tabela / f"{periodo}.parquet"
+    def chave_periodo(self, periodo: str) -> Path:
+        return Path("nfe_cgu") / f"{periodo}"
 
 
     @override
@@ -74,8 +74,8 @@ class ExtratorNfeCgu(ExtratorAuditor):
                 tabela="NFe-CGU",
                 identificador=periodo,
                 url=url,
-                chave_bucket=self.chave_periodo("zip", periodo),
-                alteracoes=[("zip", periodo)],
+                chave_bucket=self.chave_periodo(periodo),
+                alteracoes=[("itens", periodo), ("eventos", periodo), ("nf", periodo)],
             ))
 
         return tarefas
