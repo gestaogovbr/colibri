@@ -6,7 +6,7 @@
 ) }}
 
 WITH raw_data AS (
-  {{ nfe_cgu_source('nf') }}
+  {{ nfe_cgu_source('NotaFiscal\.parquet$') }}
 )
 
 SELECT

@@ -6,7 +6,7 @@
 ) }}
 
 WITH raw_data AS (
-  {{ nfe_cgu_source('itens') }}
+  {{ nfe_cgu_source('Item\.parquet$') }}
 )
 
 SELECT

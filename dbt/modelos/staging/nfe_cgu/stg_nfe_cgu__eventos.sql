@@ -6,7 +6,7 @@
 ) }}
 
 WITH raw_data AS (
-  {{ nfe_cgu_source('eventos') }}
+  {{ nfe_cgu_source('Evento\.parquet$') }}
 )
 
 SELECT
