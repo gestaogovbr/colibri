@@ -12,6 +12,13 @@ repositório, com variações para Windows (PowerShell) e Mac/Linux.
   abaixo) — ou, alternativamente, um bucket S3-compatível próprio (veja
   [Instalar o ambiente em um S3 próprio](#instalar-o-ambiente-em-um-s3-próprio)).
 
+::: {.callout-warning}
+O pipeline PNCP ComprasGOV transfere arquivos grandes e, em uma carga completa,
+exige conexão estável, espaço em disco e memória disponíveis. O projeto ainda
+não estabelece requisitos mínimos numéricos. Para uma primeira validação do
+ambiente, execute somente um pipeline por vez.
+:::
+
 ## Passo a passo
 
 ### 1. Clonar o repositório
@@ -150,8 +157,28 @@ oficiais pode apontar o projeto para um bucket S3-compatível próprio
        options:
          data_path: "s3://<NOME DO SEU BUCKET LAKE>/lake/"
    ```
-4. Rode `colibri pipeline run` para popular o bucket do zero — o
-   `meta.ducklake` local é criado automaticamente na primeira execução.
+4. Execute um pipeline por vez, informando explicitamente o nome do bucket do
+   lake. O `meta.ducklake` local é criado automaticamente na primeira execução:
+   ```bash
+   colibri pipeline run --apenas ncm --bucket <NOME_DO_BUCKET_LAKE>
+   colibri pipeline run --apenas pncp-comprasgov --bucket <NOME_DO_BUCKET_LAKE>
+   ```
+
+::: {.callout-important}
+Enquanto o bucket configurado localmente não for adotado automaticamente por
+todos os pipelines, informe `--bucket` explicitamente. Sem essa opção, alguns
+pipelines podem tentar usar o bucket padrão `colibri-prod`.
+:::
 
 A partir daí, todos os comandos da CLI e do dbt operam normalmente contra o
 seu próprio bucket, sem depender da infraestrutura oficial do Colibri.
+
+## Solução de problemas
+
+| Sintoma | Causa provável | Orientação |
+|---------|----------------|------------|
+| `NoSuchBucket` | Nome do bucket incorreto ou uso do padrão de produção | Confira o nome do bucket e repita o comando com `--bucket`. |
+| Segredo ausente | `.segredos.yml` inexistente ou nome incorreto | Copie o template e confira a configuração de `colibri-token-desenvolvedor`. |
+| Falha do dbt | `profiles.yml` ou dependências ausentes | Execute novamente `dbt deps` e confira a configuração do profile. |
+| Falta de espaço ou memória | Carga completa do ComprasGOV | Libere recursos e teste um pipeline por vez. |
+| Falha de rede | Downloads grandes ou conexão instável | Execute novamente; o manifesto permite ignorar arquivos já processados e com o mesmo hash. |
