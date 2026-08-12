@@ -38,19 +38,23 @@ colibri lake query "<sql>"              # roda uma consulta SQL livre
 ```
 
 ::: {.callout-note}
-O comando correto é `colibri lake query`, não `colibri lake q` — essa
-abreviação aparece por engano em alguns exemplos mais antigos.
+Use sempre o nome completo do comando, `colibri lake query`; abreviações que
+aparecem em exemplos antigos não são aceitas pela CLI atual.
 :::
 
-Exemplo de validação, comparando a tabela `mrt_pncp_comprasgov__resumo_anual`
-com os totais publicados no painel
-["PNCP em Números"](https://www.gov.br/pncp/pt-br/painel-pncp):
+Exemplo de consulta a uma tabela final de compras:
 
 ```bash
-colibri lake query "SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual ORDER BY ano_compra"
+colibri lake query "SELECT * FROM lake.main_marts.mrt_pncp_comprasgov_compras LIMIT 10"
 ```
 
 ## Tabelas disponíveis hoje
+
+O catálogo organiza os modelos dbt em três schemas principais:
+
+- `main_staging`: dados preparados a partir dos arquivos ingeridos;
+- `main_intermediate`: tratamento, deduplicação e histórico SCD2;
+- `main_marts`: tabelas finais destinadas à análise.
 
 | Tabela | Fonte | Atualização |
 |--------|-------|-------------|
@@ -58,7 +62,9 @@ colibri lake query "SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_an
 | `int_pncp_comprasgov__compras` | comprasGOV (diário/mensal/anual) | Incremental, histórico versionado (SCD2) por `cod_compra` |
 | `int_pncp_comprasgov__itens` | comprasGOV (diário/mensal/anual) | Incremental, histórico versionado (SCD2) por `id_compra_item` |
 | `int_pncp_comprasgov__resultados` | comprasGOV (diário/mensal/anual) | Incremental, histórico versionado (SCD2) por `(id_compra_item, sequencial_resultado)` |
-| `mrt_pncp_comprasgov__resumo_anual` | agregação de `int_pncp_comprasgov__compras` | Recalculada a cada execução |
+| `mrt_pncp_comprasgov_compras` | comprasGOV | Tabela final de compras para análise |
+| `mrt_pncp_comprasgov_itens` | comprasGOV | Tabela final de itens para análise |
+| `mrt_pncp_comprasgov_resultados` | comprasGOV | Tabela final de resultados para análise |
 
 Use `colibri docs` para ver a documentação completa de todas as tabelas e
 colunas geradas pelos modelos dbt:
@@ -92,8 +98,8 @@ dbExecute(con, "
 dbExecute(con, "ATTACH 'ducklake:meta.ducklake' AS lake (DATA_PATH 's3://<BUCKET LAKE>/lake/');")
 
 resultado <- dbGetQuery(con, "
-  SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual
-  ORDER BY ano_compra
+  SELECT * FROM lake.main_marts.mrt_pncp_comprasgov_compras
+  LIMIT 10
 ")
 
 dbDisconnect(con, shutdown = TRUE)
@@ -122,8 +128,8 @@ con.execute("""
 con.execute("ATTACH 'ducklake:meta.ducklake' AS lake (DATA_PATH 's3://<BUCKET LAKE>/lake/');")
 
 df = con.execute("""
-    SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual
-    ORDER BY ano_compra
+    SELECT * FROM lake.main_marts.mrt_pncp_comprasgov_compras
+    LIMIT 10
 """).df()
 ```
 
@@ -139,5 +145,5 @@ e leia-a com a ferramenta de sua preferência (`pandas`, `arrow`, `data.table`
 etc.):
 
 ```bash
-colibri lake download mrt_pncp_comprasgov__resumo_anual
+colibri lake download mrt_pncp_comprasgov_compras
 ```

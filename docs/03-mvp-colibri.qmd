@@ -121,7 +121,7 @@ exemplo:
 - `colibri lake tabelas`: Exibir catálogo.
 - `colibri docs`: Exibir documentação dos modelos dbt, com explicações sobre
   cada tabela e suas colunas.
-- `colibri lake q "SELECT * FROM pncp_comprasgov.itens WHERE uf = 'DF'"`:
+- `colibri lake query "SELECT * FROM lake.main_marts.mrt_pncp_comprasgov_compras LIMIT 10"`:
   Retorna o resultado de uma consulta em SQL
 - `colibri sincronizar`: Sincroniza o catálogo baixado com o disponível
   online
