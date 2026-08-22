@@ -41,7 +41,8 @@ intervalos AS (
         resolucao,
         tipo_margem,
         data_evento                    AS data_inicio,
-        proxima_data_evento - INTERVAL 1 DAY AS data_fim,
+        -- CAST necessário: DATE - INTERVAL retorna TIMESTAMP no DuckDB (issue #66)
+        CAST(proxima_data_evento - INTERVAL 1 DAY AS DATE) AS data_fim,
         margem_normal_comprovante,
         margem_normal_pct,
         margem_adicional_comprovante,
