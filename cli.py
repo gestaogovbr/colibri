@@ -784,7 +784,7 @@ def sincronizar(segredo: str):
     ]
 
     for chave, destino in itens:
-        os.makedirs(os.path.dirname(destino), exist_ok=True)
+        os.makedirs(os.path.dirname(destino) or ".", exist_ok=True)
         try:
             with Progress(
                 SpinnerColumn(),
