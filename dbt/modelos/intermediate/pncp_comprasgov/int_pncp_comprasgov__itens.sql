@@ -50,4 +50,13 @@ scd2 AS (
     FROM dedup
 )
 
-SELECT * FROM scd2
+{# ano_compra chega do staging como VARCHAR com formatos mistos ("2024" e
+   "2024.0"), herdados de parquets brutos com tipos distintos entre períodos.
+   O TRY_CAST passa por DOUBLE porque "2024.0" não converte direto para
+   INTEGER; nulos permanecem nulos. Aplicado após o SCD2 de propósito: não
+   interfere na deduplicação por GROUP BY ALL nem no ranking de colunas
+   preenchidas (issue #60). #}
+SELECT * REPLACE (
+    TRY_CAST(TRY_CAST(ano_compra AS DOUBLE) AS INTEGER) AS ano_compra
+)
+FROM scd2
