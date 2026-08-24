@@ -1,10 +1,42 @@
 # colibri
 ![](colibri_fundo_verde.png)
-Data lakehouse do Observatório de Contratações Públicas
+Mini data lakehouse do Observatório de Contratações Públicas
 
 # Instalação
 
-Requer Python 3.12 ou superior.
+
+## Python
+
+O Colibri requer Python 3.12 ou superior.
+
+Se ainda não tiver o Python instalado:
+
+<details>
+<summary>Mac</summary>
+
+Recomendamos instalar via [Homebrew](https://brew.sh/) em vez de baixar o
+instalador do site oficial, pois este último exige rodar manualmente o
+`Install Certificates.command` para que o Python reconheça certificados SSL
+corretamente.
+
+Se já tiver o Homebrew instalado, rode:
+
+```bash
+brew install python@3.12
+```
+
+</details>
+
+<details>
+<summary>Windows/Linux</summary>
+
+Baixe o instalador em
+[python.org/downloads](https://www.python.org/downloads/) e siga as
+instruções.
+
+</details>
+
+## Colibri
 
 1. Clone o repositório
 ```bash
