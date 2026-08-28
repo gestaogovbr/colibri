@@ -73,6 +73,8 @@ COLUNAS_MANIFESTO = [
     "num_colunas",
     "hash_sha256",
     "extraido_em",
+    "etag",
+    "last_modified",
 ]
 
 # Alterações desta execução (arquivos baixados ou atualizados), consumido pelo dbt
@@ -140,8 +142,9 @@ def salvar_manifesto(caminho: Path, manifesto: dict[str, dict]) -> None:
     """Salva o manifesto em CSV, ordenado por view e data (do mais antigo ao mais recente)"""
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
-            f, fieldnames=COLUNAS_MANIFESTO
+            f, fieldnames=COLUNAS_MANIFESTO, restval=""
         )  # cria objeto pra escrever dicionários com as chaves definidas em COLUNAS_MANIFESTO
+        # restval="" preenche colunas novas (etag/last_modified) em manifestos antigos
         writer.writeheader()  # escreve primeira linha do csv (nomes das colunas)
         writer.writerows(
             sorted(manifesto.values(), key=lambda e: (e["view"], e["data"]))
@@ -156,7 +159,15 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str, str]]) -> 
         writer.writerows(alteracoes)
 
 
-def registrar_entrada(manifesto: dict[str, dict], view: str, chave: str, url: str, conteudo: bytes) -> None:
+def registrar_entrada(
+    manifesto: dict[str, dict],
+    view: str,
+    chave: str,
+    url: str,
+    conteudo: bytes,
+    etag: str = "",
+    last_modified: str = "",
+) -> None:
     reader = csv.reader(io.StringIO(conteudo.decode("utf-8")))
     header = next(reader, [])
     num_linhas = sum(1 for _ in reader)
@@ -169,6 +180,8 @@ def registrar_entrada(manifesto: dict[str, dict], view: str, chave: str, url: st
         "num_colunas": len(header),
         "hash_sha256": hashlib.sha256(conteudo).hexdigest(),
         "extraido_em": datetime.now().isoformat(timespec="seconds"),
+        "etag": etag,
+        "last_modified": last_modified,
     }
 
 
@@ -209,18 +222,18 @@ def criar_sessao() -> requests.Session:
     return session
 
 
-def baixar(session: requests.Session, url: str) -> bytes | None:
-    """Baixa a URL com até MAX_TENTATIVAS tentativas e retorna o payload em BYTES"""
+def baixar(session: requests.Session, url: str) -> tuple[bytes, dict] | tuple[None, None]:
+    """Baixa a URL com até MAX_TENTATIVAS tentativas e retorna (payload em BYTES, headers)"""
     for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
             resposta = session.get(url, timeout=TIMEOUT_SEGUNDOS)
 
             if resposta.status_code == 404:
                 logger.debug(f"404 — sem dados: {url}")
-                return None
+                return None, None
 
             resposta.raise_for_status()  # transforma resposta HTTP de erro em exceção do Python
-            return resposta.content
+            return resposta.content, resposta.headers
 
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout (tentativa {tentativa}/{MAX_TENTATIVAS}): {url}")
@@ -231,10 +244,49 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
             time.sleep(PAUSA_BASE_SEGUNDOS * tentativa)
 
     logger.error(f"Falha definitiva: {url}")
-    return None
+    return None, None
+
+
+def obter_cabecalhos(session: requests.Session, url: str) -> dict | None | bool:
+    """Faz um HEAD na URL pra checar se o arquivo mudou sem baixá-lo.
+
+    Retorna os headers (dict), None se 404, ou False em falha de rede —
+    nesse caso quem chama deve cair pro GET (a falha do atalho nunca pode
+    impedir a verificação completa).
+    """
+    try:
+        resposta = session.head(url, timeout=TIMEOUT_SEGUNDOS)
+        if resposta.status_code == 404:
+            logger.debug(f"404 — sem dados: {url}")
+            return None
+        resposta.raise_for_status()
+        return resposta.headers
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"HEAD falhou, caindo pro GET: {url} ({e})")
+        return False
 
 
 # Processamento
+
+
+def existe_no_bucket(bucket_nome: str, nome_no_bucket: str) -> bool:
+    """Verifica se o objeto existe no bucket via HEAD request.
+
+    Baseado em: https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
+    """
+    config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
+    s3 = boto3.resource(
+        "s3",
+        endpoint_url=config["endpoint"],
+        aws_access_key_id=config["access_key"],
+        aws_secret_access_key=config["secret_key"],
+        region_name="auto",
+    )
+    try:
+        s3.Object(bucket_nome, nome_no_bucket).load()  # tenta obter o objeto pela key
+        return True
+    except botocore.exceptions.ClientError:
+        return False
 
 
 def processar_arquivo(
@@ -249,43 +301,52 @@ def processar_arquivo(
     """
     Baixa um arquivo CSV e salva no bucket, se necessário.
 
-    Retorna: "baixado", "atualizado", "ignorado" ou "indisponivel"
+    Se o manifesto já registra o ETag do arquivo, checa antes com um HEAD se a
+    fonte mudou — a verificação completa continua cobrindo todo o histórico,
+    mas o GET (pesado) só acontece quando há mudança de fato. Qualquer dúvida
+    (sem ETag, HEAD falhou, objeto sumiu do bucket) cai pro GET de sempre.
 
-    Solução da consulta se objeto existe no bucket com HEAD request foi baseado na solução:
-        -> https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
+    Retorna: "baixado", "atualizado", "ignorado" ou "indisponivel"
     """
     entrada = manifesto.get(f"{view}:{chave}")
-    conteudo = baixar(session, url)
-    if conteudo is None:
-        return "indisponivel"
-
-    config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
 
     # Ex: 'dados/pncp_comprasgov_diario/2021/12/01/comprasGOV-diario-VW_FT_PNCP_COMPRA-2021-12-01.csv'
     nome_no_bucket = caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
 
-    s3 = boto3.resource(
-        "s3",
-        endpoint_url=config["endpoint"],
-        aws_access_key_id=config["access_key"],
-        aws_secret_access_key=config["secret_key"],
-        region_name="auto",
-    )
-    # Verifica se objeto existe no bucket via HEAD request
-    try:
-        s3.Object(bucket_nome, nome_no_bucket).load()  # tenta obter o objeto pela key
-        existe_no_bucket = True
-    except botocore.exceptions.ClientError:
-        existe_no_bucket = False
+    etag_conhecido = entrada.get("etag") if entrada else ""
+    if etag_conhecido:
+        cabecalhos = obter_cabecalhos(session, url)
+        if cabecalhos is None:
+            return "indisponivel"
+        if (
+            cabecalhos is not False
+            and cabecalhos.get("ETag") == etag_conhecido
+            and existe_no_bucket(bucket_nome, nome_no_bucket)
+        ):
+            logger.info(f"[{view}] {chave}: ETag bate com manifesto, pulando sem baixar")
+            return "ignorado"
+
+    conteudo, cabecalhos = baixar(session, url)
+    if conteudo is None:
+        return "indisponivel"
+    etag = cabecalhos.get("ETag", "")
+    last_modified = cabecalhos.get("Last-Modified", "")
 
     # Salva no bucket caso arquivo conste no manifesto, no bucket E hash bater com manifesto
-    if entrada and existe_no_bucket and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest():
+    if (
+        entrada
+        and existe_no_bucket(bucket_nome, nome_no_bucket)
+        and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest()
+    ):
+        # Conteúdo igual: só aprende/renova o ETag pra próxima rodada pular o GET
+        entrada["etag"] = etag
+        entrada["last_modified"] = last_modified
         logger.info(f"[{view}] {chave}: hash bate com manifesto, pulando")
         return "ignorado"
     else:
         conteudo_parquet = csv_para_parquet(conteudo)
         salvar_bytes_no_bucket(conteudo_parquet, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket)
-        registrar_entrada(manifesto, view, chave, url, conteudo)
+        registrar_entrada(manifesto, view, chave, url, conteudo, etag, last_modified)
         status = "atualizado" if entrada else "baixado"
         e = manifesto[f"{view}:{chave}"]
         logger.info(
@@ -336,13 +397,7 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
     caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
     bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(
-        caminho_manifesto,
-        NOME_MANIFESTO,
-        bucket_nome,
-        NOME_SEGREDO_DESENVOLVEDOR,
-        logger,
-    )
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
 
