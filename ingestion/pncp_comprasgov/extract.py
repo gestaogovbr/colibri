@@ -9,6 +9,15 @@ Manifesto incremental (pncp_comprasgov_manifesto.csv):
   são baixados novamente. A chave do manifesto combina a view com o período no
   formato da granularidade: "2021-12-01" (diário), "2021-12" (mensal), "2021" (anual).
 
+Checagem barata (HEAD/ETag):
+  A verificação cobre o histórico inteiro a cada execução, mas o download só
+  acontece quando a fonte mudou de fato: para cada arquivo cujo ETag está no
+  manifesto, um HEAD confere se o ETag da fonte é o mesmo e se o parquet segue
+  no bucket; em caso positivo o arquivo é pulado sem baixar. Qualquer dúvida
+  (sem ETag, HEAD falhou, objeto sumiu do bucket, ETag diferente) cai no GET
+  de sempre, com conferência de hash. COLIBRI_VERIFICACAO_COMPLETA=1 desliga o
+  atalho e força o GET em tudo.
+
 Uso:
   Executado via `colibri pipeline run --apenas pncp-comprasgov`, ou diretamente:
   python -m ingestion.pncp_comprasgov.extract
@@ -18,6 +27,7 @@ import csv
 import hashlib
 import io
 import logging
+import os
 import shutil
 import tempfile
 import time
@@ -25,7 +35,6 @@ import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-import boto3
 import botocore
 import duckdb
 import requests
@@ -33,6 +42,7 @@ import requests
 import utils.configurar_logging as log
 from utils.carregar_segredo import carregar_segredo
 from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
+from utils.criar_cliente import criar_cliente
 from utils.manifesto_bucket import baixar_manifesto
 from utils.manifesto_bucket import subir_manifesto as _subir_manifesto
 from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
@@ -86,6 +96,10 @@ TIMEOUT_SEGUNDOS = 60
 MAX_TENTATIVAS = 3
 PAUSA_BASE_SEGUNDOS = 5
 SALVAR_MANIFESTO_A_CADA = 50
+
+# Modo paranoico: ignora o atalho HEAD/ETag e baixa tudo pra conferir o hash,
+# como antes. Útil diante de qualquer suspeita sobre os ETags da fonte.
+VERIFICACAO_COMPLETA = os.environ.get("COLIBRI_VERIFICACAO_COMPLETA", "").strip().lower() in ("1", "true", "sim")
 
 
 # URLs e caminhos
@@ -247,12 +261,17 @@ def baixar(session: requests.Session, url: str) -> tuple[bytes, dict] | tuple[No
     return None, None
 
 
-def obter_cabecalhos(session: requests.Session, url: str) -> dict | None | bool:
+class FalhaHead(Exception):
+    """O HEAD não obteve resposta útil (rede, timeout, erro HTTP). Quem chama
+    deve cair pro GET de sempre: a falha do atalho nunca pode impedir a
+    verificação completa."""
+
+
+def obter_cabecalhos(session: requests.Session, url: str) -> dict | None:
     """Faz um HEAD na URL pra checar se o arquivo mudou sem baixá-lo.
 
-    Retorna os headers (dict), None se 404, ou False em falha de rede —
-    nesse caso quem chama deve cair pro GET (a falha do atalho nunca pode
-    impedir a verificação completa).
+    Retorna os headers, ou None se a fonte respondeu 404. Levanta FalhaHead
+    em qualquer outro problema (sem tentativas: o GET já tem as suas).
     """
     try:
         resposta = session.head(url, timeout=TIMEOUT_SEGUNDOS)
@@ -262,28 +281,21 @@ def obter_cabecalhos(session: requests.Session, url: str) -> dict | None | bool:
         resposta.raise_for_status()
         return resposta.headers
     except requests.exceptions.RequestException as e:
-        logger.warning(f"HEAD falhou, caindo pro GET: {url} ({e})")
-        return False
+        raise FalhaHead(str(e)) from e
 
 
 # Processamento
 
 
-def existe_no_bucket(bucket_nome: str, nome_no_bucket: str) -> bool:
-    """Verifica se o objeto existe no bucket via HEAD request.
+def existe_no_bucket(cliente, bucket_nome: str, nome_no_bucket: str) -> bool:
+    """Verifica se o objeto existe no bucket via HEAD request (HeadObject).
 
-    Baseado em: https://stackoverflow.com/questions/33842944/check-if-a-key-exists-in-a-bucket-in-s3-using-boto3
+    `cliente` é o cliente S3 criado uma vez por execução em executar_ingestao —
+    são centenas de checagens por varredura, não vale recriar cliente e reler
+    o segredo a cada uma.
     """
-    config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
-    s3 = boto3.resource(
-        "s3",
-        endpoint_url=config["endpoint"],
-        aws_access_key_id=config["access_key"],
-        aws_secret_access_key=config["secret_key"],
-        region_name="auto",
-    )
     try:
-        s3.Object(bucket_nome, nome_no_bucket).load()  # tenta obter o objeto pela key
+        cliente.head_object(Bucket=bucket_nome, Key=nome_no_bucket)
         return True
     except botocore.exceptions.ClientError:
         return False
@@ -297,6 +309,7 @@ def processar_arquivo(
     caminho: Path,
     manifesto: dict[str, dict],
     bucket_nome: str,
+    cliente,
 ) -> str:
     """
     Baixa um arquivo CSV e salva no bucket, se necessário.
@@ -305,6 +318,8 @@ def processar_arquivo(
     fonte mudou — a verificação completa continua cobrindo todo o histórico,
     mas o GET (pesado) só acontece quando há mudança de fato. Qualquer dúvida
     (sem ETag, HEAD falhou, objeto sumiu do bucket) cai pro GET de sempre.
+    Um HEAD 404 numa entrada conhecida significa que o arquivo sumiu da fonte:
+    conta como "indisponivel", o mesmo veredito que o GET 404 sempre deu.
 
     Retorna: "baixado", "atualizado", "ignorado" ou "indisponivel"
     """
@@ -314,17 +329,18 @@ def processar_arquivo(
     nome_no_bucket = caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
 
     etag_conhecido = entrada.get("etag") if entrada else ""
-    if etag_conhecido:
-        cabecalhos = obter_cabecalhos(session, url)
-        if cabecalhos is None:
-            return "indisponivel"
-        if (
-            cabecalhos is not False
-            and cabecalhos.get("ETag") == etag_conhecido
-            and existe_no_bucket(bucket_nome, nome_no_bucket)
-        ):
-            logger.info(f"[{view}] {chave}: ETag bate com manifesto, pulando sem baixar")
-            return "ignorado"
+    if etag_conhecido and not VERIFICACAO_COMPLETA:
+        try:
+            cabecalhos = obter_cabecalhos(session, url)
+        except FalhaHead as e:
+            logger.warning(f"[{view}] {chave}: HEAD falhou, caindo pro GET ({e})")
+        else:
+            if cabecalhos is None:
+                logger.debug(f"[{view}] {chave}: HEAD 404, arquivo sumiu da fonte")
+                return "indisponivel"
+            if cabecalhos.get("ETag") == etag_conhecido and existe_no_bucket(cliente, bucket_nome, nome_no_bucket):
+                logger.info(f"[{view}] {chave}: ETag bate com manifesto, pulando sem baixar")
+                return "ignorado"
 
     conteudo, cabecalhos = baixar(session, url)
     if conteudo is None:
@@ -335,7 +351,7 @@ def processar_arquivo(
     # Salva no bucket caso arquivo conste no manifesto, no bucket E hash bater com manifesto
     if (
         entrada
-        and existe_no_bucket(bucket_nome, nome_no_bucket)
+        and existe_no_bucket(cliente, bucket_nome, nome_no_bucket)
         and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest()
     ):
         # Conteúdo igual: só aprende/renova o ETag pra próxima rodada pular o GET
@@ -397,15 +413,24 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
     caminho_alteracoes = DIRETORIO_ALTERACOES_DIR / NOME_ALTERACOES
     bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, logger)
+    baixar_manifesto(
+        caminho_manifesto,
+        NOME_MANIFESTO,
+        bucket_nome,
+        NOME_SEGREDO_DESENVOLVEDOR,
+        logger,
+    )
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()
+    cliente = criar_cliente(carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR))
 
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0, "indisponivel": 0}
     alteracoes: list[tuple[str, str, str]] = []
     manifesto_modificado = False
     hoje = date.today()
     logger.info(f"Ingestão: {DATA_INICIO} -> {hoje} ({len(VIEWS)} view(s))")
+    if VERIFICACAO_COMPLETA:
+        logger.info("COLIBRI_VERIFICACAO_COMPLETA ativo: ignorando ETags, baixando tudo pra conferir hash")
 
     try:
         i = 1
@@ -421,6 +446,7 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
                     construir_caminho_diario(view, data),
                     manifesto,
                     bucket_nome,
+                    cliente,
                 )
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
@@ -443,6 +469,7 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
                     construir_caminho_mensal(view, ano, mes),
                     manifesto,
                     bucket_nome,
+                    cliente,
                 )
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
@@ -466,6 +493,7 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
                     construir_caminho_anual(view, ano),
                     manifesto,
                     bucket_nome,
+                    cliente,
                 )
                 contadores[status] += 1
                 if status in ("baixado", "atualizado"):
