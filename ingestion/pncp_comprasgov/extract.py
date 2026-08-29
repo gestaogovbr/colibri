@@ -182,7 +182,10 @@ def registrar_entrada(
     etag: str = "",
     last_modified: str = "",
 ) -> None:
-    reader = csv.reader(io.StringIO(conteudo.decode("utf-8")))
+    # Lê o CSV em streaming direto dos bytes: decodificar tudo pra str e
+    # embrulhar em StringIO custaria ~5x o tamanho do arquivo em memória
+    # (o anual de itens passa de 3 GB).
+    reader = csv.reader(io.TextIOWrapper(io.BytesIO(conteudo), encoding="utf-8"))
     header = next(reader, [])
     num_linhas = sum(1 for _ in reader)
     manifesto[f"{view}:{chave}"] = {

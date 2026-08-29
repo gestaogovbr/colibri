@@ -243,3 +243,20 @@ def test_manifesto_antigo_sem_colunas_etag_continua_valido(tmp_path):
     recarregado = ex.carregar_manifesto(caminho)
     assert recarregado[f"{VIEW}:{CHAVE}"]["hash_sha256"] == sha(CONTEUDO)
     assert recarregado[f"{VIEW}:{CHAVE}"]["etag"] == ""
+
+
+# registrar_entrada: contagem de linhas em streaming (sem copiar o arquivo pra str)
+
+
+def test_registrar_entrada_conta_linhas_e_colunas_com_campos_multilinha():
+    conteudo = b'id,descricao\n1,"linha com\nquebra dentro de aspas"\n2,simples\n'
+    manifesto = {}
+
+    ex.registrar_entrada(manifesto, VIEW, CHAVE, URL, conteudo, ETAG, "lm")
+
+    registro = manifesto[f"{VIEW}:{CHAVE}"]
+    assert registro["num_linhas"] == 2  # a quebra dentro das aspas não conta
+    assert registro["num_colunas"] == 2
+    assert registro["tamanho_bytes"] == len(conteudo)
+    assert registro["hash_sha256"] == sha(conteudo)
+    assert registro["etag"] == ETAG
