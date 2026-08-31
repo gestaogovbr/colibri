@@ -1,0 +1,105 @@
+---
+version: 2
+models:
+  - name: mrt_margem__ncms_cics
+    description: >
+      Margens de preferência atualmente vigentes por código NCM completo (8
+      dígitos), instituídas por resoluções CICS. Obtido a partir de
+      int_margem__ncm_prefixos, expandindo cada prefixo_ncm para todos os
+      códigos NCM que ele abrange e mantendo apenas os NCMs ainda ativos.
+    columns:
+      - name: ncm
+        data_type: varchar
+        description: Código NCM completo (8 dígitos) ao qual a margem se aplica.
+      - name: resolucao
+        data_type: varchar
+        description: Identificador da resolução CICS que instituiu a margem vigente
+          (ex. 'res_cics_1').
+      - name: tipo_margem
+        data_type: varchar
+        description: Tipo de margem de preferência vigente.
+      - name: data_inicio
+        data_type: date
+        description: Data de início de vigência da margem.
+      - name: data_fim
+        data_type: timestamp
+        description: Data de fim de vigência da margem (sempre nula, já que apenas
+          intervalos vigentes são incluídos).
+      - name: margem_normal_comprovante
+        data_type: varchar
+        description: Comprovante exigido para aplicação da margem de preferência normal.
+      - name: margem_normal_pct
+        data_type: double
+        description: Percentual da margem de preferência normal.
+      - name: margem_adicional_comprovante
+        data_type: varchar
+        description: Comprovante exigido para aplicação da margem de preferência adicional.
+      - name: margem_adicional_pct
+        data_type: double
+        description: Percentual da margem de preferência adicional.
+      - name: margem_sustentabilidade_comprovante
+        data_type: varchar
+        description: Comprovante exigido para aplicação da margem de preferência de
+          sustentabilidade.
+      - name: margem_sustentabilidade_pct
+        data_type: decimal(3,2)
+        description: Percentual da margem de preferência de sustentabilidade.
+      - name: grupo_de_produtos
+        data_type: varchar
+        description: Categoria a que o produto pertence, atribuída informalmente (não
+          pertence necessariamente à Resolução).
+      - name: comentario
+        data_type: varchar
+        description: Comentário livre associado ao NCM na planilha de origem da resolução,
+          quando presente.
+  - name: mrt_margem__ncms_ciiapac
+    description: >
+      Margens de preferência atualmente vigentes por código NCM completo (8
+      dígitos), instituídas por resoluções CIIA-PAC. Obtido a partir de
+      int_margem__ncm_prefixos, expandindo cada prefixo_ncm para todos os
+      códigos NCM que ele abrange e mantendo apenas os NCMs ainda ativos.
+    columns:
+      - name: ncm
+        data_type: varchar
+        description: Código NCM completo (8 dígitos) ao qual a margem se aplica.
+      - name: resolucao
+        data_type: varchar
+        description: Identificador da resolução CIIA-PAC que instituiu a margem vigente
+          (ex. 'res_ciia_pac_3').
+      - name: tipo_margem
+        data_type: varchar
+        description: Tipo de margem de preferência vigente.
+      - name: data_inicio
+        data_type: date
+        description: Data de início de vigência da margem.
+      - name: data_fim
+        data_type: timestamp
+        description: Data de fim de vigência da margem (sempre nula, já que apenas
+          intervalos vigentes são incluídos).
+      - name: margem_normal_comprovante
+        data_type: varchar
+        description: Comprovante exigido para aplicação da margem de preferência normal.
+      - name: margem_normal_pct
+        data_type: double
+        description: Percentual da margem de preferência normal.
+      - name: margem_adicional_comprovante
+        data_type: varchar
+        description: Comprovante exigido para aplicação da margem de preferência adicional.
+      - name: margem_adicional_pct
+        data_type: double
+        description: Percentual da margem de preferência adicional.
+      - name: margem_sustentabilidade_comprovante
+        data_type: varchar
+        description: Comprovante exigido para aplicação da margem de preferência de
+          sustentabilidade.
+      - name: margem_sustentabilidade_pct
+        data_type: decimal(3,2)
+        description: Percentual da margem de preferência de sustentabilidade.
+      - name: grupo_de_produtos
+        data_type: varchar
+        description: Categoria a que o produto pertence, atribuída informalmente (não
+          pertence necessariamente à Resolução). Pode indicar o anexo da resolução.
+      - name: comentario
+        data_type: varchar
+        description: Comentário livre associado ao NCM na planilha de origem da resolução,
+          quando presente.
