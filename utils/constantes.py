@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 CATALOGO_LOCAL = "meta.ducklake"
 SESSION_DB = "ducklake_session.duckdb"
 BUCKET_DESENVOLVIMENTO = "colibri-dev"

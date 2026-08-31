@@ -48,8 +48,9 @@ import utils.configurar_logging as log
 from utils.baixar_arquivo import baixar_arquivo_do_bucket
 from utils.carregar_segredo import carregar_segredo
 from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from utils.salvar_arquivo_timestamp import salvar_arquivo_no_bucket
+from utils.manifesto_bucket import baixar_manifesto
+from utils.manifesto_bucket import subir_manifesto as _subir_manifesto
+from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
@@ -127,27 +128,17 @@ def _tabela_para_parquet_bytes_e_hash(tabela_arrow: pa.Table) -> tuple[bytes, st
     return bytes_parquet, hashlib.sha256(bytes_parquet).hexdigest()
 
 
-def _linhas_novas_ou_alteradas(
-    df_novo: pd.DataFrame, df_velho: pd.DataFrame, chave: str
-) -> pd.DataFrame:
+def _linhas_novas_ou_alteradas(df_novo: pd.DataFrame, df_velho: pd.DataFrame, chave: str) -> pd.DataFrame:
     """Compara linha a linha (hash vetorizado) e devolve só as linhas de df_novo
     que são novas (chave ausente em df_velho) ou tiveram conteúdo alterado"""
-    hash_novo = pd.util.hash_pandas_object(
-        df_novo.drop(columns=[chave]), index=False
-    ).astype("UInt64")
-    serie_nova = pd.Series(
-        hash_novo.values, index=df_novo[chave].values, dtype="UInt64"
-    )
+    hash_novo = pd.util.hash_pandas_object(df_novo.drop(columns=[chave]), index=False).astype("UInt64")
+    serie_nova = pd.Series(hash_novo.values, index=df_novo[chave].values, dtype="UInt64")
 
     if df_velho.empty:
         mascara = pd.Series(True, index=df_novo.index)
     else:
-        hash_velho = pd.util.hash_pandas_object(
-            df_velho.drop(columns=[chave]), index=False
-        ).astype("UInt64")
-        serie_velha = pd.Series(
-            hash_velho.values, index=df_velho[chave].values, dtype="UInt64"
-        )
+        hash_velho = pd.util.hash_pandas_object(df_velho.drop(columns=[chave]), index=False).astype("UInt64")
+        serie_velha = pd.Series(hash_velho.values, index=df_velho[chave].values, dtype="UInt64")
         alinhado = serie_velha.reindex(serie_nova.index)
         mascara = pd.Series(
             (serie_nova.values != alinhado.values).to_numpy(dtype=bool, na_value=True),
@@ -169,25 +160,21 @@ def resetar_dados_locais() -> None:
 def subir_manifesto() -> None:
     """Sobe o manifesto e os snapshots de referência pro bucket. Só deve ser
     chamado depois do dbt rodar com sucesso"""
-    bucket = carregar_segredo(SEGREDO_BUCKET_DESENVOLVEDOR)["bucket_lake"]
+    bucket = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
     _subir_manifesto(
         DIRETORIO_MANIFESTOS / NOME_MANIFESTO,
         NOME_MANIFESTO,
         bucket,
-        SEGREDO_BUCKET_DESENVOLVEDOR,
+        NOME_SEGREDO_DESENVOLVEDOR,
         logger,
     )
     for nome_logico in FONTES:
         caminho = _caminho_snapshot(nome_logico)
         if caminho.exists():
             try:
-                salvar_arquivo_no_bucket(
-                    str(caminho), bucket, SEGREDO_BUCKET_DESENVOLVEDOR, caminho.name
-                )
+                salvar_arquivo_no_bucket(str(caminho), bucket, NOME_SEGREDO_DESENVOLVEDOR, caminho.name)
             except Exception as e:
-                logger.warning(
-                    f"Não foi possível salvar snapshot {caminho.name} no bucket: {e}"
-                )
+                logger.warning(f"Não foi possível salvar snapshot {caminho.name} no bucket: {e}")
 
 
 def executar_ingestao() -> bool:
@@ -198,9 +185,9 @@ def executar_ingestao() -> bool:
 
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
     caminho_alteracoes = DIRETORIO_ALTERACOES / NOME_ALTERACOES
-    bucket = carregar_segredo(SEGREDO_BUCKET_DESENVOLVEDOR)["bucket_lake"]
+    bucket = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
-    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, SEGREDO_BUCKET_DESENVOLVEDOR, logger)
+    baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
     alteracoes: list[tuple[str, str]] = []
     manifesto_modificado = False
@@ -218,7 +205,7 @@ def executar_ingestao() -> bool:
                     baixar_arquivo_do_bucket(
                         caminho_snapshot.name,
                         bucket,
-                        SEGREDO_BUCKET_DESENVOLVEDOR,
+                        NOME_SEGREDO_DESENVOLVEDOR,
                         str(caminho_snapshot),
                     )
                 except Exception:
@@ -227,27 +214,15 @@ def executar_ingestao() -> bool:
                 logger.info(f"Consultando {catalogo}.{schema}.{nome_objeto}...")
                 cursor.execute(f"SELECT * FROM {catalogo}.{schema}.{nome_objeto}")
                 tabela_arrow = cursor.fetchall_arrow()
-                bytes_parquet, hash_atual = _tabela_para_parquet_bytes_e_hash(
-                    tabela_arrow
-                )
+                bytes_parquet, hash_atual = _tabela_para_parquet_bytes_e_hash(tabela_arrow)
 
                 entrada = manifesto.get(nome_logico)
-                if (
-                    entrada
-                    and entrada["hash_tabela"] == hash_atual
-                    and caminho_snapshot.exists()
-                ):
-                    logger.info(
-                        f"{nome_logico}: hash da tabela bate com manifesto, nada mudou"
-                    )
+                if entrada and entrada["hash_tabela"] == hash_atual and caminho_snapshot.exists():
+                    logger.info(f"{nome_logico}: hash da tabela bate com manifesto, nada mudou")
                     continue
 
                 df_novo = tabela_arrow.to_pandas()
-                df_velho = (
-                    pd.read_parquet(caminho_snapshot)
-                    if caminho_snapshot.exists()
-                    else df_novo.iloc[0:0]
-                )
+                df_velho = pd.read_parquet(caminho_snapshot) if caminho_snapshot.exists() else df_novo.iloc[0:0]
                 delta = _linhas_novas_ou_alteradas(df_novo, df_velho, chave)
 
                 if delta.empty:
@@ -256,17 +231,13 @@ def executar_ingestao() -> bool:
                     )
                 else:
                     agora = datetime.now()
-                    nome_arquivo = (
-                        f"{nome_logico}_{agora.strftime('%Y-%m-%d-%H%M%S')}.parquet"
-                    )
+                    nome_arquivo = f"{nome_logico}_{agora.strftime('%Y-%m-%d-%H%M%S')}.parquet"
                     pq.write_table(
                         pa.Table.from_pandas(delta, preserve_index=False),
                         DIRETORIO_SAIDA / nome_arquivo,
                     )
                     alteracoes.append((nome_logico, nome_arquivo))
-                    logger.info(
-                        f"{nome_logico}: {len(delta):,} linha(s) nova(s)/alterada(s) em {nome_arquivo}"
-                    )
+                    logger.info(f"{nome_logico}: {len(delta):,} linha(s) nova(s)/alterada(s) em {nome_arquivo}")
 
                 # snapshot completo sempre atualizado, mesmo se o delta ficou vazio
                 # (cobre o caso de hash da tabela diferente por motivo que não afeta conteúdo por linha)
@@ -287,9 +258,7 @@ def executar_ingestao() -> bool:
     salvar_manifesto(caminho_manifesto, manifesto)
     salvar_alteracoes(caminho_alteracoes, alteracoes)
     logger.info(f"Manifesto: {caminho_manifesto} ({len(manifesto)} fonte(s))")
-    logger.info(
-        f"Alterações: {caminho_alteracoes} ({len(alteracoes)} arquivo(s) novo(s))"
-    )
+    logger.info(f"Alterações: {caminho_alteracoes} ({len(alteracoes)} arquivo(s) novo(s))")
 
     return manifesto_modificado
 

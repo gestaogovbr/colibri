@@ -24,11 +24,11 @@ from pathlib import Path
 
 import utils.carregar_json_da_url as cju
 import utils.configurar_logging as log
-from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
 from utils.carregar_segredo import carregar_segredo
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
+from utils.manifesto_bucket import baixar_manifesto
+from utils.manifesto_bucket import subir_manifesto as _subir_manifesto
 from utils.no import No
-
 
 log.setup_logging()
 
@@ -37,9 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Constantes
 
-NCM_URL = (
-    "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
-)
+NCM_URL = "https://portalunico.siscomex.gov.br/classif/api/publico/nomenclatura/download/json"
 
 DIRETORIO_RAIZ = Path("./dados")
 DIRETORIO_SAIDA = DIRETORIO_RAIZ / "ncm"
@@ -83,9 +81,7 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[str]) -> None:
 
 
 def _calcular_hash(dados: dict) -> str:
-    dados_sem_data = {
-        k: v for k, v in dados.items() if k != "Data_Ultima_Atualizacao_NCM"
-    }
+    dados_sem_data = {k: v for k, v in dados.items() if k != "Data_Ultima_Atualizacao_NCM"}
     conteudo = json.dumps(dados_sem_data, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(conteudo.encode()).hexdigest()
 
@@ -114,9 +110,7 @@ def _obter_nivel(codigo: str) -> tuple[int | None, str]:
         7: "Item",
         8: "Subitem",
     }
-    return (num_digitos if num_digitos in mapa else None), mapa.get(
-        num_digitos, "Desconhecido"
-    )
+    return (num_digitos if num_digitos in mapa else None), mapa.get(num_digitos, "Desconhecido")
 
 
 def _obter_pai(codigo: str, mapa_ncm: dict) -> str | None:
@@ -148,9 +142,7 @@ def _construir_arvore(mapa_ncm: dict) -> No:
 
 def _enriquecer(arvore: No) -> list[dict]:
     def _primeiro_no_com_nivel(caminho, nivel):
-        return next(
-            (n for n in caminho[1:] if _obter_nivel(n.codigo)[1] == nivel), None
-        )
+        return next((n for n in caminho[1:] if _obter_nivel(n.codigo)[1] == nivel), None)
 
     resultado = []
     for no in arvore:
@@ -191,9 +183,7 @@ def _enriquecer(arvore: No) -> list[dict]:
 
 def _salvar_silver(enriquecido: list[dict], agora: datetime) -> Path:
     DIRETORIO_SAIDA.mkdir(parents=True, exist_ok=True)
-    caminho = (
-        DIRETORIO_SAIDA / f"{NOME_BASE_SILVER}_{agora.strftime('%Y-%m-%d-%H%M%S')}.csv"
-    )
+    caminho = DIRETORIO_SAIDA / f"{NOME_BASE_SILVER}_{agora.strftime('%Y-%m-%d-%H%M%S')}.csv"
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(enriquecido[0].keys()))
         writer.writeheader()
@@ -241,11 +231,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     dados = cju.carregar_json_da_url(NCM_URL)
     hash_atual = _calcular_hash(dados)
 
-    ultimo_hash = (
-        max(manifesto, key=lambda e: e["extraido_em"])["hash_sha256"]
-        if manifesto
-        else None
-    )
+    ultimo_hash = max(manifesto, key=lambda e: e["extraido_em"])["hash_sha256"] if manifesto else None
     if ultimo_hash == hash_atual:
         logger.info("Sem mudanças nos dados de NCM. Ingestão encerrada.")
         salvar_alteracoes(caminho_alteracoes, [])

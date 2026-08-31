@@ -26,9 +26,7 @@ def setup_logging():
     if root_logger.hasHandlers():
         return
 
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
 
     DIRETORIO_LOGS.mkdir(parents=True, exist_ok=True)
     handler = logging.StreamHandler()

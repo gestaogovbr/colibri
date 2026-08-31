@@ -1,20 +1,17 @@
-import os
 import logging
-import utils.configurar_logging as log
+import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+import utils.configurar_logging as log
 from utils.carregar_segredo import carregar_segredo
 from utils.criar_cliente import criar_cliente
-from zoneinfo import ZoneInfo
-from datetime import datetime
-
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def enviar_com_timestamp(
-    caminho_arquivo: str, bucket_name: str, nome_segredo: str, timestamp: str
-):
+def enviar_com_timestamp(caminho_arquivo: str, bucket_name: str, nome_segredo: str, timestamp: str):
     if not os.path.exists(caminho_arquivo):
         logger.error(log.ARQUIVO_NAO_ENCONTRADO % caminho_arquivo)
         return
@@ -23,9 +20,7 @@ def enviar_com_timestamp(
     nome, extensao = os.path.splitext(nome_base)
 
     if not timestamp:
-        timestamp = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime(
-            "%Y-%m-%d-%H%M%S"
-        )
+        timestamp = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d-%H%M%S")
 
     novo_nome_arquivo = f"{nome}_{timestamp}{extensao}"
 

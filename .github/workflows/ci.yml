@@ -1,0 +1,30 @@
+---
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name
+      != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar o pacote e dependências de desenvolvimento
+        run: pip install -e ".[dev]"
+      - name: Cache do pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Lint e formatação (ruff + yamlfix via pre-commit)
+        run: pre-commit run --all-files --show-diff-on-failure
+      - name: Testes (pytest)
+        run: pytest

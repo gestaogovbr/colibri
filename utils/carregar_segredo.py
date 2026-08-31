@@ -1,13 +1,14 @@
 import os
+
 import yaml
 
 import utils.configurar_logging as log
-
 from utils.constantes import CAMINHO_SEGREDOS, NOME_SEGREDO_DESENVOLVEDOR
 
 
 def carregar_segredo(
-    nome_segredo: str = NOME_SEGREDO_DESENVOLVEDOR, caminho_arquivo: str = CAMINHO_SEGREDOS
+    nome_segredo: str = NOME_SEGREDO_DESENVOLVEDOR,
+    caminho_arquivo: str = CAMINHO_SEGREDOS,
 ) -> dict:
     """
     Lê o arquivo YAML de segredos e retorna o dicionário correspondente ao nome do segredo informado
@@ -16,7 +17,7 @@ def carregar_segredo(
     if not os.path.exists(caminho_arquivo):
         raise FileNotFoundError(log.ARQUIVO_NAO_ENCONTRADO % caminho_arquivo)
 
-    with open(caminho_arquivo, "r", encoding="utf-8") as f:
+    with open(caminho_arquivo, encoding="utf-8") as f:
         dados = yaml.safe_load(f)
 
     if not nome_segredo:

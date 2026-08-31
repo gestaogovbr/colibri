@@ -1,5 +1,5 @@
+---
 version: 2
-
 # Documentação dos modelos do pipeline PNCP/ComprasGOV.
 #
 # As tabelas staging/intermediate têm dezenas de colunas vindas direto do CSV do
@@ -8,7 +8,6 @@ version: 2
 # (já instalado em dbt/dbt_packages/codegen):
 #
 #   dbt run-operation generate_model_yaml --args '{"model_names": ["stg_pncp_comprasgov__compras"]}'
-
 models:
   - name: stg_pncp_comprasgov__compras
     description: >
@@ -24,7 +23,8 @@ models:
       - name: ano_compra
         description: Ano de referência da compra.
       - name: data_atualizacao
-        description: Data da última atualização do registro (usada para versionamento SCD2).
+        description: Data da última atualização do registro (usada para versionamento
+          SCD2).
       - name: valor_total_estimado
         description: Valor total estimado da compra.
       - name: valor_total_homologado
@@ -33,10 +33,10 @@ models:
         description: Granularidade do arquivo de origem (diario, mensal ou anual).
       - name: periodo
         description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
-
   - name: stg_pncp_comprasgov__itens
     description: >
-      Itens de compras do ComprasGOV/PNCP, unificando arquivos diário/mensal/anual e
+      Itens de compras do ComprasGOV/PNCP, unificando arquivos diário/mensal/anual
+      e
       harmonizando colunas renomeadas com sufixo _pncp (alteração de schema em 2025).
     columns:
       - name: id_compra_item
@@ -46,12 +46,12 @@ models:
       - name: numero_item
         description: Número sequencial do item dentro da compra.
       - name: data_atualizacao
-        description: Data da última atualização do registro (usada para versionamento SCD2).
+        description: Data da última atualização do registro (usada para versionamento
+          SCD2).
       - name: granularidade
         description: Granularidade do arquivo de origem (diario, mensal ou anual).
       - name: periodo
         description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
-
   - name: stg_pncp_comprasgov__resultados
     description: >
       Resultados (fornecedores vencedores) dos itens de compras do ComprasGOV/PNCP
@@ -61,16 +61,17 @@ models:
       - name: id_compra_item
         description: Identificador do item da compra ao qual o resultado se refere.
       - name: sequencial_resultado
-        description: Número sequencial do resultado dentro do item (um item pode ter múltiplos resultados).
+        description: Número sequencial do resultado dentro do item (um item pode ter
+          múltiplos resultados).
       - name: data_atualizacao
-        description: Data da última atualização do registro (usada para versionamento SCD2).
+        description: Data da última atualização do registro (usada para versionamento
+          SCD2).
       - name: data_resultado
         description: Data em que o resultado foi registrado.
       - name: granularidade
         description: Granularidade do arquivo de origem (diario, mensal ou anual).
       - name: periodo
         description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
-
   - name: int_pncp_comprasgov__compras
     description: >
       Compras deduplicadas e versionadas (SCD2) a partir de stg_pncp_comprasgov__compras.
@@ -85,7 +86,6 @@ models:
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
-
   - name: int_pncp_comprasgov__itens
     description: >
       Itens de compra deduplicados e versionados (SCD2) a partir de
@@ -99,7 +99,6 @@ models:
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
-
   - name: int_pncp_comprasgov__resultados
     description: >
       Resultados de itens deduplicados e versionados (SCD2) a partir de

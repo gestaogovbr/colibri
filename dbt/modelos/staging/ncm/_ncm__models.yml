@@ -1,5 +1,5 @@
+---
 version: 2
-
 models:
   - name: stg_ncm
     description: >
@@ -18,7 +18,6 @@ models:
         description: Caminho completo da hierarquia do código até o nó atual.
       - name: _source_file
         description: Caminho do arquivo CSV de origem (inclui timestamp da versão).
-
   - name: int_ncm
     description: >
       Versão mais recente de cada código NCM, deduplicada a partir de
@@ -30,7 +29,6 @@ models:
         description: Nível hierárquico (Capítulo, Posição, Subposição 1/2, Item, Subitem).
       - name: capitulo_codigo
         description: Código do capítulo ancestral do item.
-
   - name: int_ncm_prefixos
     description: >
       Tabela de lookup prefixo→subitem: para cada código de prefixo NCM

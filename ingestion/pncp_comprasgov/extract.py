@@ -14,29 +14,28 @@ Uso:
   python -m ingestion.pncp_comprasgov.extract
 """
 
-import io
-import uuid
-import time
 import csv
 import hashlib
+import io
 import logging
 import shutil
-import boto3
-import botocore
-import duckdb
 import tempfile
+import time
+import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from utils.carregar_segredo import carregar_segredo
-from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
-from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
-
+import boto3
+import botocore
+import duckdb
 import requests
 
 import utils.configurar_logging as log
-
+from utils.carregar_segredo import carregar_segredo
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
+from utils.manifesto_bucket import baixar_manifesto
+from utils.manifesto_bucket import subir_manifesto as _subir_manifesto
+from utils.salvar_bytes_no_bucket import salvar_bytes_no_bucket
 
 log.setup_logging()
 
@@ -91,23 +90,13 @@ SALVAR_MANIFESTO_A_CADA = 50
 
 
 def construir_url_diario(view: str, data: date) -> str:
-    nome = TEMPLATE_ARQUIVO_DIARIO.format(
-        view=view, ano=data.year, mes=data.month, dia=data.day
-    )
+    nome = TEMPLATE_ARQUIVO_DIARIO.format(view=view, ano=data.year, mes=data.month, dia=data.day)
     return f"{URL_BASE_DIARIO}/{data.year}/{data.month:02d}/{data.day:02d}/{nome}"
 
 
 def construir_caminho_diario(view: str, data: date) -> Path:
-    nome = TEMPLATE_ARQUIVO_DIARIO.format(
-        view=view, ano=data.year, mes=data.month, dia=data.day
-    )
-    return (
-        DIRETORIO_SAIDA_DIARIO
-        / str(data.year)
-        / f"{data.month:02d}"
-        / f"{data.day:02d}"
-        / nome
-    )
+    nome = TEMPLATE_ARQUIVO_DIARIO.format(view=view, ano=data.year, mes=data.month, dia=data.day)
+    return DIRETORIO_SAIDA_DIARIO / str(data.year) / f"{data.month:02d}" / f"{data.day:02d}" / nome
 
 
 def construir_url_mensal(view: str, ano: int, mes: int) -> str:
@@ -167,9 +156,7 @@ def salvar_alteracoes(caminho: Path, alteracoes: list[tuple[str, str, str]]) -> 
         writer.writerows(alteracoes)
 
 
-def registrar_entrada(
-    manifesto: dict[str, dict], view: str, chave: str, url: str, conteudo: bytes
-) -> None:
+def registrar_entrada(manifesto: dict[str, dict], view: str, chave: str, url: str, conteudo: bytes) -> None:
     reader = csv.reader(io.StringIO(conteudo.decode("utf-8")))
     header = next(reader, [])
     num_linhas = sum(1 for _ in reader)
@@ -205,9 +192,7 @@ def csv_para_parquet(conteudo: bytes) -> bytes:
     caminho_tmp = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.parquet"
     try:
         # Lê o csv e escreve ele como um parquet no arquivo temporário
-        duckdb.read_csv(io.BytesIO(conteudo), sample_size=-1).write_parquet(
-            str(caminho_tmp)
-        )
+        duckdb.read_csv(io.BytesIO(conteudo), sample_size=-1).write_parquet(str(caminho_tmp))
         # Lê os bytes do parquet
         return caminho_tmp.read_bytes()
     finally:
@@ -240,9 +225,7 @@ def baixar(session: requests.Session, url: str) -> bytes | None:
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout (tentativa {tentativa}/{MAX_TENTATIVAS}): {url}")
         except requests.exceptions.RequestException as e:
-            logger.warning(
-                f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}"
-            )
+            logger.warning(f"Erro de rede (tentativa {tentativa}/{MAX_TENTATIVAS}): {e}")
 
         if tentativa < MAX_TENTATIVAS:
             time.sleep(PAUSA_BASE_SEGUNDOS * tentativa)
@@ -279,9 +262,7 @@ def processar_arquivo(
     config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
 
     # Ex: 'dados/pncp_comprasgov_diario/2021/12/01/comprasGOV-diario-VW_FT_PNCP_COMPRA-2021-12-01.csv'
-    nome_no_bucket = (
-        caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
-    )
+    nome_no_bucket = caminho.relative_to(DIRETORIO_RAIZ).with_suffix(".parquet").as_posix()
 
     s3 = boto3.resource(
         "s3",
@@ -298,18 +279,12 @@ def processar_arquivo(
         existe_no_bucket = False
 
     # Salva no bucket caso arquivo conste no manifesto, no bucket E hash bater com manifesto
-    if (
-        entrada
-        and existe_no_bucket
-        and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest()
-    ):
+    if entrada and existe_no_bucket and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest():
         logger.info(f"[{view}] {chave}: hash bate com manifesto, pulando")
         return "ignorado"
     else:
         conteudo_parquet = csv_para_parquet(conteudo)
-        salvar_bytes_no_bucket(
-            conteudo_parquet, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket
-        )
+        salvar_bytes_no_bucket(conteudo_parquet, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, nome_no_bucket)
         registrar_entrada(manifesto, view, chave, url, conteudo)
         status = "atualizado" if entrada else "baixado"
         e = manifesto[f"{view}:{chave}"]
@@ -362,7 +337,11 @@ def executar_ingestao(bucket_nome: str | None = None) -> bool:
     bucket_nome = bucket_nome or carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)["bucket_lake"]
 
     baixar_manifesto(
-        caminho_manifesto, NOME_MANIFESTO, bucket_nome, NOME_SEGREDO_DESENVOLVEDOR, logger
+        caminho_manifesto,
+        NOME_MANIFESTO,
+        bucket_nome,
+        NOME_SEGREDO_DESENVOLVEDOR,
+        logger,
     )
     manifesto = carregar_manifesto(caminho_manifesto)
     session = criar_sessao()

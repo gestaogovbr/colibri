@@ -27,9 +27,10 @@ import requests
 from tqdm import tqdm
 
 import utils.configurar_logging as log
-from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
 from utils.carregar_segredo import carregar_segredo
-from utils.manifesto_bucket import baixar_manifesto, subir_manifesto as _subir_manifesto
+from utils.constantes import NOME_SEGREDO_DESENVOLVEDOR
+from utils.manifesto_bucket import baixar_manifesto
+from utils.manifesto_bucket import subir_manifesto as _subir_manifesto
 
 log.setup_logging()
 logger = logging.getLogger(__name__)
@@ -121,9 +122,7 @@ def _buscar_pagina(pagina: int, session: requests.Session) -> dict:
             resp = session.get(f"{BASE_URL}{ENDPOINT}", params=params, timeout=30)
 
             if resp.status_code == 429:
-                espera = float(
-                    resp.headers.get("Retry-After", BASE_BACKOFF * (2**tentativa))
-                )
+                espera = float(resp.headers.get("Retry-After", BASE_BACKOFF * (2**tentativa)))
                 logger.warning(f"429 na página {pagina}. Pausa global de {espera:.1f}s")
                 _registrar_rate_limit(espera)
                 time.sleep(espera)
@@ -133,10 +132,7 @@ def _buscar_pagina(pagina: int, session: requests.Session) -> dict:
             conteudo_bytes = resp.content
             hash_atual = hashlib.sha256(conteudo_bytes).hexdigest()
             timestamp = datetime.now().isoformat(timespec="seconds")
-            registros = [
-                [item.get(c) for c in CAMPOS_API] + [timestamp]
-                for item in resp.json().get("resultado", [])
-            ]
+            registros = [[item.get(c) for c in CAMPOS_API] + [timestamp] for item in resp.json().get("resultado", [])]
             return {
                 "pagina": pagina,
                 "registros": registros,
@@ -184,7 +180,8 @@ def executar_ingestao(bucket: str | None = None) -> bool:
     csv_ausente = not CAMINHO_CSV.exists()
     if manifesto and csv_ausente:
         logger.warning(
-            f"Manifesto tem entradas mas {CAMINHO_CSV} não existe localmente. Só reconstruo o CSV se algo realmente tiver mudado."
+            f"Manifesto tem entradas mas {CAMINHO_CSV} não existe localmente. "
+            "Só reconstruo o CSV se algo realmente tiver mudado."
         )
 
     logger.info("Consultando total de páginas do catálogo CATMAT...")
@@ -202,27 +199,21 @@ def executar_ingestao(bucket: str | None = None) -> bool:
                 break
             except requests.RequestException as e:
                 if tentativa == MAX_RETRIES - 1:
-                    raise RuntimeError(f"Falha ao consultar metadados: {e}")
+                    raise RuntimeError(f"Falha ao consultar metadados: {e}") from e
                 time.sleep(BASE_BACKOFF * (2**tentativa))
 
     total_paginas = meta["totalPaginas"]
-    logger.info(
-        f"Total: {meta['totalRegistros']:,} registros | {total_paginas:,} páginas"
-    )
+    logger.info(f"Total: {meta['totalRegistros']:,} registros | {total_paginas:,} páginas")
 
     todas_paginas = list(range(1, total_paginas + 1))
     pendentes = todas_paginas
-    logger.info(
-        f"Verificando {len(pendentes):,} página(s) | Já no manifesto: {len(manifesto):,}"
-    )
+    logger.info(f"Verificando {len(pendentes):,} página(s) | Já no manifesto: {len(manifesto):,}")
 
     if not pendentes:
         logger.info("Catálogo já atualizado.")
         return False
 
-    buf_registros: list[
-        list
-    ] = []  # delta (páginas novas/alteradas), usado quando o CSV já existe
+    buf_registros: list[list] = []  # delta (páginas novas/alteradas), usado quando o CSV já existe
     buf_completo: list[list] = []  # todas as páginas, só populado se csv_ausente
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0}
     manifesto_modificado = False
@@ -234,9 +225,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
                 w.writerows(buf_registros)
             buf_registros.clear()
 
-    chunks = [
-        pendentes[i : i + CHUNK_SIZE] for i in range(0, len(pendentes), CHUNK_SIZE)
-    ]
+    chunks = [pendentes[i : i + CHUNK_SIZE] for i in range(0, len(pendentes), CHUNK_SIZE)]
 
     try:
         with (
@@ -246,9 +235,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
             session.headers["User-Agent"] = "colibri-ingestao/1.0"
             for idx, chunk in enumerate(chunks):
                 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                    futures = {
-                        executor.submit(_buscar_pagina, p, session): p for p in chunk
-                    }
+                    futures = {executor.submit(_buscar_pagina, p, session): p for p in chunk}
                     for future in as_completed(futures):
                         resultado = future.result()
                         pagina = resultado["pagina"]
@@ -274,9 +261,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
                             "pagina": pagina,
                             "hash_sha256": resultado["hash"],
                             "num_registros": len(resultado["registros"]),
-                            "consultada_em": datetime.now().isoformat(
-                                timespec="seconds"
-                            ),
+                            "consultada_em": datetime.now().isoformat(timespec="seconds"),
                         }
                         manifesto_modificado = True
                         barra.update(1)
@@ -291,9 +276,7 @@ def executar_ingestao(bucket: str | None = None) -> bool:
         logger.warning("Interrompido pelo usuário.")
     finally:
         if manifesto_modificado and csv_ausente:
-            logger.info(
-                f"Reconstruindo {CAMINHO_CSV} do zero ({len(buf_completo):,} registro(s))."
-            )
+            logger.info(f"Reconstruindo {CAMINHO_CSV} do zero ({len(buf_completo):,} registro(s)).")
             with open(CAMINHO_CSV, "w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
                 w.writerow(COLUNAS_CSV)

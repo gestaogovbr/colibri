@@ -5,11 +5,17 @@ from ingestion.nfe_cgu.extract import (
     executar_ingestao,
     subir_manifesto,
 )
-from utils.carregar_segredo import carregar_segredo
-from utils.criar_cliente import criar_cliente
 from utils.baixar_catalogo import baixar_catalogo
+from utils.carregar_segredo import carregar_segredo
+from utils.constantes import (
+    BUCKET_PRODUCAO,
+    CATALOGO_LOCAL,
+    DBT_DIR,
+    NOME_SEGREDO_DESENVOLVEDOR,
+    RAIZ_PROJETO,
+)
+from utils.criar_cliente import criar_cliente
 from utils.salvar_arquivo_no_bucket import salvar_arquivo_no_bucket
-from utils.constantes import BUCKET_PRODUCAO, CATALOGO_LOCAL, DBT_DIR, RAIZ_PROJETO, NOME_SEGREDO_DESENVOLVEDOR
 
 
 def main(bucket: str | None = None):

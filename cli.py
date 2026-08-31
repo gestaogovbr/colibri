@@ -5,19 +5,20 @@ from zoneinfo import ZoneInfo
 import boto3
 import click
 from botocore.exceptions import ClientError
+from rich import box
 from rich.console import Console
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
-from rich import box
+
+from utils.carregar_segredo import carregar_segredo
 from utils.constantes import (
+    CATALOGO_LOCAL,
     NOME_SEGREDO_DESENVOLVEDOR,
     NOME_SEGREDO_VISUALIZADOR,
-    CATALOGO_LOCAL,
 )
-from utils.carregar_segredo import carregar_segredo
 
 console = Console()
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -111,14 +112,10 @@ class ColibriGroup(click.Group):
 
         console.print()
         console.print(Padding(banner, (0, 0, 0, left_pad)))
-        console.print(
-            Padding(_gradiente_h(regua, VERDE_RGB, AZUL_RGB), (0, 0, 0, left_pad))
-        )
+        console.print(Padding(_gradiente_h(regua, VERDE_RGB, AZUL_RGB), (0, 0, 0, left_pad)))
         if subtitulo:
             sub_pad = max(0, (largura_tabela - len(subtitulo)) // 2)
-            console.print(
-                Padding(Text(subtitulo, style="italic dim"), (0, 0, 0, sub_pad))
-            )
+            console.print(Padding(Text(subtitulo, style="italic dim"), (0, 0, 0, sub_pad)))
         console.print()
         console.print(tabela)
         console.print()
@@ -211,9 +208,7 @@ def listar(bucket_name: str, segredo: str, prefixo: str):
         p.add_task("")
         paginator = s3.get_paginator("list_objects_v2")
         objetos = [
-            obj
-            for page in paginator.paginate(Bucket=bucket_name, Prefix=prefixo)
-            for obj in page.get("Contents", [])
+            obj for page in paginator.paginate(Bucket=bucket_name, Prefix=prefixo) for obj in page.get("Contents", [])
         ]
 
     if not objetos:
@@ -293,22 +288,16 @@ def deletar_tudo(bucket_name: str, segredo: str, prefixo: str):
     ) as p:
         p.add_task("")
         for i in range(0, len(objetos), 1000):
-            s3.delete_objects(
-                Bucket=bucket_name, Delete={"Objects": objetos[i : i + 1000]}
-            )
+            s3.delete_objects(Bucket=bucket_name, Delete={"Objects": objetos[i : i + 1000]})
 
-    console.print(
-        f"[{VERDE}]+[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]"
-    )
+    console.print(f"[{VERDE}]+[/] [bold]{len(objetos)}[/bold] arquivo(s) deletado(s) de [{AZUL}]{bucket_name}[/]")
 
 
 @bucket.command("download")
 @click.argument("arquivo")
 @click.argument("bucket_name")
 @click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
-@click.option(
-    "--destino", default=None, help="Caminho local de destino (padrao: ./<arquivo>)"
-)
+@click.option("--destino", default=None, help="Caminho local de destino (padrao: ./<arquivo>)")
 def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     """Baixa um arquivo do bucket"""
     s3 = _cliente(segredo)
@@ -321,9 +310,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
     try:
         s3.download_file(bucket_name, arquivo, destino)
         tamanho = os.path.getsize(destino)
-        console.print(
-            f"[{VERDE}]+[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]"
-        )
+        console.print(f"[{VERDE}]+[/] Salvo em: [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
     except ClientError:
         console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{arquivo}[/bold]")
 
@@ -340,9 +327,7 @@ def download(arquivo: str, bucket_name: str, segredo: str, destino: str | None):
 def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | None):
     """Faz upload de um arquivo para o bucket"""
     if not os.path.exists(caminho_arquivo):
-        console.print(
-            f"[red]x[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]"
-        )
+        console.print(f"[red]x[/red] Arquivo não encontrado: [bold]{caminho_arquivo}[/bold]")
         return
 
     if chave is None:
@@ -362,9 +347,7 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
         with open(caminho_arquivo, "rb") as f:
             s3.upload_fileobj(f, bucket_name, chave)
 
-    console.print(
-        f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]"
-    )
+    console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
 def _conectar_lake(bucket: str, segredo: str):
@@ -376,9 +359,7 @@ def _conectar_lake(bucket: str, segredo: str):
 
 
 @lake.command("tables")
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_VISUALIZADOR,
@@ -430,9 +411,7 @@ def tabelas(bucket: str, segredo: str):
 
 @lake.command("years")
 @click.argument("tabela")
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_VISUALIZADOR,
@@ -466,12 +445,8 @@ def anos(tabela: str, bucket: str, segredo: str):
 
 @lake.command("download")
 @click.argument("tabela")
-@click.option(
-    "--destino", default=None, help="Arquivo de saída (padrão: ./<tabela>.parquet)"
-)
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--destino", default=None, help="Arquivo de saída (padrão: ./<tabela>.parquet)")
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_VISUALIZADOR,
@@ -513,14 +488,10 @@ def lake_download(tabela: str, destino: str | None, bucket: str, segredo: str):
     schema_name = row[0]
     saida = destino or f"{tabela}.parquet"
 
-    with Progress(
-        SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Exportando..."), transient=True
-    ) as p:
+    with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Exportando..."), transient=True) as p:
         p.add_task("")
         try:
-            con.execute(
-                f"COPY (SELECT * FROM lake.{schema_name}.{tabela}) TO '{saida}' (FORMAT PARQUET)"
-            )
+            con.execute(f"COPY (SELECT * FROM lake.{schema_name}.{tabela}) TO '{saida}' (FORMAT PARQUET)")
         except Exception as e:
             console.print(f"[red]x[/red] Erro: {e}")
             con.close()
@@ -532,9 +503,7 @@ def lake_download(tabela: str, destino: str | None, bucket: str, segredo: str):
 
 @lake.command("query")
 @click.argument("sql")
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_VISUALIZADOR,
@@ -563,9 +532,7 @@ def query(sql: str, bucket: str, segredo: str):
 
 
 @lake.command("ui")
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_VISUALIZADOR,
@@ -581,9 +548,7 @@ def ui(bucket: str, segredo: str):
 
 @lake.command("drop-table")
 @click.argument("tabela")
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_DESENVOLVEDOR,
@@ -596,8 +561,7 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
 
     if segredo == NOME_SEGREDO_VISUALIZADOR:
         console.print(
-            "[red]x[/red] Esse comando exige um segredo com acesso de escrita "
-            "(o de visualizador é somente leitura)."
+            "[red]x[/red] Esse comando exige um segredo com acesso de escrita (o de visualizador é somente leitura)."
         )
         return
 
@@ -635,9 +599,7 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
         f"[bold]{bucket}[/bold] (exclusão lógica — recuperável via time travel "
         "até a próxima manutenção)."
     )
-    resposta = click.prompt(
-        "Digite 'sim' para confirmar", default="", show_default=False
-    )
+    resposta = click.prompt("Digite 'sim' para confirmar", default="", show_default=False)
     if resposta.strip().lower() != "sim":
         console.print("[yellow]Operação cancelada.[/yellow]")
         con.close()
@@ -654,9 +616,7 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
             return
 
     dl.fechar(con, caminho_meta, segredo)
-    console.print(
-        f"[{VERDE}]+[/] Tabela [bold]{schema_name}.{tabela}[/bold] removida do catálogo"
-    )
+    console.print(f"[{VERDE}]+[/] Tabela [bold]{schema_name}.{tabela}[/bold] removida do catálogo")
 
 
 @lake.command("maintenance")
@@ -673,9 +633,7 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
     default=False,
     help="Apenas mostra o que seria removido, sem excluir nada",
 )
-@click.option(
-    "--bucket", default="colibri-prod", show_default=True, help="Bucket do lake"
-)
+@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
     default=NOME_SEGREDO_DESENVOLVEDOR,
@@ -720,9 +678,7 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
         con.close()
         return
 
-    resposta = click.prompt(
-        "\nDigite 'sim' para confirmar a execução", default="", show_default=False
-    )
+    resposta = click.prompt("\nDigite 'sim' para confirmar a execução", default="", show_default=False)
     if resposta.strip().lower() != "sim":
         console.print("[yellow]Operação cancelada.[/yellow]")
         con.close()
@@ -756,21 +712,26 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
 @click.option(
     "--apenas",
     type=click.Choice(
-        ["ncm", "pncp-comprasgov", "catmats", "nfe-cgu", "margem-preferencia", "tradutor-catmat-ncm"]
+        [
+            "ncm",
+            "pncp-comprasgov",
+            "catmats",
+            "nfe-cgu",
+            "margem-preferencia",
+            "tradutor-catmat-ncm",
+        ]
     ),
     default=None,
     help="Rodar só um pipeline",
 )
-@click.option(
-    "--bucket", default=None, help="Bucket de destino (padrão: definido nas constantes)"
-)
+@click.option("--bucket", default=None, help="Bucket de destino (padrão: definido nas constantes)")
 def run(apenas: str | None, bucket: str | None):
     """Roda o pipeline completo ou apenas um modulo"""
-    import ingestion.ncm.pipeline as ncm
-    import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
     import ingestion.catmats.pipeline as catmats
-    import ingestion.nfe_cgu.pipeline as nfe_cgu
     import ingestion.margem_preferencia.pipeline as margem_preferencia
+    import ingestion.ncm.pipeline as ncm
+    import ingestion.nfe_cgu.pipeline as nfe_cgu
+    import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
     import ingestion.tradutor_catmat_ncm.pipeline as tradutor_catmat_ncm
 
     pipelines = {
@@ -818,9 +779,7 @@ def sincronizar(segredo: str):
     s3 = _cliente(segredo)
     raiz = Path(CATALOGO_LOCAL).parent
 
-    itens = [
-        (nome, str(raiz / "dados" / "manifestos" / nome)) for nome in _MANIFESTOS
-    ] + [
+    itens = [(nome, str(raiz / "dados" / "manifestos" / nome)) for nome in _MANIFESTOS] + [
         ("meta.ducklake", CATALOGO_LOCAL),
     ]
 
@@ -835,17 +794,13 @@ def sincronizar(segredo: str):
                 p.add_task("")
                 s3.download_file(bucket, chave, destino)
             tamanho = os.path.getsize(destino)
-            console.print(
-                f"[green]+[/green] {chave} -> [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]"
-            )
+            console.print(f"[green]+[/green] {chave} -> [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
         except Exception as e:
             console.print(f"[red]x[/red] {chave}: {e}")
 
 
 @cli.command("docs")
-@click.option(
-    "--sem-servidor", is_flag=True, help="Gera a documentação sem abrir o servidor"
-)
+@click.option("--sem-servidor", is_flag=True, help="Gera a documentação sem abrir o servidor")
 def docs(sem_servidor: bool):
     """Gera e exibe a documentação automática do dbt"""
     import subprocess
