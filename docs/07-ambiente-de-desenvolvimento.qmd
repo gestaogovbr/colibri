@@ -1,0 +1,259 @@
+# Ambiente de desenvolvimento local
+
+Este capítulo monta um ambiente **isolado da produção** onde dá para rodar
+pipelines e modelos dbt de ponta a ponta: um object storage próprio na sua
+máquina (MinIO, compatível com S3), os dois perfis de credencial apontando
+para ele e um pipeline pequeno — o NCM — para provar que tudo funciona. Nada
+do que você fizer aqui toca o bucket oficial.
+
+Assume que você já seguiu os passos 1 a 4 do
+[Guia de instalação](04-guia-instalacao.qmd) (Python, ambiente virtual `env`,
+`pip install -e .` e `dbt deps`). Quem preferir um bucket na nuvem em vez do
+MinIO pode seguir [Instalar o ambiente em um S3 próprio](04-guia-instalacao.qmd#instalar-o-ambiente-em-um-s3-próprio)
+e voltar aqui na seção [Rodar um pipeline](#rodar-um-pipeline-de-ponta-a-ponta).
+
+## O que você vai precisar
+
+- [Docker](https://docs.docker.com/get-docker/) com o plugin `docker compose`
+  (vem junto no Docker Desktop e no Docker Engine recente).
+- Cerca de 200 MB livres para o MinIO e os dados do NCM.
+- Os requisitos do guia de instalação já atendidos (`colibri --help` responde).
+
+## Subir o MinIO
+
+Crie uma pasta **fora do repositório** — assim os dados do MinIO nunca aparecem
+no `git status` — com um `docker-compose.yml`:
+
+```bash
+mkdir -p ../colibri-minio && cd ../colibri-minio
+```
+
+```yaml
+# ../colibri-minio/docker-compose.yml
+# MinIO local para o ambiente de desenvolvimento do colibri (substitui o R2).
+# Portas expostas só em 127.0.0.1: inacessível de fora da máquina.
+#   API S3:  http://localhost:9000
+#   Console: http://localhost:9001  (login = credenciais abaixo)
+# Dados persistidos em ./minio-data — apague a pasta para zerar o ambiente.
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: colibri-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: colibri-local
+      MINIO_ROOT_PASSWORD: troque-esta-senha        # mínimo de 8 caracteres
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - ./minio-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+```
+
+```bash
+docker compose up -d
+docker compose ps          # STATUS deve chegar a "healthy" em alguns segundos
+cd -                       # de volta ao repositório
+```
+
+Os comandos do dia a dia: `docker compose down` para (mantém os dados);
+`docker compose down && rm -rf minio-data` zera tudo.
+
+## Criar os buckets
+
+Use os **mesmos nomes da produção**, `colibri-prod` (lake) e `colibri-arquivos`
+(arquivos brutos): são os padrões embutidos na CLI e nos pipelines, e com eles
+nenhum comando precisa de `--bucket`.
+
+Pelo console em <http://localhost:9001> (*Buckets → Create Bucket*), ou pelo
+terminal, usando o `mc` que já vem dentro do container:
+
+```bash
+docker exec colibri-minio sh -c '
+  mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" &&
+  mc mb --ignore-existing local/colibri-prod &&
+  mc mb --ignore-existing local/colibri-arquivos &&
+  mc ls local'
+```
+
+::: {.callout-tip}
+Nomes diferentes também funcionam, passando `--bucket <nome>` em cada
+`colibri pipeline run` e `colibri lake ...` — e ajustando o `data_path` do
+`profiles.yml` abaixo. O pipeline `pncp-em-numeros` é a exceção: ignora
+`--bucket` e usa sempre `colibri-prod`.
+:::
+
+## Credenciais: `.segredos.yml`
+
+Copie o template (`cp .segredos_template.yml .segredos.yml`) e aponte **os dois
+perfis** para o MinIO. Os comandos `lake` usam o perfil de visualizador por
+padrão; os pipelines, o de desenvolvedor — no ambiente local os dois podem ser a
+mesma credencial (a âncora `&minio_local` evita repetir):
+
+```yaml
+---
+colibri-token-desenvolvedor: &minio_local
+  endpoint: http://localhost:9000
+  access_key: colibri-local
+  secret_key: troque-esta-senha
+  bucket_raw: colibri-arquivos
+  bucket_lake: colibri-prod
+colibri-token-visualizador: *minio_local
+```
+
+::: {.callout-note}
+Se você tem a credencial oficial de visualizador, pode mantê-la no perfil
+`colibri-token-visualizador` para consultar a produção, e apontar só o
+`colibri-token-desenvolvedor` para o MinIO. Nesse arranjo, para consultar o
+ambiente local use `colibri lake tables --segredo colibri-token-desenvolvedor`.
+:::
+
+## dbt: `profiles.yml`
+
+Copie o template (`cp dbt/profiles_template.yml dbt/profiles.yml`) e faça quatro
+ajustes no target `dev`:
+
+```yaml
+      secrets:
+        - type: s3
+          provider: config
+          key_id: colibri-local            # 1. credenciais do MinIO
+          secret: troque-esta-senha
+          endpoint: localhost:9000         # 2. sem https:// e sem barra final
+          region: auto
+          url_style: path
+          use_ssl: false                   # 3. o MinIO local fala http
+      ...
+      attach:
+        - path: ducklake:../meta.ducklake
+          alias: lake
+          options:
+            data_path: s3://colibri-prod/lake/   # 4. o bucket do lake
+```
+
+Depois **duplique o bloco `dev` inteiro como `prod`** (mudando só o `path` do
+banco local, por exemplo para `../dados/lakehouse_prod.duckdb`). O template só
+traz `dev`, mas os pipelines `pncp-comprasgov`, `margem-preferencia` e
+`tradutor-catmat-ncm` invocam o dbt com `--target prod` e falham sem ele (issue
+[#91](https://github.com/gestaogovbr/colibri/issues/91)). O NCM usa o `dev` e
+funciona com o template ajustado.
+
+## Rodar um pipeline de ponta a ponta
+
+O NCM é o candidato natural: lê uma API pública (Portal Único Siscomex), não
+depende de planilhas do bucket privado e termina em cerca de um minuto.
+
+```bash
+colibri pipeline run --apenas ncm
+```
+
+O que esperar na primeira execução (saída resumida):
+
+```
+>>> NCM
+WARNING | Manifesto não encontrado no bucket, iniciando do zero: An error occurred (404) ...
+INFO    | Silver gravado: dados/ncm/ncm_silver_2026-08-31-213748.csv (15156 linhas)
+INFO    | Manifesto: dados/manifestos/ncm_manifesto.csv (1 entrada(s))
+Found 25 models, 9 data tests, 635 macros
+[WARNING]: The selection criterion 'stg_dim_margem_ncm' does not match any enabled nodes
+1 of 3 OK created sql incremental model lake.main_staging.stg_ncm ........ [OK in 0.19s]
+2 of 3 OK created sql table model lake.main_intermediate.int_ncm ......... [OK in 0.20s]
+3 of 3 OK created sql table model lake.main_intermediate.int_ncm_prefixos  [OK in 0.16s]
+Done. PASS=3 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=3
+INFO    | Upload concluído: ncm_manifesto.csv
+INFO    | Upload concluído: meta.ducklake
+[ducklake] Catálogo não existe no R2. Será criado.
++ Pipeline concluido.
+```
+
+Os dois avisos são normais: o manifesto ainda não existe no bucket novo, e
+`stg_dim_margem_ncm` é um modelo que o pipeline seleciona mas não existe mais
+no projeto dbt (issue [#90](https://github.com/gestaogovbr/colibri/issues/90)). Rode de novo e o pipeline reconhece que nada mudou:
+
+```
+INFO    | Sem mudanças nos dados de NCM. Ingestão encerrada.
+[dbt] Sem dados novos na extração, pulando dbt run.
++ Pipeline concluido.
+```
+
+No bucket ficam o catálogo (`meta.ducklake`), o manifesto (`ncm_manifesto.csv`)
+e os parquets em `lake/main_staging/` e `lake/main_intermediate/`.
+
+## Consultar o resultado
+
+```bash
+colibri lake tables
+```
+
+```
+╭──────────────────┬────────┬────────┬──────────╮
+│ Tabela           │ Tipo   │ Linhas │ Parquets │
+├──────────────────┼────────┼────────┼──────────┤
+│ int_ncm          │ tabela │ 15,156 │        1 │
+│ int_ncm_prefixos │ tabela │ 46,215 │        1 │
+│ stg_ncm          │ tabela │ 15,156 │        1 │
+╰──────────────────┴────────┴────────┴──────────╯
+```
+
+::: {.callout-warning}
+## `lake query`, `download` e `ui` contra o MinIO
+
+Hoje só `lake tables` funciona contra um endpoint `http`: os comandos que leem
+os parquets falham com
+
+```
+x IO Error: SSL connection failed error for HTTP GET to 'https://localhost:9000/colibri-prod/lake/...'
+```
+
+porque a conexão DuckLake não repassa o *scheme* do endpoint configurado (a
+issue [#72](https://github.com/gestaogovbr/colibri/issues/72); a correção é o PR
+[#73](https://github.com/gestaogovbr/colibri/pull/73)). Até o PR entrar, consulte
+o resultado pelo dbt (`cd dbt && dbt show --select int_ncm --target dev`) ou use
+um bucket `https` (R2/S3). Com o PR mergeado, `colibri lake query "SELECT count(*) FROM lake.main_intermediate.int_ncm"`
+passa a responder normalmente.
+:::
+
+Sobre a DuckDB UI (`colibri lake ui`): na primeira abertura ela carrega um
+caderno-exemplo do próprio DuckDB, cuja última célula grava um `trains.csv` de
+33 MB na pasta de onde o comando foi rodado. É só um conjunto de dados de
+amostra; pode apagar.
+
+## O que roda e o que não roda no ambiente local
+
+| Pipeline | No ambiente local | Observação |
+|----------|-------------------|------------|
+| `ncm` | **sim** | roteiro deste capítulo; ~1 minuto |
+| `pncp-comprasgov` | sim, mas pesado | ~23 GB baixados na primeira carga e arquivos de até 3,9 GB em memória; veja o PR [#88](https://github.com/gestaogovbr/colibri/pull/88) |
+| `catmats` | sim | pagina a API inteira do ComprasGOV a cada execução |
+| `nfe-cgu` | sim | baixa os ZIPs mensais do Portal da Transparência |
+| `margem-preferencia` | **não** | depende de planilhas do bucket privado oficial |
+| `tradutor-catmat-ncm` | **não** | idem |
+| `pncp-em-numeros` | parcial | ignora `--bucket`, usa sempre `colibri-prod` |
+
+## Solução de problemas
+
+| Sintoma | Causa | O que fazer |
+|---------|-------|-------------|
+| `SSL connection failed ... https://localhost:9000/...` em `lake query`/`download`/`ui` | endpoint `http` sem o PR #73 | ver o aviso acima |
+| `NoSuchBucket` | bucket não criado ou nome diferente do padrão | criar os buckets ou passar `--bucket` |
+| `Manifesto não encontrado no bucket, iniciando do zero` | primeira execução no bucket | normal |
+| dbt: `does not have a target named 'prod'` | template sem o target `prod` | duplicar o bloco `dev` como `prod` |
+| `colibri sincronizar` termina em traceback (`os.makedirs('')`) | issue [#76](https://github.com/gestaogovbr/colibri/issues/76) | corrigido no PR [#77](https://github.com/gestaogovbr/colibri/pull/77); os comandos `lake` não precisam dele |
+| `dbt: command not found` durante o pipeline | ambiente virtual desativado — o pipeline chama `dbt` do `PATH` | `source env/bin/activate` |
+
+## Zerar o ambiente
+
+```bash
+(cd ../colibri-minio && docker compose down && rm -rf minio-data)   # apaga o MinIO e os dados
+rm -f meta.ducklake meta.ducklake.wal ducklake_session.duckdb          # catálogo local
+rm -rf dados/                                                          # extrações e manifestos locais
+```
+
+Depois de `docker compose up -d` e de recriar os buckets, o próximo
+`colibri pipeline run --apenas ncm` parte do zero.
