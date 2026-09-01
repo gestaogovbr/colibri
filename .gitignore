@@ -27,6 +27,10 @@ ducklake_session.duckdb
 
 # Dados locais
 colibri-arquivos/
+# saída padrão de `colibri lake download` (raiz do repositório)
+/*.parquet
+# caderno-exemplo da DuckDB UI (`colibri lake ui`)
+trains.csv
 
 # MacOS
 .DS_Store
