@@ -21,6 +21,7 @@ book:
     - 04-guia-instalacao.qmd
     - 05-guia-desenvolvedor.qmd
     - 06-guia-analista.qmd
+    - 07-ambiente-de-desenvolvimento.qmd
 format:
   html:
     theme: [cosmo, colibri.scss]
