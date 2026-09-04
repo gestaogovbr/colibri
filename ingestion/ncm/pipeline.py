@@ -33,7 +33,7 @@ def main(bucket: str | None = None):
                 "dbt",
                 "run",
                 "--select",
-                "stg_ncm int_ncm int_ncm_prefixos stg_dim_margem_ncm",
+                "stg_ncm int_ncm int_ncm_prefixos",
                 "--project-dir",
                 str(DBT_DIR),
                 "--profiles-dir",
