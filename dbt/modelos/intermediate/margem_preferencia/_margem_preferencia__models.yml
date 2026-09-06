@@ -10,21 +10,42 @@ models:
       (tipo, percentual, critérios de qualificação admitidos).
       O prefixo_ncm pode ser um código NCM de 2, 4, 5, 6, 7 ou até mesmo o código
       completo, com 8 dígitos, conforme apresentado na resolução CICS ou CIIA-PAC.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [prefixo_ncm, resolucao, data_inicio]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: data_fim >= data_inicio
+          config:
+            where: data_fim IS NOT NULL
     columns:
       - name: prefixo_ncm
         data_type: varchar
         description: Prefixo do código NCM (Nomenclatura Comum do Mercosul) ao qual
           a margem de preferência se aplica.
+        data_tests: [not_null, dbt_utils.at_least_one]
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC) que instituiu a
           margem vigente neste intervalo (ex. 'res_cics_1', 'res_ciia_pac_3').
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_margem__resolucoes')
+                field: id
       - name: tipo_margem
         data_type: varchar
         description: Tipo de margem de preferência do intervalo.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [conteudo_nacional, tecnologia_nacional]
       - name: data_inicio
         data_type: date
         description: Data de início de vigência do intervalo.
+        data_tests: [not_null]
       - name: data_fim
         data_type: timestamp
         description: Data de fim de vigência do intervalo (nula se ainda vigente).
@@ -61,7 +82,9 @@ models:
         data_type: boolean
         description: Indica se este é o intervalo mais recente (por data_inicio) para
           o prefixo_ncm.
+        data_tests: [not_null]
       - name: ativa
         data_type: boolean
         description: Indica se este intervalo está atualmente vigente (é o mais recente
           e data_fim é nula).
+        data_tests: [not_null]

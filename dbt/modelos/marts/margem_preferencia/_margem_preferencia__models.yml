@@ -1,5 +1,8 @@
 ---
 version: 2
+# Marts de margem de preferência: expandem os prefixos NCM vigentes para os
+# códigos NCM completos, via ncm_prefixos.csv no bucket do lake. Um NCM aparece
+# uma vez por tipo de margem — os dois tipos podem valer para o mesmo código.
 models:
   - name: mrt_margem__ncms_cics
     description: >
@@ -7,20 +10,31 @@ models:
       dígitos), instituídas por resoluções CICS. Obtido a partir de
       int_margem__ncm_prefixos, expandindo cada prefixo_ncm para todos os
       códigos NCM que ele abrange e mantendo apenas os NCMs ainda ativos.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ncm, tipo_margem]
     columns:
       - name: ncm
         data_type: varchar
         description: Código NCM completo (8 dígitos) ao qual a margem se aplica.
+        data_tests: [not_null, dbt_utils.at_least_one]
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução CICS que instituiu a margem vigente
           (ex. 'res_cics_1').
+        data_tests: [not_null]
       - name: tipo_margem
         data_type: varchar
         description: Tipo de margem de preferência vigente.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [conteudo_nacional, tecnologia_nacional]
       - name: data_inicio
         data_type: date
         description: Data de início de vigência da margem.
+        data_tests: [not_null]
       - name: data_fim
         data_type: timestamp
         description: Data de fim de vigência da margem (sempre nula, já que apenas
@@ -58,20 +72,31 @@ models:
       dígitos), instituídas por resoluções CIIA-PAC. Obtido a partir de
       int_margem__ncm_prefixos, expandindo cada prefixo_ncm para todos os
       códigos NCM que ele abrange e mantendo apenas os NCMs ainda ativos.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [ncm, tipo_margem]
     columns:
       - name: ncm
         data_type: varchar
         description: Código NCM completo (8 dígitos) ao qual a margem se aplica.
+        data_tests: [not_null, dbt_utils.at_least_one]
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução CIIA-PAC que instituiu a margem vigente
           (ex. 'res_ciia_pac_3').
+        data_tests: [not_null]
       - name: tipo_margem
         data_type: varchar
         description: Tipo de margem de preferência vigente.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [conteudo_nacional, tecnologia_nacional]
       - name: data_inicio
         data_type: date
         description: Data de início de vigência da margem.
+        data_tests: [not_null]
       - name: data_fim
         data_type: timestamp
         description: Data de fim de vigência da margem (sempre nula, já que apenas
