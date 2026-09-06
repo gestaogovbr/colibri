@@ -127,10 +127,50 @@ Helpers compartilhados entre pipelines vivem em `utils/` (raiz do repo, não
 `baixar_catalogo.py`, `manifesto_bucket.py`, `salvar_arquivo_no_bucket.py`,
 `csv_para_parquet.py`, `ducklake.py`, entre outros.
 
+## Validação local do PNCP ComprasGOV
+
+O pipeline PNCP ComprasGOV executa este fluxo:
+
+1. Baixa os arquivos diários, mensais e anuais publicados pelo ComprasGOV.
+2. Compara o hash de cada arquivo com o registro correspondente no manifesto.
+3. Converte os arquivos CSV modificados para Parquet.
+4. Envia os arquivos convertidos ao bucket.
+5. Executa os modelos dbt de `compras`, `itens` e `resultados`.
+6. Envia o manifesto e o catálogo atualizados somente depois que o dbt termina
+   com sucesso.
+
+Três salvaguardas importantes já fazem parte da implementação atual:
+
+- `subprocess.run` recebe diretamente a lista de argumentos usada para chamar
+  o dbt;
+- `duckdb.read_csv(..., sample_size=-1)` considera o arquivo inteiro ao
+  inferir os tipos, inclusive quando identificadores como `id_compra` misturam
+  valores aparentemente numéricos e textuais;
+- `registrar_entrada` percorre o CSV de forma iterativa para contar as linhas,
+  sem carregar `list(csv.reader(...))` inteira em memória.
+
+Para validar o pipeline manualmente em um bucket de teste, execute:
+
+```bash
+colibri pipeline run --apenas pncp-comprasgov --bucket <BUCKET_DE_TESTE>
+colibri lake tables --bucket <BUCKET_DE_TESTE>
+colibri lake query "SELECT * FROM lake.main_marts.mrt_pncp_comprasgov_compras LIMIT 10" --bucket <BUCKET_DE_TESTE>
+```
+
+A validação é bem-sucedida quando:
+
+- o pipeline termina sem erro de conversão de `id_compra`;
+- o manifesto registra quantidade de linhas e colunas, tamanho e hash de cada
+  arquivo;
+- uma segunda execução ignora os arquivos cujo hash não mudou;
+- as tabelas `compras`, `itens` e `resultados` aparecem no catálogo;
+- uma falha do dbt não publica um manifesto com estado posterior ao dos dados
+  efetivamente processados.
+
 ## Checklist antes de abrir um PR
 
 O [template de PR](https://github.com/gestaogovbr/colibri/blob/main/.github/PULL_REQUEST_TEMPLATE.md)
-exige rodar, na raiz do repositório:
+exige rodar os testes automatizados, na raiz do repositório:
 
 ```bash
 ruff format .
@@ -142,3 +182,8 @@ cd dbt && ../env/bin/dbt test --project-dir . --profiles-dir . --target prod && 
 Note que o `dbt test` do checklist roda contra o **target `prod`**, usando o
 binário do dbt instalado no próprio ambiente virtual do projeto
 (`env/bin/dbt`) — não o `dbt` do PATH do sistema.
+
+Além dos testes automatizados, faça a validação manual descrita em
+[Validação local do PNCP ComprasGOV](#validação-local-do-pncp-comprasgov)
+quando a alteração envolver extração, manifesto, conversão para Parquet,
+acesso ao bucket ou modelos do ComprasGOV.
