@@ -55,8 +55,8 @@ models:
   - name: stg_pncp_comprasgov__resultados
     description: >
       Resultados (fornecedores vencedores) dos itens de compras do ComprasGOV/PNCP
-      (VW_DM_PNCP_ITEM_RESULTADO), unificando arquivos diário/mensal/anual.
-      Schema estável entre anos (sem variantes _pncp).
+      (VW_DM_PNCP_ITEM_RESULTADO), unificando arquivos diário/mensal/anual e
+      harmonizando colunas renomeadas com sufixo _pncp (alteração de schema em 2025).
     columns:
       - name: id_compra_item
         description: Identificador do item da compra ao qual o resultado se refere.
