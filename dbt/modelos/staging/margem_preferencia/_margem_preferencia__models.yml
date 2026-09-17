@@ -1,5 +1,9 @@
 ---
 version: 2
+# Documentação e testes dos modelos staging do pipeline de margem de
+# preferência. Os domínios de tipo_evento_margem e tipo_margem são literais
+# fixos nos macros margem_eventos_cics/margem_eventos_ciiapac, então
+# accepted_values aqui pega regressão nesses macros.
 models:
   - name: stg_margem__resolucoes
     description: >
@@ -11,6 +15,7 @@ models:
         data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC), usado para relacionar
           com stg_margem__eventos.resolucao (ex. 'res_cics_1', 'res_ciia_pac_3').
+        data_tests: [not_null, unique, dbt_utils.at_least_one]
       - name: nome
         data_type: varchar
         description: Nome completo da Resolução, conforme publicado (ex. Resolução
@@ -30,6 +35,7 @@ models:
         data_type: date
         description: Data de início de vigência da resolução, já contabilizado o vacatio
           legis, se houver (ex. 01/09/2024).
+        data_tests: [not_null]
       - name: sumario
         data_type: varchar
         description: Ementa que introduz o texto da resolução.
@@ -45,31 +51,54 @@ models:
       Além do instrumento da margem de preferência, a CIIA-PAC também instituiu
       requisito de conteúdo local como instrumento de compra, nas Resoluções Nº 1
       e 5 até o momento (tais resoluções são ignoradas aqui).
+    data_tests:
+      # Grão garantido pelo dedup do próprio modelo (ROW_NUMBER sobre estas três
+      # colunas, mantendo a margem de maior valor).
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [prefixo_ncm, data_evento, tipo_evento_margem]
     columns:
       - name: id_evento_margem
         data_type: bigint
         description: Identificador sequencial sintético do evento, gerado por ROW_NUMBER
           (não é uma chave natural nem estável entre execuções).
+        data_tests: [not_null, unique]
       - name: tipo_evento_margem
         data_type: varchar
         description: "Tipo do evento: 'habilita' (resolução passa a valer para o prefixo_ncm)\
           \ ou 'desabilita' (resolução deixa de valer)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [habilita, desabilita]
       - name: tipo_margem
         data_type: varchar
         description: "Tipo de margem de preferência do evento: 'conteudo_nacional'\
           \ ou 'tecnologia_nacional'."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [conteudo_nacional, tecnologia_nacional]
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC) associada ao evento,
           no mesmo formato de stg_margem__resolucoes.id (ex. 'res_cics_1', 'res_ciia_pac_3').
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_margem__resolucoes')
+                field: id
       - name: data_evento
         data_type: date
         description: Data de vigência da resolução associada ao evento (vigencia_inicio
           de stg_margem__resolucoes).
+        data_tests: [not_null]
       - name: prefixo_ncm
         data_type: varchar
         description: Prefixo do código NCM (Nomenclatura Comum do Mercosul) ao qual
           o evento se aplica.
+        data_tests: [not_null]
       - name: margem_normal_comprovante
         data_type: varchar
         description: Comprovante/regra de origem exigido para aplicação da margem
