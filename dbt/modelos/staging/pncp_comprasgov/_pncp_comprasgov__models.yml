@@ -8,6 +8,10 @@ version: 2
 # (já instalado em dbt/dbt_packages/codegen):
 #
 #   dbt run-operation generate_model_yaml --args '{"model_names": ["stg_pncp_comprasgov__compras"]}'
+#
+# Os testes cobrem os contratos de que o pipeline depende: chave de cada grão,
+# colunas que alimentam o SCD2 e o domínio de `granularidade` (que vem de um
+# regexp sobre o nome do arquivo de origem, em pncp_comprasgov_source).
 models:
   - name: stg_pncp_comprasgov__compras
     description: >
@@ -16,6 +20,7 @@ models:
     columns:
       - name: cod_compra
         description: Código único da compra.
+        data_tests: [not_null]
       - name: id_compra
         description: Identificador da compra no ComprasGOV.
       - name: numero_controle_pncp
@@ -25,12 +30,17 @@ models:
       - name: data_atualizacao
         description: Data da última atualização do registro (usada para versionamento
           SCD2).
+        data_tests: [not_null]
       - name: valor_total_estimado
         description: Valor total estimado da compra.
       - name: valor_total_homologado
         description: Valor total homologado da compra.
       - name: granularidade
         description: Granularidade do arquivo de origem (diario, mensal ou anual).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [diario, mensal, anual]
       - name: periodo
         description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
   - name: stg_pncp_comprasgov__itens
@@ -41,6 +51,7 @@ models:
     columns:
       - name: id_compra_item
         description: Identificador único do item da compra.
+        data_tests: [not_null]
       - name: cod_compra
         description: Código da compra à qual o item pertence.
       - name: numero_item
@@ -48,28 +59,48 @@ models:
       - name: data_atualizacao
         description: Data da última atualização do registro (usada para versionamento
           SCD2).
+        data_tests: [not_null]
       - name: granularidade
         description: Granularidade do arquivo de origem (diario, mensal ou anual).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [diario, mensal, anual]
       - name: periodo
         description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
   - name: stg_pncp_comprasgov__resultados
     description: >
       Resultados (fornecedores vencedores) dos itens de compras do ComprasGOV/PNCP
-      (VW_DM_PNCP_ITEM_RESULTADO), unificando arquivos diário/mensal/anual.
-      Schema estável entre anos (sem variantes _pncp).
+      (VW_DM_PNCP_ITEM_RESULTADO), unificando arquivos diário/mensal/anual e
+      harmonizando colunas renomeadas com sufixo _pncp (alteração de schema em 2025).
     columns:
       - name: id_compra_item
         description: Identificador do item da compra ao qual o resultado se refere.
+        data_tests: [not_null]
       - name: sequencial_resultado
         description: Número sequencial do resultado dentro do item (um item pode ter
           múltiplos resultados).
+        data_tests: [not_null]
       - name: data_atualizacao
         description: Data da última atualização do registro (usada para versionamento
           SCD2).
+        # `warn` enquanto a issue 95 estiver aberta: hoje a produção tem 5.729.922
+        # linhas com esta coluna nula, porque o modelo não harmoniza as variantes
+        # _pncp. O PR 96 zera essa contagem; depois dele (e de um run
+        # --full-refresh) este teste deve passar a `error`, como os equivalentes
+        # de compras e itens.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
       - name: data_resultado
         description: Data em que o resultado foi registrado.
       - name: granularidade
         description: Granularidade do arquivo de origem (diario, mensal ou anual).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [diario, mensal, anual]
       - name: periodo
         description: Período do arquivo de origem (ex. 2024-01-15, 2024-01 ou 2024).
   - name: int_pncp_comprasgov__compras
@@ -77,40 +108,86 @@ models:
       Compras deduplicadas e versionadas (SCD2) a partir de stg_pncp_comprasgov__compras.
       Cada combinação de cod_compra possui um histórico de versões delimitado por
       valido_de/valido_ate, com is_current marcando a versão vigente.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cod_compra, data_atualizacao]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
     columns:
       - name: cod_compra
         description: Código único da compra.
+        data_tests: [not_null]
       - name: valido_de
         description: Data a partir da qual esta versão do registro é válida.
+        data_tests: [not_null]
       - name: valido_ate
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
+        data_tests: [not_null]
   - name: int_pncp_comprasgov__itens
     description: >
       Itens de compra deduplicados e versionados (SCD2) a partir de
       stg_pncp_comprasgov__itens, particionados por id_compra_item.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_compra_item, data_atualizacao]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
     columns:
       - name: id_compra_item
         description: Identificador único do item da compra.
+        data_tests: [not_null]
       - name: valido_de
         description: Data a partir da qual esta versão do registro é válida.
+        data_tests: [not_null]
       - name: valido_ate
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
+        data_tests: [not_null]
   - name: int_pncp_comprasgov__resultados
     description: >
       Resultados de itens deduplicados e versionados (SCD2) a partir de
       stg_pncp_comprasgov__resultados, particionados por (id_compra_item, sequencial_resultado).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - id_compra_item
+              - sequencial_resultado
+              - data_atualizacao
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
     columns:
       - name: id_compra_item
         description: Identificador do item da compra ao qual o resultado se refere.
+        data_tests: [not_null]
       - name: sequencial_resultado
         description: Número sequencial do resultado dentro do item.
+        data_tests: [not_null]
       - name: valido_de
         description: Data a partir da qual esta versão do registro é válida.
+        # `warn` enquanto a issue 95 estiver aberta: valido_de é copiado de
+        # data_atualizacao, que hoje vem nula para as linhas com schema _pncp.
+        # São 3.139.083 linhas em produção. Vira `error` depois do PR 96.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
       - name: valido_ate
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
+        data_tests: [not_null]
