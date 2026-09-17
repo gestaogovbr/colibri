@@ -358,6 +358,29 @@ def _conectar_lake(bucket: str, segredo: str):
     return dl.conectar(caminho_meta, data_path, segredo)
 
 
+def _resolver_tabela(con, tabela: str) -> str | None:
+    """Resolve o schema de uma tabela ou view consultando o catálogo DuckLake."""
+    row = con.execute(
+        """
+        SELECT s.schema_name
+        FROM __ducklake_metadata_lake.main.ducklake_schema s
+        JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
+        WHERE t.table_name = ? AND t.end_snapshot IS NULL
+
+        UNION ALL
+
+        SELECT s.schema_name
+        FROM __ducklake_metadata_lake.main.ducklake_schema s
+        JOIN __ducklake_metadata_lake.main.ducklake_view v USING (schema_id)
+        WHERE v.view_name = ? AND v.end_snapshot IS NULL
+
+        LIMIT 1
+    """,
+        [tabela, tabela],
+    ).fetchone()
+    return row[0] if row else None
+
+
 @lake.command("tables")
 @click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
@@ -411,6 +434,11 @@ def tabelas(bucket: str, segredo: str):
 
 @lake.command("years")
 @click.argument("tabela")
+@click.option(
+    "--coluna",
+    default=None,
+    help="Coluna de ano ou data para agrupar (padrão: 'ano', senão 'ano_compra')",
+)
 @click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
     "--segredo",
@@ -418,13 +446,53 @@ def tabelas(bucket: str, segredo: str):
     show_default=True,
     help="Segredo com acesso ao bucket",
 )
-def anos(tabela: str, bucket: str, segredo: str):
+def anos(tabela: str, coluna: str | None, bucket: str, segredo: str):
     """Mostra contagem de linhas por ano de uma tabela"""
     con = _conectar_lake(bucket, segredo)
     try:
+        schema = _resolver_tabela(con, tabela)
+    except Exception as e:
+        console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
+        con.close()
+        return
+
+    if not schema:
+        console.print(f"[red]x[/red] Tabela não encontrada: [bold]{tabela}[/bold]")
+        con.close()
+        return
+
+    colunas = dict(
+        con.execute(
+            "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
+            [schema, tabela],
+        ).fetchall()
+    )
+
+    if coluna is None:
+        coluna = next((c for c in ("ano", "ano_compra") if c in colunas), None)
+        if coluna is None:
+            candidatas = [c for c, t in colunas.items() if "DATE" in t or "TIMESTAMP" in t or c.startswith("ano")]
+            console.print(
+                "[red]x[/red] A tabela não tem coluna [bold]ano[/bold] nem "
+                "[bold]ano_compra[/bold]. Use --coluna. Candidatas: "
+                f"{', '.join(candidatas) or 'nenhuma encontrada'}"
+            )
+            con.close()
+            return
+    elif coluna not in colunas:
+        console.print(f"[red]x[/red] Coluna não encontrada: [bold]{coluna}[/bold]")
+        con.close()
+        return
+
+    if "DATE" in colunas[coluna] or "TIMESTAMP" in colunas[coluna]:
+        expr = f'year("{coluna}")'
+    else:
+        expr = f'TRY_CAST(TRY_CAST("{coluna}" AS DOUBLE) AS INTEGER)'
+
+    try:
         rows = con.execute(f"""
-            SELECT ano, count(*) AS n
-            FROM lake.main.{tabela}
+            SELECT {expr} AS ano, count(*) AS n
+            FROM lake.{schema}.{tabela}
             GROUP BY ano ORDER BY ano
         """).fetchall()
     except Exception as e:
@@ -436,7 +504,7 @@ def anos(tabela: str, bucket: str, segredo: str):
     tb = _tabela_dados("Ano", ("Linhas", {"justify": "right"}))
     total = 0
     for row in rows:
-        tb.add_row(str(row[0]), f"{row[1]:,}")
+        tb.add_row(str(row[0]) if row[0] is not None else "—", f"{row[1]:,}")
         total += row[1]
     tb.add_section()
     tb.add_row("[bold]Total[/bold]", f"[bold {AZUL}]{total:,}[/]")
@@ -457,35 +525,17 @@ def lake_download(tabela: str, destino: str | None, bucket: str, segredo: str):
     """Baixa os parquets de uma tabela do catálogo para o disco"""
     con = _conectar_lake(bucket, segredo)
     try:
-        row = con.execute(
-            """
-            SELECT s.schema_name
-            FROM __ducklake_metadata_lake.main.ducklake_schema s
-            JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
-            WHERE t.table_name = ? AND t.end_snapshot IS NULL
-
-            UNION ALL
-
-            SELECT s.schema_name
-            FROM __ducklake_metadata_lake.main.ducklake_schema s
-            JOIN __ducklake_metadata_lake.main.ducklake_view v USING (schema_id)
-            WHERE v.view_name = ? AND v.end_snapshot IS NULL
-
-            LIMIT 1
-        """,
-            [tabela, tabela],
-        ).fetchone()
+        schema_name = _resolver_tabela(con, tabela)
     except Exception as e:
         console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
         con.close()
         return
 
-    if not row:
+    if not schema_name:
         console.print(f"[red]x[/red] Tabela não encontrada: [bold]{tabela}[/bold]")
         con.close()
         return
 
-    schema_name = row[0]
     saida = destino or f"{tabela}.parquet"
 
     with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Exportando..."), transient=True) as p:
