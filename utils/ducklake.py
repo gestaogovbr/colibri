@@ -61,7 +61,13 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     """
     Cria uma conexão duckdb local, contendo todas as extensões e credenciais pra falar com o bucket
     """
-    endpoint = urlparse(config["endpoint"]).netloc
+    endpoint_parseado = urlparse(config["endpoint"])
+    endpoint = endpoint_parseado.netloc
+
+    # O padrão do DuckDB é SSL ligado; endpoints http (ex.: MinIO local em
+    # ambiente de desenvolvimento) exigem desligá-lo explicitamente.
+    usar_ssl = "true" if endpoint_parseado.scheme != "http" else "false"
+
     if os.path.exists(SESSION_DB):
         os.remove(SESSION_DB)
     con = duckdb.connect(SESSION_DB)
@@ -70,6 +76,7 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     con.execute("INSTALL ducklake")
     con.execute("LOAD ducklake")
     con.execute(f"SET GLOBAL s3_endpoint = '{endpoint}'")
+    con.execute(f"SET GLOBAL s3_use_ssl = {usar_ssl}")
     con.execute(f"SET GLOBAL s3_access_key_id = '{config['access_key']}'")
     con.execute(f"SET GLOBAL s3_secret_access_key = '{config['secret_key']}'")
     con.execute("SET GLOBAL s3_region = 'auto'")

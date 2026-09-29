@@ -29,3 +29,30 @@ colibri:
           alias: lake
           options:
             data_path: s3://<R2_BUCKET>/lake/
+    prod:
+      type: duckdb
+      path: ../dados/lakehouse_prod.duckdb
+      threads: 4
+      extensions: [httpfs, ducklake]
+      secrets:
+        - type: s3
+          provider: config
+          key_id: R2_KEY
+          secret: R2_SECRET
+          endpoint: <R2_ACCOUNT_ID>.r2.cloudflarestorage.com
+          region: auto
+          url_style: path
+          use_ssl: true
+      config_options:
+        temp_directory: ../dados/duckdb_tmp
+      settings:
+        http_timeout: 3600000
+        http_retries: 10
+        http_retry_wait_ms: 4000
+        http_retry_backoff: 2
+        preserve_insertion_order: false
+      attach:
+        - path: ducklake:../meta.ducklake
+          alias: lake
+          options:
+            data_path: s3://<R2_BUCKET>/lake/

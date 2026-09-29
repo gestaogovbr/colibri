@@ -1,0 +1,86 @@
+---
+version: 2
+# Modelos mart do pipeline PNCP/ComprasGOV: views sobre os intermediate,
+# filtrando is_current. São as tabelas que o usuário externo consulta, então
+# os testes aqui descrevem o contrato publicado — uma linha por chave e a
+# chave sempre preenchida.
+#
+# A descrição coluna a coluna destes modelos é o escopo da issue 19; aqui estão
+# documentadas apenas as colunas cobertas por teste.
+models:
+  - name: mrt_pncp_comprasgov_compras
+    description: >
+      Versão vigente de cada compra do ComprasGOV/PNCP: uma linha por cod_compra,
+      filtrando is_current sobre int_pncp_comprasgov__compras.
+    columns:
+      - name: cod_compra
+        data_type: varchar
+        description: Código único da compra. Chave da tabela.
+        data_tests: [not_null, unique, dbt_utils.at_least_one]
+      - name: valido_de
+        data_type: date
+        description: Data a partir da qual esta versão do registro é válida.
+        data_tests: [not_null]
+  - name: mrt_pncp_comprasgov_itens
+    description: >
+      Versão vigente de cada item de compra: uma linha por id_compra_item,
+      filtrando is_current sobre int_pncp_comprasgov__itens.
+    columns:
+      - name: id_compra_item
+        data_type: varchar
+        description: Identificador único do item da compra. Chave da tabela.
+        data_tests: [not_null, unique, dbt_utils.at_least_one]
+      - name: cod_compra
+        data_type: varchar
+        description: Código da compra à qual o item pertence.
+        # `warn`: a fonte publica itens de compras que nunca chegaram nos arquivos
+        # de compras. Medido em produção em 2026-09-05: 41.588 itens órfãos (0,43%),
+        # e os cod_compra correspondentes não existem nem no staging de compras —
+        # não é efeito do SCD2, é lacuna do ComprasGOV. O teste serve para vigiar a
+        # ordem de grandeza; se subir muito, é sinal de falha de ingestão.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('mrt_pncp_comprasgov_compras')
+                field: cod_compra
+              config:
+                severity: warn
+      - name: valido_de
+        data_type: date
+        description: Data a partir da qual esta versão do registro é válida.
+        data_tests: [not_null]
+  - name: mrt_pncp_comprasgov_resultados
+    description: >
+      Versão vigente de cada resultado de item: uma linha por
+      (id_compra_item, sequencial_resultado), filtrando is_current sobre
+      int_pncp_comprasgov__resultados.
+    data_tests:
+      # `warn` enquanto a issue 95 estiver aberta: com data_atualizacao nula o
+      # SCD2 marca mais de uma versão como vigente e o mart duplica a chave.
+      # Medido em produção em 2026-09-05: 1.456.673 chaves com mais de uma linha.
+      # O PR 96 zera isso; depois dele (e de um run --full-refresh) este teste
+      # vira `error`.
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_compra_item, sequencial_resultado]
+          config:
+            severity: warn
+    columns:
+      - name: id_compra_item
+        data_type: varchar
+        description: Identificador do item da compra ao qual o resultado se refere.
+        data_tests:
+          - not_null
+          - dbt_utils.at_least_one
+          # `warn`, mesma natureza do órfão de itens: 2.936 resultados em produção
+          # (0,05%) apontam para itens que a fonte nunca publicou.
+          - relationships:
+              arguments:
+                to: ref('mrt_pncp_comprasgov_itens')
+                field: id_compra_item
+              config:
+                severity: warn
+      - name: sequencial_resultado
+        data_type: varchar
+        description: Número sequencial do resultado dentro do item.
+        data_tests: [not_null]

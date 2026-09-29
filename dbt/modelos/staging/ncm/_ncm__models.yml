@@ -10,6 +10,8 @@ models:
     columns:
       - name: codigo
         description: Código NCM (pode conter pontos, ex. "01.06.32.00").
+        # Sem `unique`: o modelo é append e acumula uma linha por (código, versão).
+        data_tests: [not_null]
       - name: descricao
         description: Descrição do código NCM.
       - name: nivel
@@ -18,28 +20,62 @@ models:
         description: Caminho completo da hierarquia do código até o nó atual.
       - name: _source_file
         description: Caminho do arquivo CSV de origem (inclui timestamp da versão).
+        data_tests: [not_null]
   - name: int_ncm
     description: >
       Versão mais recente de cada código NCM, deduplicada a partir de
       stg_ncm. Atualizada integralmente a cada nova versão do NCM.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [codigo, valido_de]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
     columns:
       - name: codigo
         description: Código NCM.
+        # Uma única versão vigente por código: é o que int_ncm_prefixos assume ao
+        # cruzar a tabela consigo mesma filtrando is_current.
+        data_tests:
+          - not_null
+          - unique:
+              config:
+                where: is_current
       - name: nivel
         description: Nível hierárquico (Capítulo, Posição, Subposição 1/2, Item, Subitem).
       - name: capitulo_codigo
         description: Código do capítulo ancestral do item.
+      - name: valido_de
+        description: Data a partir da qual esta versão do registro é válida.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: Data até a qual esta versão do registro é válida (nula se vigente).
+      - name: is_current
+        description: Indica se esta é a versão mais recente do registro.
+        data_tests: [not_null]
   - name: int_ncm_prefixos
     description: >
       Tabela de lookup prefixo→subitem: para cada código de prefixo NCM
       (capítulo 2 dígitos, posição 4, subposição 5/6, item 7), lista todos
       os subitens (8 dígitos) que pertencem a ele. Derivada de int_ncm via
       self-joins por prefixo de código (sem pontos).
+    data_tests:
+      # Os seis blocos do UNION ALL usam prefixos de comprimentos diferentes, então
+      # nenhum par (prefixo, codigo) pode sair repetido. Se sair, ou int_ncm ganhou
+      # mais de uma versão vigente para o mesmo código, ou um dos blocos mudou.
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [prefixo, codigo]
     columns:
       - name: prefixo
         description: Código do nó ancestral (sem pontos).
+        data_tests: [not_null, dbt_utils.at_least_one]
       - name: codigo
         description: Código do subitem (8 dígitos, sem pontos).
+        data_tests: [not_null]
       - name: nivel
         description: Nível do subitem (sempre "Subitem").
       - name: capitulo_codigo
