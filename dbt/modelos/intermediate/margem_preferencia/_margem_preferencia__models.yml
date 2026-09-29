@@ -19,6 +19,11 @@ models:
             expression: data_fim >= data_inicio
           config:
             where: data_fim IS NOT NULL
+      # ativa só pode ser true quando o intervalo ainda está aberto (data_fim nula),
+      # pela própria definição em marcadores (int_margem__ncm_prefixos.sql)
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: NOT (ativa AND data_fim IS NOT NULL)
     columns:
       - name: prefixo_ncm
         data_type: varchar
@@ -28,7 +33,7 @@ models:
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC) que instituiu a
-          margem vigente neste intervalo (ex. 'res_cics_1', 'res_ciia_pac_3').
+          margem vigente neste intervalo (ex. 'cics_1', 'ciiapac_3').
         data_tests:
           - not_null
           - relationships:
@@ -47,14 +52,20 @@ models:
         description: Data de início de vigência do intervalo.
         data_tests: [not_null]
       - name: data_fim
-        data_type: timestamp
+        data_type: date
         description: Data de fim de vigência do intervalo (nula se ainda vigente).
       - name: margem_normal_comprovante
         data_type: varchar
         description: Comprovante exigido para aplicação da margem de preferência normal.
       - name: margem_normal_pct
         data_type: double
-        description: Percentual da margem de preferência normal.
+        description: Percentual da margem de preferência normal, já dividido por 100
+          (ex. 0.08 para 8%).
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: BETWEEN 0 AND 1
       - name: margem_adicional_comprovante
         data_type: varchar
         description: Comprovante exigido para aplicação da margem de preferência adicional.

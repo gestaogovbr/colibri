@@ -14,31 +14,13 @@ models:
       - name: id
         data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC), usado para relacionar
-          com stg_margem__eventos.resolucao (ex. 'res_cics_1', 'res_ciia_pac_3').
+          com stg_margem__eventos.resolucao (ex. 'cics_1', 'ciiapac_3').
         data_tests: [not_null, unique, dbt_utils.at_least_one]
-      - name: nome
-        data_type: varchar
-        description: Nome completo da Resolução, conforme publicado (ex. Resolução
-          SEGES-CICS/MGI Nº 1, de 2 de julho de 2024).
-      - name: data
-        data_type: date
-        description: Data de criação da resolução, apresentada em seu nome (ex. 02/07/2024).
-      - name: publicacao
-        data_type: date
-        description: Data da publicação da resolução, que pode não coincidir (ex.
-          03/07/2024).
-      - name: vacatio_legis
-        data_type: int
-        description: Número de dias de vacatio legis previsto no corpo da resolução
-          (ex. 60).
       - name: vigencia_inicio
         data_type: date
         description: Data de início de vigência da resolução, já contabilizado o vacatio
           legis, se houver (ex. 01/09/2024).
         data_tests: [not_null]
-      - name: sumario
-        data_type: varchar
-        description: Ementa que introduz o texto da resolução.
   - name: stg_margem__eventos
     description: >
       Eventos de habilitação/desabilitação de margens de preferência por prefixo NCM,
@@ -82,7 +64,7 @@ models:
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução (CICS ou CIIA-PAC) associada ao evento,
-          no mesmo formato de stg_margem__resolucoes.id (ex. 'res_cics_1', 'res_ciia_pac_3').
+          no mesmo formato de stg_margem__resolucoes.id (ex. 'cics_1', 'ciiapac_3').
         data_tests:
           - not_null
           - relationships:
@@ -105,15 +87,31 @@ models:
           de preferência normal.
       - name: margem_normal_pct
         data_type: double
-        description: Percentual da margem de preferência normal.
+        description: Percentual da margem de preferência normal, já dividido por 100
+          (ex. 0.08 para 8%).
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: BETWEEN 0 AND 1
       - name: margem_adicional_comprovante
         data_type: varchar
         description: Comprovante/regra de qualificação exigido para aplicação da margem
           de preferência adicional (nulo quando o evento não prevê margem adicional).
+        data_tests:
+          # margem_adicional_comprovante e margem_adicional_pct são preenchidos juntos
+          # ou nulos juntos, pela lógica das macros margem_eventos_cics/margem_eventos_ciiapac.
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: IS NULL = (margem_adicional_pct IS NULL)
       - name: margem_adicional_pct
         data_type: double
-        description: Percentual da margem de preferência adicional (nulo quando o
-          evento não prevê margem adicional).
+        description: Percentual da margem de preferência adicional, já dividido por
+          100 (nulo quando o evento não prevê margem adicional).
+        data_tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: IS NULL OR margem_adicional_pct BETWEEN 0 AND 1
       - name: margem_sustentabilidade_pct
         data_type: decimal(3,2)
         description: Percentual da margem de preferência de sustentabilidade (sempre
