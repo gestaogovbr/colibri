@@ -202,6 +202,23 @@ colibri lake maintenance                # expira snapshots antigos e apaga parqu
 colibri docs                            # documentação dos modelos dbt (exige o dbt configurado)
 ```
 
+O dbt do projeto é o **dbt-core** que o `pip install -e .` coloca no `env`. O
+**dbt Fusion** (o instalador que o site do dbt oferece hoje como padrão) ainda não
+é compatível: ele traz uma extensão `ducklake` mais nova, que só abre o lake depois
+de migrar o catálogo, e essa migração não tem volta — o dbt-core do projeto deixa
+de abrir o lake. Se algum erro sugerir `AUTOMATIC_MIGRATION`, não force a migração.
+
+Para conferir qual dbt está respondendo, com o `env` ativo:
+
+```bash
+dbt --version     # deve mostrar "Core:" e, em Plugins, "duckdb: 1.10.1"
+which dbt         # Windows: where.exe dbt — deve apontar para o env do projeto
+```
+
+Se a primeira linha disser `dbt-fusion`, o binário do Fusion (em geral em
+`~/.local/bin`) está na frente do `env` no `PATH`: desinstale-o ou ajuste o `PATH`
+(issue #102).
+
 `colibri <comando> --help` mostra as opções. O passo a passo — instalação do dbt,
 ambiente de desenvolvimento, camadas, testes e checklist de PR — está no site:
 
