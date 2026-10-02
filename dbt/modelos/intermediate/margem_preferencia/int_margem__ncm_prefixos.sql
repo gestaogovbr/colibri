@@ -76,7 +76,9 @@ marcadores AS (
 enumerated AS (
     SELECT *, ROW_NUMBER() OVER (
         PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm, data_inicio
-        ORDER BY (margem_normal_pct + margem_adicional_pct + margem_sustentabilidade_pct) DESC
+        -- COALESCE: margem_sustentabilidade_pct é sempre nula e margem_adicional_pct pode ser;
+        -- sem ele a soma vira NULL e o desempate fica arbitrário (issue #105)
+        ORDER BY (margem_normal_pct + COALESCE(margem_adicional_pct, 0) + COALESCE(margem_sustentabilidade_pct, 0)) DESC
     ) AS rn
     FROM marcadores
 ),
