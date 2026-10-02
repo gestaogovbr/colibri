@@ -70,6 +70,27 @@ Instala a CLI localmente, junto com as dependências Python do projeto.
 pip install -e .
 ```
 
+Isso também instala o dbt do projeto: o **dbt-core** com o adaptador
+`dbt-duckdb`, dentro do `env`. Confira que é ele que responde:
+
+```bash
+dbt --version     # deve mostrar "Core:" e, em Plugins, "duckdb: 1.10.1"
+which dbt         # Windows: where.exe dbt — deve apontar para o env do projeto
+```
+
+::: {.callout-warning}
+## Use o dbt-core, não o dbt Fusion
+
+O **dbt Fusion** (o instalador que o site do dbt oferece hoje como padrão) ainda
+não é compatível com o lake. Ele traz uma extensão `ducklake` mais nova, que só
+abre o catálogo depois de migrá-lo — e a migração não tem volta: depois dela, o
+dbt-core do projeto, o CI e os pipelines deixam de abrir o lake.
+
+Se `dbt --version` começar com `dbt-fusion`, o binário do Fusion (em geral em
+`~/.local/bin`) está na frente do `env` no `PATH`: desinstale-o ou ajuste o
+`PATH`. Se algum erro sugerir `AUTOMATIC_MIGRATION`, não force a migração.
+:::
+
 ### 4. Instalar as dependências do dbt
 
 ```bash
@@ -180,5 +201,6 @@ seu próprio bucket, sem depender da infraestrutura oficial do Colibri.
 | `NoSuchBucket` | Nome do bucket incorreto ou uso do padrão de produção | Confira o nome do bucket e repita o comando com `--bucket`. |
 | Segredo ausente | `.segredos.yml` inexistente ou nome incorreto | Copie o template e confira a configuração de `colibri-token-desenvolvedor`. |
 | Falha do dbt | `profiles.yml` ou dependências ausentes | Execute novamente `dbt deps` e confira a configuração do profile. |
+| Todos os testes do dbt falham em menos de 0,1 s, com menção a `AUTOMATIC_MIGRATION` | O `dbt` no `PATH` é o dbt Fusion, não o dbt-core do `env` | Confira `dbt --version` e `which dbt` (passo 3). Não force a migração do catálogo. |
 | Falta de espaço ou memória | Carga completa do ComprasGOV | Libere recursos e teste um pipeline por vez. |
 | Falha de rede | Downloads grandes ou conexão instável | Execute novamente; o manifesto permite ignorar arquivos já processados e com o mesmo hash. |
