@@ -6,8 +6,12 @@ nos modelos desta fonte -> sincroniza o catálogo. É a mesma coreografia dos ou
 pipelines do projeto; a diferença é que aqui o período é um argumento, porque a
 varredura completa (~84 h, ver docs/nota-pncp-api.md) não cabe numa execução só.
 
+O bucket é obrigatório e não tem padrão: o pipeline regrava o catálogo do bucket
+de destino, e cair em produção por esquecer uma flag não pode ser o comportamento
+padrão. Para escrever em produção, passe o bucket de produção explicitamente.
+
 Uso:
-  python -m ingestion.pncp.pipeline --ano 2026 --mes 8
+  python -m ingestion.pncp.pipeline --ano 2026 --mes 8 --bucket colibri-dev
 """
 
 import argparse
@@ -19,7 +23,6 @@ from ingestion.pncp.extract import DIRETORIO_SAIDA, MODALIDADES, executar
 from utils.baixar_catalogo import baixar_catalogo
 from utils.carregar_segredo import carregar_segredo
 from utils.constantes import (
-    BUCKET_PRODUCAO,
     CATALOGO_LOCAL,
     DBT_DIR,
     NOME_SEGREDO_DESENVOLVEDOR,
@@ -33,11 +36,8 @@ logger = logging.getLogger(__name__)
 MODELOS_DBT = "stg_pncp__contratacoes"
 
 
-def main(
-    ano: int, mes: int, eixo: str = "atualizacao", modalidades: list[int] | None = None, bucket: str | None = None
-):
+def main(ano: int, mes: int, bucket: str, eixo: str = "atualizacao", modalidades: list[int] | None = None):
     os.chdir(RAIZ_PROJETO)
-    bucket = bucket or BUCKET_PRODUCAO
     modalidades = modalidades or list(MODALIDADES)
 
     config = carregar_segredo(NOME_SEGREDO_DESENVOLVEDOR)
@@ -82,6 +82,8 @@ if __name__ == "__main__":
     analisador.add_argument("--ano", type=int, required=True)
     analisador.add_argument("--mes", type=int, required=True)
     analisador.add_argument("--eixo", choices=["atualizacao", "publicacao"], default="atualizacao")
-    analisador.add_argument("--bucket", default=None)
+    analisador.add_argument(
+        "--bucket", required=True, help="bucket de destino (ex.: colibri-dev); produção só de propósito"
+    )
     argumentos = analisador.parse_args()
-    main(argumentos.ano, argumentos.mes, argumentos.eixo, bucket=argumentos.bucket)
+    main(argumentos.ano, argumentos.mes, argumentos.bucket, argumentos.eixo)
