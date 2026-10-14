@@ -783,8 +783,9 @@ def sincronizar(segredo: str):
         ("meta.ducklake", CATALOGO_LOCAL),
     ]
 
+    ausentes = []
     for chave, destino in itens:
-        os.makedirs(os.path.dirname(destino), exist_ok=True)
+        os.makedirs(os.path.dirname(destino) or ".", exist_ok=True)
         try:
             with Progress(
                 SpinnerColumn(),
@@ -795,8 +796,17 @@ def sincronizar(segredo: str):
                 s3.download_file(bucket, chave, destino)
             tamanho = os.path.getsize(destino)
             console.print(f"[green]+[/green] {chave} -> [bold]{destino}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound"):
+                ausentes.append(chave)
+                console.print(f"[yellow]![/yellow] {chave}: não encontrado no bucket")
+            else:
+                console.print(f"[red]x[/red] {chave}: {e}")
         except Exception as e:
             console.print(f"[red]x[/red] {chave}: {e}")
+
+    if ausentes:
+        console.print(f"\n[yellow]Arquivos não encontrados no bucket:[/yellow] {', '.join(ausentes)}")
 
 
 @cli.command("docs")
