@@ -828,6 +828,8 @@ def docs(sem_servidor: bool):
             str(dbt_dir),
             "--profiles-dir",
             str(dbt_dir),
+            "--target",
+            "prod",
         ],
         cwd=str(dbt_dir),
         check=True,
