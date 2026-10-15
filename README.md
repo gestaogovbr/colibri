@@ -2,12 +2,16 @@
 ![](colibri_fundo_verde.png)
 Mini data lakehouse do Observatório de Contratações Públicas
 
+Este README é o caminho mais curto para **instalar o colibri e consultar os dados**.
+A documentação completa está no site — instalação passo a passo, guia do analista
+(SQL, R, Python, DuckDB UI) e guia do desenvolvedor:
+**https://gestaogovbr.github.io/colibri/**
+
 # Instalação
 
+## 1. Python
 
-## Python
-
-O Colibri requer Python 3.12 ou superior.
+O colibri requer Python 3.12 ou superior.
 
 Se ainda não tiver o Python instalado:
 
@@ -32,157 +36,197 @@ brew install python@3.12
 
 Baixe o instalador em
 [python.org/downloads](https://www.python.org/downloads/) e siga as
-instruções.
+instruções. No Windows, marque a opção *Add python.exe to PATH* na primeira
+tela do instalador.
 
 </details>
 
-## Colibri
+## 2. Clonar o repositório e criar o ambiente virtual
 
-1. Clone o repositório
+Um ambiente virtual isola as dependências do colibri do resto do sistema. Crie-o
+dentro da pasta do repositório, com o nome `env` — é o que o `.gitignore` e o
+restante da documentação assumem.
+
+**Mac / Linux**
+
 ```bash
-git clone https://github.com/heitorgama/colibri
+git clone https://github.com/gestaogovbr/colibri
 cd colibri
+python3 -m venv env
+source env/bin/activate
 ```
 
-2. Instale a CLI do `colibri` localmente (instala as dependências do Python)
+**Windows (PowerShell)**
+
+```powershell
+git clone https://github.com/gestaogovbr/colibri
+cd colibri
+python -m venv env
+.\env\Scripts\Activate.ps1
+```
+
+Se o PowerShell bloquear a ativação com um erro de política de execução, rode
+uma vez (sem precisar de administrador) e ative de novo:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Com o ambiente ativo, o prompt passa a mostrar `(env)`. Ative-o sempre que abrir
+um terminal novo para usar o colibri.
+
+## 3. Instalar a CLI
+
 ```bash
 pip install -e .
+colibri --help
 ```
 
-3. Instale as dependências do dbt
+## 4. Credenciais
+
+Copie o template e preencha com as credenciais que você recebeu:
+
 ```bash
-cd dbt
-dbt deps
-cd ..
+cp .segredos_template.yml .segredos.yml     # Windows: copy .segredos_template.yml .segredos.yml
 ```
 
-4. Configure os segredos do bucket R2: copie o template e preencha com suas
-   credenciais
-```bash
-cp .segredos_template.yml .segredos.yml
-```
+O arquivo tem dois perfis:
 
-5. Configure o `profiles.yml` do dbt: copie o template (já vem pronto, sem
-   caminhos para editar — os caminhos são relativos ao diretório `dbt/`)
-```bash
-cp dbt/profiles_template.yml dbt/profiles.yml
-```
+- `colibri-token-visualizador` — **somente leitura**. É o que os comandos
+  `colibri lake` usam por padrão, e tudo de que você precisa para consultar os dados.
+- `colibri-token-desenvolvedor` — leitura e escrita, para rodar pipelines e alterar
+  o lake. Só quem desenvolve precisa dele (veja [Para desenvolver](#para-desenvolver)).
 
-## Desinstalação da CLI
-```bash
-pip uninstall colibri
-```
+Enquanto o colibri está em fase de testes, as credenciais são concedidas pela equipe
+do projeto. Sem elas, é possível apontar o colibri para um bucket S3 próprio — veja
+[Instalar o ambiente em um S3 próprio](https://gestaogovbr.github.io/colibri/04-guia-instalacao.html#instalar-o-ambiente-em-um-s3-próprio).
 
-# Comandos da CLI
+Pronto. Não há mais nada a baixar: os comandos `lake` buscam o catálogo do lake
+(`meta.ducklake`) no bucket a cada execução.
 
-## Pipeline
+# Consultar os dados
 
 ```bash
-colibri pipeline run                        # NCM + PNCP ComprasGOV
-colibri pipeline run --apenas ncm
-colibri pipeline run --apenas pncp-comprasgov
-```
-
-O pipeline ComprasGOV é incremental: arquivos já baixados (mesmo hash do manifesto)
-são pulados, e somente os registros novos/atualizados entram no histórico
-versionado (SCD2) das tabelas `compras`, `itens` e `resultados`.
-
----
-
-## Bucket (R2)
-
-```bash
-colibri bucket list <bucket>
-colibri bucket list <bucket> --prefixo lake/
-
-colibri bucket download <arquivo> <bucket>
-colibri bucket download <arquivo> <bucket> --destino ./local.parquet
-
-colibri bucket upload <arquivo> <bucket>
-colibri bucket upload <arquivo> <bucket> --chave pasta/nome.csv
-
-colibri bucket delete <arquivo> <bucket>
-colibri bucket purge <bucket>              # pede confirmação antes de apagar tudo
-colibri bucket purge <bucket> --prefixo lake/ --yes
-```
-
----
-
-## Lake (DuckLake)
-
-```bash
-colibri lake tables                     # tabelas/views no catálogo com contagem de linhas/parquets
-colibri lake years <tabela>             # contagem de linhas por ano de uma tabela
+colibri lake tables                     # tabelas e views do catálogo, com contagem de linhas
+colibri lake query "<sql>"              # consulta SQL livre
 colibri lake download <tabela>          # exporta uma tabela para parquet local
-colibri lake query "<sql>"              # query livre
-colibri lake ui                         # abre a DuckDB UI conectada ao catálogo
-
-colibri lake drop-table <tabela>        # remove uma tabela do catálogo (exige credencial de escrita)
-
-colibri lake maintenance                # expira snapshots antigos e apaga os arquivos órfãos
-colibri lake maintenance --dry-run      # só mostra o que seria expirado/apagado, sem alterar nada
-colibri lake maintenance --dias 7       # mantém 7 dias de histórico em vez do padrão (1 dia)
+colibri lake years <tabela>             # contagem de linhas por ano
+colibri lake ui                         # abre a DuckDB UI no navegador, conectada ao lake
 ```
 
-Requer `meta.ducklake` na raiz do projeto (gerado/baixado automaticamente pelo
-pipeline, ou via `colibri sincronizar`).
+## No SQL, o nome completo; nos outros comandos, só o nome
 
-`colibri lake drop-table` recusa rodar com o segredo de visualizador (só funciona
-com credencial de escrita), resolve o schema da tabela automaticamente, pede
-confirmação (digite `sim`) antes de executar e sincroniza o catálogo de volta
-para o bucket ao final. É uma exclusão lógica — os dados continuam recuperáveis
-via time travel até a próxima `colibri lake maintenance`.
-
-DuckLake nunca apaga dados antigos automaticamente: todo `DELETE`/`DROP`/refresh de
-tabela fica preservado como um snapshot navegável (time travel), então o espaço no
-bucket só é recuperado quando alguém roda a manutenção. `colibri lake maintenance`
-expira os snapshots mais antigos que a retenção configurada e em seguida apaga os
-arquivos parquet que ficaram órfãos, sincronizando o catálogo atualizado de volta
-para o bucket. Rode periodicamente (cron/GitHub Action) para controlar o custo de
-armazenamento — use `--dry-run` primeiro para conferir o que seria removido.
-
----
-
-## Documentação do dbt
+Numa consulta SQL a tabela precisa do caminho completo, `lake.<schema>.<tabela>`:
 
 ```bash
-colibri docs                # gera e abre a documentação dos modelos dbt
-colibri docs --sem-servidor # apenas gera, sem subir o servidor local
+colibri lake query "SELECT count(*) FROM lake.main_marts.mrt_pncp_comprasgov_compras"
 ```
 
----
+Se faltar o caminho, o erro já traz o nome certo:
+
+```
+x Catalog Error: Table with name mrt_pncp_comprasgov_compras does not exist!
+Did you mean "lake.main_marts.mrt_pncp_comprasgov_compras"?
+```
+
+Nos demais comandos (`download`, `years`) basta o nome da tabela — o colibri
+descobre o schema:
+
+```bash
+colibri lake download mrt_pncp_comprasgov_compras                                  # salva ./mrt_pncp_comprasgov_compras.parquet
+colibri lake download mrt_pncp_comprasgov_compras --destino ~/dados/compras.parquet
+```
+
+Os schemas seguem as camadas do dbt:
+
+| Schema | O que tem |
+|--------|-----------|
+| `main_marts` | tabelas finais para análise — **comece por aqui** |
+| `main_intermediate` | dados tratados, com histórico versionado (SCD2) |
+| `main_staging` | dados como chegaram da fonte |
+
+## O que existe hoje
+
+Views em `lake.main_marts`:
+
+| Tabela | Conteúdo |
+|--------|----------|
+| `mrt_pncp_comprasgov_compras` | compras do ComprasGOV/PNCP — versão atual de cada compra |
+| `mrt_pncp_comprasgov_itens` | itens dessas compras — versão atual |
+| `mrt_pncp_comprasgov_resultados` | resultados dos itens — versão atual |
+| `mrt_margem__ncms_cics`, `mrt_margem__ncms_ciiapac` | NCMs com margem de preferência em vigor, por resolução (CICS / CIIAPAC) |
+| `mrt_tradutor_catmat_ncm__mapeamento_ia` | tradutor CATMAT → NCM (classificação humana com apoio de IA) |
+
+A lista completa e atual é a do `colibri lake tables`. O histórico de cada
+registro (todas as versões, não só a atual) está nas tabelas
+`int_pncp_comprasgov__*` em `main_intermediate`.
+
+## DuckDB UI
+
+`colibri lake ui` abre a [DuckDB UI](https://duckdb.org/2025/03/12/duckdb-ui)
+no navegador, já conectada ao lake — um caderno de SQL com resultado imediato,
+tipo de dado e percentual de nulos por coluna. Pressione Enter no terminal para
+encerrar.
+
+Na primeira abertura a UI carrega um caderno-exemplo do próprio DuckDB
+("DuckDB UI basics"); a última célula dele grava um `trains.csv` de 33 MB na
+pasta de onde você rodou o comando. É só um conjunto de dados de amostra — pode
+apagar (`trains.csv` está no `.gitignore` para não entrar em commit por engano).
+
+## Bucket e credencial
+
+Todos os comandos `lake` aceitam `--bucket` (padrão `colibri-prod`) e `--segredo`
+(padrão `colibri-token-visualizador`) — útil para apontar a um ambiente próprio.
+
+# Validação
+
+Uma checagem rápida de sanidade: compras publicadas por ano, para comparar com o
+painel ["PNCP em Números"](https://pncp.gov.br/app/pncp-em-numeros).
+
+```bash
+colibri lake query "SELECT substr(data_publicacao_pncp, 1, 4) AS ano, count(*) AS compras FROM lake.main_marts.mrt_pncp_comprasgov_compras GROUP BY 1 ORDER BY 1"
+```
+
+# Para desenvolver
+
+Rodar pipelines, escrever no bucket e manter o lake exigem o
+`colibri-token-desenvolvedor`, o dbt configurado (`dbt deps`, `dbt/profiles.yml`)
+e, para não tocar a produção, um ambiente próprio. Os comandos:
+
+```bash
+colibri pipeline run --apenas <fonte>   # ncm, pncp-comprasgov, catmats, nfe-cgu, margem-preferencia, tradutor-catmat-ncm
+colibri bucket <comando>                # list, download, upload, delete, purge
+colibri sincronizar                     # baixa manifestos e catálogo do bucket
+colibri lake drop-table <tabela>        # exclusão lógica (recuperável via time travel)
+colibri lake maintenance                # expira snapshots antigos e apaga parquets órfãos
+colibri docs                            # documentação dos modelos dbt (exige o dbt configurado)
+```
+
+`colibri <comando> --help` mostra as opções. O passo a passo — instalação do dbt,
+ambiente de desenvolvimento, camadas, testes e checklist de PR — está no site:
+
+- [Guia de instalação](https://gestaogovbr.github.io/colibri/04-guia-instalacao.html) — passos 4 a 6: dbt e `profiles.yml`
+- [Guia do desenvolvedor](https://gestaogovbr.github.io/colibri/05-guia-desenvolvedor.html)
+- [Guia do analista](https://gestaogovbr.github.io/colibri/06-guia-analista.html) — conexão direta via R e Python
 
 # Arquitetura
 
 ```
-R2 (colibri-dev)
+R2 (colibri-prod)
 ├── meta.ducklake          ← catálogo DuckLake (metadados)
 └── lake/
     ├── main_staging/
     ├── main_intermediate/
-    └── main_marts/
+    └── main_marts/        ← parquets das tabelas
 
 R2 (colibri-arquivos)
-└── raw/ncm/               ← JSONs brutos do NCM
+└── ...                    ← arquivos brutos das fontes, por pipeline
 ```
 
-# Tabelas
-
-| Tabela | Fonte | Atualização |
-|--------|-------|-------------|
-| `ncm_prefixos` | Portal Único Siscomex | Full replace quando há mudança |
-| `int_pncp_comprasgov__compras` | comprasGOV (diário/mensal/anual) | Incremental, histórico versionado (SCD2) por `cod_compra` |
-| `int_pncp_comprasgov__itens` | comprasGOV (diário/mensal/anual) | Incremental, histórico versionado (SCD2) por `id_compra_item` |
-| `int_pncp_comprasgov__resultados` | comprasGOV (diário/mensal/anual) | Incremental, histórico versionado (SCD2) por `(id_compra_item, sequencial_resultado)` |
-| `mrt_pncp_comprasgov__resumo_anual` | agregação de `int_pncp_comprasgov__compras` | Recalculada a cada execução |
-
-# Validação
-
-A tabela `mrt_pncp_comprasgov__resumo_anual` traz, por ano, a quantidade de compras
-e os valores totais estimado/homologado. Esses números podem ser comparados com os
-totais publicados no painel ["PNCP em Números"](https://www.gov.br/pncp/pt-br/painel-pncp)
-para conferir a consistência da ingestão.
+# Desinstalação
 
 ```bash
-colibri lake q "SELECT * FROM lake.main_marts.mrt_pncp_comprasgov__resumo_anual ORDER BY ano_compra"
+pip uninstall colibri
 ```
+
+Ou simplesmente apague a pasta `env/` — o ambiente virtual inteiro vai junto.
