@@ -1,11 +1,11 @@
 ---
 colibri:
-  target: dev
+  target: dev  # dev é selecionado como o target padrão quando --target não é informado
   outputs:
-    dev:
+    dev: &default
       type: duckdb
       path: ../dados/lakehouse_dev.duckdb
-      threads: 4
+      threads: 4  # mantenha baixo para evitar contenção de lock do arquivo duckdb/catálogo em execuções concorrentes de models
       extensions: [httpfs, ducklake]
       secrets:
         - type: s3
@@ -28,4 +28,19 @@ colibri:
         - path: ducklake:../meta.ducklake
           alias: lake
           options:
-            data_path: s3://<R2_BUCKET>/lake/
+            data_path: s3://colibri-dev/lake/
+            # quando o catalogo meta.ducklake é clonado do bucket de produção, o catálogo continua
+            # apontando para o data path original (ex. s3://colibri-prod/lake/) ao invés do data path
+            # do bucket de desenvolvimento (ex. s3://colibri-dev/lake/).
+            # Esse argumento faz com que o caminho informado em `data_path` acima seja adotado forçosamente.
+            override_data_path: true
+    prod:
+      <<: *default
+      path: ../dados/lakehouse_prod.duckdb
+      attach:
+        # a cópia local do catálogo de produção (ducklake:../meta.ducklake) é importante para permitir
+        # acessos concorrentes de múltiplos usuários (DuckDB é uma base analítica, não transacional)
+        - path: ducklake:../meta.ducklake
+          alias: lake
+          options:
+            data_path: s3://colibri-prod/lake/
