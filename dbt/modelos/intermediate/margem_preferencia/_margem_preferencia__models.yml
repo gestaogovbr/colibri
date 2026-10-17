@@ -99,3 +99,23 @@ models:
         description: Indica se este intervalo está atualmente vigente (é o mais recente
           e data_fim é nula).
         data_tests: [not_null]
+unit_tests:
+  # Issue 105: entre duplicatas de (prefixo_ncm, data_inicio) no mesmo grupo,
+  # fica a de maior margem total, mesmo com margem adicional/sustentabilidade nula.
+  # A vencedora vem por último na entrada para não ganhar por ordem de chegada.
+  - name: desempate_mantem_maior_margem_com_nulos
+    model: int_margem__ncm_prefixos
+    given:
+      - input: ref('stg_margem__resolucoes')
+        rows:
+          - {id: cics_4, vigencia_inicio: 2024-01-01}
+      - input: ref('stg_margem__eventos')
+        rows:
+          - {prefixo_ncm: '85044010', resolucao: cics_4, tipo_margem: conteudo_nacional,
+            tipo_evento_margem: habilita, margem_normal_pct: 10, margem_adicional_pct: null}
+          - {prefixo_ncm: '85044010', resolucao: cics_4, tipo_margem: tecnologia_nacional,
+            tipo_evento_margem: habilita, margem_normal_pct: 10, margem_adicional_pct: 10}
+    expect:
+      rows:
+        - {prefixo_ncm: '85044010', tipo_margem: tecnologia_nacional, margem_normal_pct: 10,
+          margem_adicional_pct: 10}
