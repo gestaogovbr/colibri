@@ -2,7 +2,8 @@
 version: 2
 # Marts de margem de preferência: expandem os prefixos NCM vigentes para os
 # códigos NCM completos, via ncm_prefixos.csv no bucket do lake. Um NCM aparece
-# uma vez por tipo de margem — os dois tipos podem valer para o mesmo código.
+# uma vez só: quando prefixos diferentes o cobrem, tecnologia nacional tem
+# precedência sobre conteúdo nacional e, no empate, vale o prefixo mais específico.
 models:
   - name: mrt_margem__ncms_cics
     description: >
@@ -10,15 +11,11 @@ models:
       dígitos), instituídas por resoluções CICS. Obtido a partir de
       int_margem__ncm_prefixos, expandindo cada prefixo_ncm para todos os
       códigos NCM que ele abrange e mantendo apenas os NCMs ainda ativos.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: [ncm, tipo_margem]
     columns:
       - name: ncm
         data_type: varchar
         description: Código NCM completo (8 dígitos) ao qual a margem se aplica.
-        data_tests: [not_null, dbt_utils.at_least_one]
+        data_tests: [not_null, unique, dbt_utils.at_least_one]
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução CICS que instituiu a margem vigente
@@ -78,15 +75,11 @@ models:
       dígitos), instituídas por resoluções CIIA-PAC. Obtido a partir de
       int_margem__ncm_prefixos, expandindo cada prefixo_ncm para todos os
       códigos NCM que ele abrange e mantendo apenas os NCMs ainda ativos.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: [ncm, tipo_margem]
     columns:
       - name: ncm
         data_type: varchar
         description: Código NCM completo (8 dígitos) ao qual a margem se aplica.
-        data_tests: [not_null, dbt_utils.at_least_one]
+        data_tests: [not_null, unique, dbt_utils.at_least_one]
       - name: resolucao
         data_type: varchar
         description: Identificador da resolução CIIA-PAC que instituiu a margem vigente
