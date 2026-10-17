@@ -350,12 +350,26 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
     console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
 
 
-def _conectar_lake(bucket: str, segredo: str):
+def _conectar_lake(bucket: str, segredo: str, escrita: bool = False):
+    """
+    Conecta ao lake do bucket. Só os comandos de escrita (que sobem o catálogo de volta com
+    `fechar()`) usam o meta.ducklake compartilhado com os pipelines e o dbt; os de leitura baixam
+    uma cópia temporária própria, para não sobrescrever o catálogo de um pipeline em andamento.
+    """
+    import atexit
+    import shutil
+    import tempfile
+
     import utils.ducklake as dl
 
     caminho_meta = f"s3://{bucket}/meta.ducklake"
     data_path = f"s3://{bucket}/lake/"
-    return dl.conectar(caminho_meta, data_path, segredo)
+    if escrita:
+        return dl.conectar(caminho_meta, data_path, segredo)
+
+    pasta = tempfile.mkdtemp(prefix="colibri-catalogo-")
+    atexit.register(shutil.rmtree, pasta, ignore_errors=True)
+    return dl.conectar(caminho_meta, data_path, segredo, os.path.join(pasta, CATALOGO_LOCAL))
 
 
 def _resolver_tabela(con, tabela: str) -> str | None:
@@ -616,7 +630,7 @@ def deletar_tabela(tabela: str, bucket: str, segredo: str):
         return
 
     caminho_meta = f"s3://{bucket}/meta.ducklake"
-    con = _conectar_lake(bucket, segredo)
+    con = _conectar_lake(bucket, segredo, escrita=True)
 
     row = con.execute(
         """
@@ -695,7 +709,7 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
     import utils.ducklake as dl
 
     caminho_meta = f"s3://{bucket}/meta.ducklake"
-    con = _conectar_lake(bucket, segredo)
+    con = _conectar_lake(bucket, segredo, escrita=True)
 
     def _executar(sql: str, params: list, titulo: str):
         resultado = con.execute(sql, params).fetchdf()
