@@ -11,11 +11,15 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name
       != github.repository
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14']
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Instalar o pacote e dependências de desenvolvimento
         run: pip install -e ".[dev]"
@@ -23,7 +27,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit-${{ matrix.python-version }}-${{ hashFiles('.pre-commit-config.yaml')
+            }}
       - name: Lint e formatação (ruff + yamlfix via pre-commit)
         run: pre-commit run --all-files --show-diff-on-failure
       - name: Testes (pytest)
