@@ -7,6 +7,7 @@ Não acessa o R2, não executa dbt e não modifica o pipeline legado.
 """
 
 import argparse
+import csv
 import logging
 import os
 import shutil
@@ -27,8 +28,35 @@ DIRETORIO_SAIDA = Path("dados/pncp_comprasgov_delog")
 LOGGER = logging.getLogger(__name__)
 
 
+def validar_csv(caminho):
+    """Valida a estrutura do CSV antes da conversão para Parquet."""
+    with open(caminho, encoding="utf-8-sig", newline="") as arquivo:
+        leitor = csv.reader(arquivo, delimiter=";", strict=True)
+
+        # Obtém o cabeçalho e avança o iterador.
+        cabecalho = next(leitor, None)
+
+        if not cabecalho:
+            raise ValueError("CSV sem cabeçalho")
+
+        # Descobre quantas colunas cada registro deve possuir.
+        total_colunas = len(cabecalho)
+
+        # Percorre os registros, começando no 2.
+        for numero_linha, registro in enumerate(leitor, start=2):
+            # Confere se a quantidade de colunas está correta.
+            if len(registro) != total_colunas:
+                raise ValueError(
+                    f"CSV inválido na linha {numero_linha}: "
+                    f"esperadas {total_colunas} colunas, encontradas {len(registro)}"
+                )
+
+
 def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> str:
     """Baixa um ZIP e converte o CSV interno em Parquet, sem sobrescrever dados."""
+    if not 1 <= mes <= 12:
+        raise ValueError("O mês deve estar entre 1 e 12")
+
     prefixo = TIPOS[tipo]
     nome_zip = f"{prefixo}_{ano}_{mes:02d}.csv.zip"
     url = f"{URL_BASE}/{ano}/{mes:02d}/{nome_zip}"
@@ -83,6 +111,11 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     raise ValueError(f"Esperado um CSV no ZIP; encontrados {len(csvs)}")
                 with compactado.open(csvs[0]) as origem, arquivo_csv.open("wb") as saida:
                     shutil.copyfileobj(origem, saida)
+
+            if arquivo_csv.stat().st_size == 0:
+                raise ValueError("CSV Vazio: arquivo sem cabeçalho ou registros")
+
+            validar_csv(arquivo_csv)
 
             # all_varchar evita inferências de tipo inconsistentes entre meses.
             with duckdb.connect(":memory:") as conexao:
@@ -156,7 +189,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                 if temporario is not None:
                     temporario.unlink(missing_ok=True)
 
-        except (OSError, ValueError, zipfile.BadZipFile, duckdb.Error) as erro:
+        except (OSError, ValueError, csv.Error, zipfile.BadZipFile, duckdb.Error) as erro:
             # Não deixa um arquivo incompleto ser confundido com saída válida.
             if destino.exists() and destino.stat().st_size == 0:
                 destino.unlink()

@@ -8,6 +8,7 @@ Não modifica o pipeline legado, não executa dbt nem escreve no DuckLake.
 """
 
 import argparse
+import csv
 import logging
 import os
 import shutil
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import duckdb
 import requests
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 
 from utils.carregar_segredo import carregar_segredo
 from utils.constantes import BUCKET_DESENVOLVIMENTO, NOME_SEGREDO_DESENVOLVEDOR
@@ -34,8 +35,35 @@ def caminho_destino(tipo: str, ano: int, mes: int) -> Path:
     return DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}" / f"{tipo}_{ano}_{mes:02d}.parquet"
 
 
+def validar_csv(caminho):
+    """Valida a estrutura do CSV antes da conversão para PArquet."""
+    with open(caminho, encoding="utf-8-sig", newline="") as arquivo:
+        leitor = csv.reader(arquivo, delimiter=";", strict=True)
+
+        # Obtém o cabeçalho e avança o iterador.
+        cabecalho = next(leitor, None)
+
+        if not cabecalho:
+            raise ValueError("CSV sem cabeçalho")
+
+        # Descobre quantas colunas cada registro deve possuir.
+        total_colunas = len(cabecalho)
+
+        # Percorre os registros, começando no 2.
+        for numero_linha, registro in enumerate(leitor, start=2):
+            # Confere se a quantidade de registros está correta.
+            if len(registro) != total_colunas:
+                raise ValueError(
+                    f"CSV inválido na linha {numero_linha}: "
+                    f"esperadas {total_colunas} colunas, encontradas {len(registro)}"
+                )
+
+
 def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> str:
     """Baixa ZIP e converte CSV em Parquet, sem sobrescrever arquivos locais."""
+    if not 1 <= mes <= 12:
+        raise ValueError("O mês deve estar entre 1 e 12")
+
     destino = caminho_destino(tipo, ano, mes)
     if destino.exists():
         try:
@@ -87,6 +115,10 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     raise ValueError(f"Esperado um CSV no ZIP; encontrados {len(csvs)}")
                 with compactado.open(csvs[0]) as origem, arquivo_csv.open("wb") as saida:
                     shutil.copyfileobj(origem, saida)
+            if arquivo_csv.stat().st_size == 0:
+                raise ValueError("CSV Vazio: arquivo sem cabeçalho ou registros")
+
+            validar_csv(arquivo_csv)
 
             with duckdb.connect(":memory:") as conexao:
                 caminho_csv = str(arquivo_csv).replace("'", "''")
@@ -140,7 +172,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                 if temporario is not None:
                     temporario.unlink(missing_ok=True)
 
-        except (OSError, ValueError, zipfile.BadZipFile, duckdb.Error) as erro:
+        except (OSError, ValueError, csv.Error, zipfile.BadZipFile, duckdb.Error) as erro:
             LOGGER.error("Falha ao processar %s: %s", nome_zip, erro)
             return "erro"
 
@@ -185,6 +217,10 @@ def enviar_para_r2(tipo: str, ano: int, mes: int, bucket: str) -> str:
             LOGGER.error("Erro ao consultar R2: %s", erro)
             return "erro"
 
+    except (NoCredentialsError, EndpointConnectionError) as erro:
+        LOGGER.error("Falha de autenticação ou conexão com R2: %s", erro)
+        return "erro"
+
     try:
         salvar_arquivo_no_bucket(
             caminho_arquivo=str(arquivo),
@@ -226,6 +262,9 @@ def main():
 
     args = parser.parse_args()
 
+    if args.ano < 2021:
+        parser.error("O ano deve ser igual ou superior a 2021")
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(levelname)s: %(message)s",
@@ -250,12 +289,16 @@ def main():
             )
 
             if args.upload and resultado in ("criado", "existente"):
-                resultado_upload = enviar_para_r2(
-                    tipo,
-                    args.ano,
-                    args.mes,
-                    args.bucket,
-                )
+                try:
+                    resultado_upload = enviar_para_r2(
+                        tipo,
+                        args.ano,
+                        args.mes,
+                        args.bucket,
+                    )
+                except Exception:
+                    LOGGER.exception("Erro inesperado no upload do tipo %s", tipo)
+                    resultado_upload = "erro"
 
                 resumo[tipo] = {
                     "extracao": resultado,
