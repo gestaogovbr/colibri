@@ -1,8 +1,8 @@
 """Extração PNCP/DELOG isolada, com upload opcional ao R2 de desenvolvimento.
 
 Uso:
-  python -m ingestion.pncp_comprasgov.extract_delog --ano 2025 --mes 8
-  python -m ingestion.pncp_comprasgov.extract_delog --ano 2025 --mes 8 --upload --bucket colibri-dev
+  python -m ingestion.comprasgov.extract_r2 --ano 2025 --mes 8
+  python -m ingestion.comprasgov.extract_r2 --ano 2025 --mes 8 --upload --bucket colibri-dev
 
 Não modifica o pipeline legado, não executa dbt nem escreve no DuckLake.
 """
@@ -88,7 +88,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
     nome_zip = f"{prefixo}_{ano}_{mes:02d}.csv.zip"
     url = f"{URL_BASE}/{ano}/{mes:02d}/{nome_zip}"
 
-    with tempfile.TemporaryDirectory(prefix="colibri_delog_") as pasta:
+    with tempfile.TemporaryDirectory(prefix="colibri_comprasgov_") as pasta:
         pasta_temp = Path(pasta)
         arquivo_zip = pasta_temp / nome_zip
         arquivo_csv = pasta_temp / f"{prefixo}_{ano}_{mes:02d}.csv"

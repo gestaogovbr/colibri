@@ -3,7 +3,8 @@
 import duckdb
 import pytest
 import requests
-from apoio_delog import CSV_PADRAO, FakeResposta, FakeSessao, caminho_saida, executar, zip_bytes
+
+from tests.comprasgov.apoio import CSV_PADRAO, FakeResposta, FakeSessao, caminho_saida, executar, zip_bytes
 
 
 def test_download_ok_cria_parquet(modulo):
@@ -90,4 +91,4 @@ def test_caracterizacao_500_nao_tem_retry(modulo):
 
 def test_temporarios_sao_removidos_apos_falha(modulo, tmp_sistema):
     executar(modulo, FakeSessao.com_zip(b"lixo"))
-    assert list(tmp_sistema.glob("colibri_delog_*")) == []
+    assert list(tmp_sistema.glob("colibri_comprasgov_*")) == []

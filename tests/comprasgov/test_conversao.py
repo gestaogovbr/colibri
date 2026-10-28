@@ -1,7 +1,8 @@
 """Grupo C — extração do ZIP e conversão CSV -> Parquet (arquivos fictícios criados em runtime)."""
 
 import pytest
-from apoio_delog import CSV_PADRAO, FakeSessao, caminho_saida, compressoes, executar, ler_parquet, zip_bytes
+
+from tests.comprasgov.apoio import CSV_PADRAO, FakeSessao, caminho_saida, compressoes, executar, ler_parquet, zip_bytes
 
 
 def converter(modulo, csv_bytes, nome="dados.csv"):

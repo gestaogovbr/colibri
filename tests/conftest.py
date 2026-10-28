@@ -27,9 +27,9 @@ for _p in (RAIZ, Path(__file__).parent):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from apoio_delog import FAKE_CONFIG  # noqa: E402
+from tests.comprasgov.apoio import FAKE_CONFIG  # noqa: E402
 
-MODULOS = ["ingestion.pncp_comprasgov.extract_delog", "ingestion.pncp_comprasgov.extract_delog_r2"]
+MODULOS = ["ingestion.comprasgov.extract", "ingestion.comprasgov.extract_r2"]
 
 
 def pytest_configure(config):
@@ -130,7 +130,7 @@ def criar_cliente_mock(cliente_s3):
 
 @pytest.fixture(autouse=True)
 def substituir_segredos_e_cliente(monkeypatch, carregar_segredo_mock, criar_cliente_mock, cliente_s3):
-    r2 = importlib.import_module("ingestion.pncp_comprasgov.extract_delog_r2")
+    r2 = importlib.import_module("ingestion.comprasgov.extract_r2")
     salvar = importlib.import_module("utils.salvar_arquivo_no_bucket")
     for mod in (r2, salvar):
         monkeypatch.setattr(mod, "carregar_segredo", carregar_segredo_mock)
@@ -140,19 +140,19 @@ def substituir_segredos_e_cliente(monkeypatch, carregar_segredo_mock, criar_clie
     assert "colibri-prod" not in repr(cliente_s3.mock_calls), "Chamada ao bucket de PRODUÇÃO detectada"
 
 
-@pytest.fixture(params=MODULOS, ids=["extract_delog", "extract_delog_r2"])
+@pytest.fixture(params=MODULOS, ids=["extract", "extract_r2"])
 def modulo(request):
     return importlib.import_module(request.param)
 
 
 @pytest.fixture
 def r2():
-    return importlib.import_module("ingestion.pncp_comprasgov.extract_delog_r2")
+    return importlib.import_module("ingestion.comprasgov.extract_r2")
 
 
 @pytest.fixture
 def local():
-    return importlib.import_module("ingestion.pncp_comprasgov.extract_delog")
+    return importlib.import_module("ingestion.comprasgov.extract")
 
 
 @pytest.fixture

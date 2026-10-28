@@ -7,10 +7,11 @@ from pathlib import Path
 
 import boto3
 import pytest
-from apoio_delog import CSV_PADRAO, FAKE_CONFIG, FakeSessao, caminho_saida, criar_parquet_local, executar
 from botocore.exceptions import ClientError
 
-RAIZ = Path(__file__).resolve().parents[1]
+from tests.comprasgov.apoio import CSV_PADRAO, FAKE_CONFIG, FakeSessao, caminho_saida, criar_parquet_local, executar
+
+RAIZ = Path(__file__).resolve().parents[2]
 SEGREDOS_FAKE = [FAKE_CONFIG["access_key"], FAKE_CONFIG["secret_key"]]
 
 
@@ -56,8 +57,8 @@ def test_constantes_dev_e_prod_distintas():
 
 
 def test_modulos_nao_referenciam_bucket_de_producao():
-    for nome in ("extract_delog.py", "extract_delog_r2.py"):
-        src = (RAIZ / "ingestion/pncp_comprasgov" / nome).read_text()
+    for nome in ("extract.py", "extract_r2.py"):
+        src = (RAIZ / "ingestion/comprasgov" / nome).read_text()
         assert "BUCKET_PRODUCAO" not in src and "colibri-prod" not in src.replace("--bucket colibri-prod", "")
 
 
@@ -74,8 +75,8 @@ def test_prod_bloqueado_na_cli_e_na_funcao(r2, rodar_main, cliente_s3):
 
 # 3. DuckLake
 def test_modulos_nao_tocam_ducklake_nem_dbt():
-    for nome in ("extract_delog.py", "extract_delog_r2.py"):
-        src = (RAIZ / "ingestion/pncp_comprasgov" / nome).read_text().lower()
+    for nome in ("extract.py", "extract_r2.py"):
+        src = (RAIZ / "ingestion/comprasgov" / nome).read_text().lower()
         # docstring afirma "não escreve no DuckLake": exclui só a menção textual
         codigo = re.sub(r'""".*?"""', "", src, flags=re.S)
         for proibido in ("attach", "ducklake", "subprocess", "dbt"):
@@ -139,8 +140,8 @@ def test_tempdir_redirecionado(tmp_sistema, tmp_path):
     assert Path(tmp_sistema).is_relative_to(tmp_path)
 
 
-def test_modulo_extract_delog_nao_oferece_upload(local, rodar_main):
-    """extract_delog.py é 'local e isolado': não aceita --upload/--bucket nem importa boto3/R2."""
+def test_modulo_extract_nao_oferece_upload(local, rodar_main):
+    """extract.py é 'local e isolado': não aceita --upload/--bucket nem importa boto3/R2."""
     with pytest.raises(SystemExit) as e:
         rodar_main(local, "--ano", "2025", "--mes", "8", "--upload", sessao=FakeSessao.status(404))
     assert e.value.code == 2

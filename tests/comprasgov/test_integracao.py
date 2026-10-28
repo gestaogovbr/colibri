@@ -5,8 +5,9 @@ Sem DELOG e sem R2. Os testes `servico_real` ficam desativados por padrão
 """
 
 import pytest
-from apoio_delog import FakeResposta, FakeSessao, caminho_saida, chave_r2, ler_parquet, zip_bytes
 from botocore.exceptions import ClientError
+
+from tests.comprasgov.apoio import FakeResposta, FakeSessao, caminho_saida, chave_r2, ler_parquet, zip_bytes
 
 pytestmark = pytest.mark.integracao
 
@@ -69,7 +70,7 @@ def test_cli_404_em_tudo_nao_e_erro(local, rodar_main):
 
 
 @pytest.mark.servico_real
-def test_real_head_delog_agosto_2025():
+def test_real_head_comprasgov_agosto_2025():
     """Opt-in, somente leitura (HEAD): confirma que a URL de referência ainda responde."""
     import requests
 

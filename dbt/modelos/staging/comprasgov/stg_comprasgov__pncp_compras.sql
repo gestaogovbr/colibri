@@ -1,10 +1,10 @@
 {{ config(
     materialized='view',
-    tags=['staging', 'pncp', 'comprasgov', 'delog']
+    tags=['staging', 'pncp', 'comprasgov']
 ) }}
 
 WITH raw_data AS (
-    {{ pncp_comprasgov_delog_source('compras') }}
+    {{ comprasgov_source('compras') }}
 )
 
 SELECT

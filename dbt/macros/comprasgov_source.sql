@@ -1,6 +1,6 @@
-{% macro pncp_comprasgov_delog_source(tipo) %}
+{% macro comprasgov_source(tipo) %}
 
-    {% if var('delog_local', false) %}
+    {% if var('comprasgov_local', false) %}
 
         {% set origem = '../dados/pncp_comprasgov_delog/' ~ tipo ~ '/*/*/' ~ tipo ~ '_*.parquet' %}
 

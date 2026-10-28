@@ -6,7 +6,16 @@ import hashlib
 import shutil
 
 import pytest
-from apoio_delog import CSV_PADRAO, FakeSessao, caminho_saida, criar_parquet_local, executar, ler_parquet, zip_bytes
+
+from tests.comprasgov.apoio import (
+    CSV_PADRAO,
+    FakeSessao,
+    caminho_saida,
+    criar_parquet_local,
+    executar,
+    ler_parquet,
+    zip_bytes,
+)
 
 
 def sha(p):
@@ -47,7 +56,7 @@ def test_tipos_e_periodos_diferentes_nao_colidem(modulo):
 
 def test_sem_temporarios_no_destino_nem_no_tmp_apos_sucesso(modulo, tmp_sistema, raiz_exec):
     executar(modulo, FakeSessao.com_csv(CSV_PADRAO))
-    assert list(tmp_sistema.glob("colibri_delog_*")) == []
+    assert list(tmp_sistema.glob("colibri_comprasgov_*")) == []
     assert [p for p in raiz_exec.rglob("*") if p.suffix in (".part", ".tmp")] == []
 
 

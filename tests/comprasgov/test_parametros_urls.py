@@ -1,7 +1,16 @@
 """Grupo A — parâmetros, URLs, caminhos locais e chaves do R2."""
 
 import pytest
-from apoio_delog import PREFIXOS, URL_BASE, FakeSessao, caminho_saida, chave_r2, criar_parquet_local, executar
+
+from tests.comprasgov.apoio import (
+    PREFIXOS,
+    URL_BASE,
+    FakeSessao,
+    caminho_saida,
+    chave_r2,
+    criar_parquet_local,
+    executar,
+)
 
 PERIODOS = [(2025, 8), (2025, 6), (2021, 12), (2024, 1), (2026, 10)]
 
@@ -56,7 +65,7 @@ def test_cli_exige_ano_e_mes(modulo, rodar_main):
     assert e.value.code == 2
 
 
-def test_cli_extract_delog_rejeita_ano_anterior_a_2021(local, rodar_main):
+def test_cli_extract_rejeita_ano_anterior_a_2021(local, rodar_main):
     with pytest.raises(SystemExit) as e:
         rodar_main(local, "--ano", "2019", "--mes", "8", sessao=FakeSessao.status(404))
     assert e.value.code == 2
@@ -90,7 +99,7 @@ def test_caminho_destino_compras_2025_06(r2):
 
 @pytest.mark.parametrize("tipo", PREFIXOS)
 def test_arquivo_criado_no_caminho_esperado(modulo, tipo):
-    from apoio_delog import CSV_PADRAO
+    from tests.comprasgov.apoio import CSV_PADRAO
 
     assert executar(modulo, FakeSessao.com_csv(CSV_PADRAO), tipo, 2025, 6) == "criado"
     assert caminho_saida(tipo, 2025, 6).is_file()
@@ -110,3 +119,4 @@ def test_chave_r2_segue_padrao(r2, cliente_s3, tipo, ano, mes):
         "Key": chave_r2(tipo, ano, mes),
     }
     assert chave_r2("compras", 2025, 6) == "pncp_comprasgov_delog/compras/2025/06/compras_2025_06.parquet"
+    

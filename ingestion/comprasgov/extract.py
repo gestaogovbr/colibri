@@ -1,7 +1,7 @@
 """Extração local e isolada dos arquivos PNCP publicados pela DELOG.
 
 Exemplo (a partir da raiz do Colibri):
-    python -m ingestion.pncp_comprasgov.extract_delog --ano 2025 --mes 8
+    python -m ingestion.comprasgov.extract --ano 2025 --mes 8
 
 Não acessa o R2, não executa dbt e não modifica o pipeline legado.
 """
@@ -82,7 +82,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
             destino.unlink()
 
     # Todos os temporários são apagados automaticamente, inclusive após erros.
-    with tempfile.TemporaryDirectory(prefix="colibri_delog_") as pasta:
+    with tempfile.TemporaryDirectory(prefix="colibri_comprasgov_") as pasta:
         pasta_temp = Path(pasta)
         arquivo_zip = pasta_temp / nome_zip
         arquivo_csv = pasta_temp / f"{prefixo}_{ano}_{mes:02d}.csv"
@@ -209,7 +209,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     tipos = [argumentos.tipo] if argumentos.tipo else list(TIPOS)
     with requests.Session() as sessao:
-        sessao.headers.update({"User-Agent": "colibri-ingestao-delog/1.0"})
+        sessao.headers.update({"User-Agent": "colibri-ingestao-comprasgov/1.0"})
         resultados = {tipo: processar_tipo(sessao, argumentos.ano, argumentos.mes, tipo) for tipo in tipos}
     LOGGER.info("Resumo: %s", resultados)
     if "erro" in resultados.values():

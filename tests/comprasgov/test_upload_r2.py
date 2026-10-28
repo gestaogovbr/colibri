@@ -1,8 +1,9 @@
 """Grupo D — upload para o R2 (boto3 sempre mockado)."""
 
 import pytest
-from apoio_delog import FakeSessao, chave_r2, criar_parquet_local
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
+
+from tests.comprasgov.apoio import FakeSessao, chave_r2, criar_parquet_local
 
 
 def erro_cliente(codigo, op="HeadObject"):
@@ -111,7 +112,7 @@ def test_arquivo_local_inexistente_retorna_erro_sem_tocar_r2(r2, cliente_s3, cri
 
 
 def test_diretorio_no_lugar_do_arquivo_retorna_erro(r2, cliente_s3):
-    from apoio_delog import caminho_saida
+    from tests.comprasgov.apoio import caminho_saida
 
     caminho_saida().mkdir(parents=True)
     assert r2.enviar_para_r2("compras", 2025, 8, "colibri-dev") == "erro"
