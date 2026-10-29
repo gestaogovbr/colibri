@@ -119,4 +119,3 @@ def test_chave_r2_segue_padrao(r2, cliente_s3, tipo, ano, mes):
         "Key": chave_r2(tipo, ano, mes),
     }
     assert chave_r2("compras", 2025, 6) == "pncp_comprasgov_delog/compras/2025/06/compras_2025_06.parquet"
-    

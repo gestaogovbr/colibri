@@ -1,6 +1,5 @@
 ---
 version: 2
-
 models:
   - name: int_comprasgov__pncp_compras
     description: >
