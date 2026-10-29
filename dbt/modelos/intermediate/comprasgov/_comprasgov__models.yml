@@ -1,0 +1,36 @@
+---
+version: 2
+models:
+  - name: int_comprasgov__pncp_compras
+    description: >
+      Histórico de versões das compras do PNCP disponibilizadas pelo ComprasGOV.
+      Calcula os intervalos de validade utilizando data_atualizacao,
+      particionando os registros por cod_compra.
+      A versão mais recente é identificada por is_current.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate > valido_de
+          config:
+            where: valido_ate IS NOT NULL
+    columns:
+      - name: cod_compra
+        description: Código identificador da compra.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização utilizada para ordenar as versões.
+        data_tests: [not_null]
+      - name: valido_de
+        description: Data inicial de validade da versão.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: >
+          Data de início da próxima versão.
+          Nula quando não existe versão posterior.
+      - name: is_current
+        description: Indica se o registro não possui versão posterior.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
