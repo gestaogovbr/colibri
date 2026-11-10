@@ -13,7 +13,6 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 
@@ -37,23 +36,41 @@ def validar_csv(caminho):
     with open(caminho, encoding="utf-8-sig", newline="") as arquivo:
         leitor = csv.reader(arquivo, delimiter=";", strict=True)
 
-        # Obtém o cabeçalho e avança o iterador.
+        # //---- Obtem o cabecalho e avanca o iterador ----//
         cabecalho = next(leitor, None)
 
         if not cabecalho:
             raise ValueError("CSV sem cabeçalho")
 
-        # Descobre quantas colunas cada registro deve possuir.
+        # //---- Descobre quantas colunas cada registro deve possuir ----//
         total_colunas = len(cabecalho)
 
-        # Percorre os registros, começando no 2.
+        # //---- Percorre os registros, comecando no 2 ----//
         for numero_linha, registro in enumerate(leitor, start=2):
-            # Confere se a quantidade de colunas está correta.
             if len(registro) != total_colunas:
                 raise ValueError(
                     f"CSV inválido na linha {numero_linha}: "
                     f"esperadas {total_colunas} colunas, encontradas {len(registro)}"
                 )
+
+
+def _parquet_valido(caminho: Path) -> bool:
+    """Verifica se o arquivo Parquet existe e pode ser lido pelo DuckDB."""
+    try:
+        with duckdb.connect(":memory:") as conexao:
+            conexao.execute(
+                "SELECT COUNT(*) FROM read_parquet(?)",
+                [str(caminho)],
+            ).fetchone()
+        return True
+    except (duckdb.Error, OSError) as erro:
+        LOGGER.warning(
+            "Parquet existente inválido, será recuperado: %s (%s)",
+            caminho,
+            erro,
+        )
+        caminho.unlink(missing_ok=True)
+        return False
 
 
 def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> str:
@@ -65,56 +82,58 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
     nome_zip = f"{prefixo}_{ano}_{mes:02d}.csv.zip"
     url = f"{URL_BASE}/{ano}/{mes:02d}/{nome_zip}"
 
-    # //---- 1. Consulta metadados remotos ANTES de definir o nome do arquivo ----//
-    metadados_http = consultar_metadados(sessao, url)
+    pasta_destino = DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}"
+    destino_padrao = pasta_destino / f"{tipo}_{ano}_{mes:02d}.parquet"
+
+    # //---- 1. Checagem rapida local antes da rede (garante idempotencia sem chamadas HTTP extras) ----//
+    if destino_padrao.exists():
+        if _parquet_valido(destino_padrao):
+            LOGGER.info("Arquivo já existente e válido: %s", destino_padrao)
+            return "existente"
+
+    # //---- 2. Consulta metadados remotos diferenciando 404 de erro de rede ----//
+    try:
+        metadados_http = consultar_metadados(sessao, url)
+    except requests.RequestException as erro:
+        LOGGER.error("Falha ao consultar metadados de %s: %s", url, erro)
+        return "erro"
+
     if metadados_http is None:
         return "indisponivel"
 
     etag_remoto = metadados_http.get("etag")
     last_modified_str = metadados_http.get("last_modified")
 
-    # //---- 2. Converte a data do servidor para o sufixo do arquivo (YYYY-MM-DD) ----//
+    # //---- 3. Define nomenclatura: se houver Last-Modified usa sufixo __YYYY-MM-DD, senao usa padrao ----//
     if last_modified_str:
         data_arquivo = parsedate_to_datetime(last_modified_str).strftime("%Y-%m-%d")
+        nome_parquet = f"{tipo}_{ano}_{mes:02d}__{data_arquivo}.parquet"
     else:
-        # Fallback caso o servidor não envie o Last-Modified
-        data_arquivo = datetime.now(UTC).strftime("%Y-%m-%d")
+        data_arquivo = None
+        nome_parquet = f"{tipo}_{ano}_{mes:02d}.parquet"
 
-    # //---- 3. Novo padrao de nomenclatura: compras_2025_08__2026-10-06.parquet ----//
-    nome_parquet_versionado = f"{tipo}_{ano}_{mes:02d}__{data_arquivo}.parquet"
-    destino = DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}" / nome_parquet_versionado
+    destino = pasta_destino / nome_parquet
 
-    # //---- 4. Verifica se ESTA versao especifica ja foi baixada ----//
+    # //---- 4. Verifica se a versao datada especifica ja foi baixada ----//
     if destino.exists():
-        try:
-            with duckdb.connect(":memory:") as conexao:
-                conexao.execute(
-                    "SELECT COUNT(*) FROM read_parquet(?)",
-                    [str(destino)],
-                ).fetchone()
-
-            LOGGER.info("Versão %s já existente e válida: %s", data_arquivo, destino)
+        if _parquet_valido(destino):
+            LOGGER.info("Versão %s já existente e válida: %s", data_arquivo or "padrão", destino)
             return "existente"
 
-        except (duckdb.Error, OSError) as erro:
-            LOGGER.warning(
-                "Parquet existente inválido, será recuperado: %s (%s)",
-                destino,
-                erro,
-            )
-            destino.unlink()
-
     # //---- 5. Consulta o manifesto local para comparar com os metadados remotos ----//
-    # Garante que a tabela do manifesto existe no banco DuckDB
     inicializar_manifesto(pipeline="comprasgov_pncp")
-
     entrada_manifesto = consultar_entrada(pipeline="comprasgov_pncp", tipo=tipo, ano=ano, mes=mes)
 
     if not precisa_atualizar(metadados_http, entrada_manifesto):
-        LOGGER.info("Sem alterações na fonte (ETag idêntico) para %s %s/%s. Download ignorado.", tipo, mes, ano)
+        LOGGER.info(
+            "Sem alterações na fonte (ETag idêntico) para %s %s/%s. Download ignorado.",
+            tipo,
+            mes,
+            ano,
+        )
         return "existente"
 
-    # Todos os temporários são apagados automaticamente, inclusive após erros.
+    # //---- 6. Download e conversao em diretorio temporario isolado ----//
     with tempfile.TemporaryDirectory(prefix="colibri_comprasgov_") as pasta:
         pasta_temp = Path(pasta)
         arquivo_zip = pasta_temp / nome_zip
@@ -150,20 +169,19 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
 
             validar_csv(arquivo_csv)
 
-            # all_varchar evita inferências de tipo inconsistentes entre meses.
             with duckdb.connect(":memory:") as conexao:
                 caminho_csv = str(arquivo_csv).replace("'", "''")
                 caminho_parquet = str(arquivo_parquet).replace("'", "''")
 
                 conexao.execute(f"""
-                        CREATE TEMP VIEW dados AS
-                        SELECT *
-                        FROM read_csv(
-                            '{caminho_csv}',
-                            delim=';',
-                            header=true,
-                            all_varchar=true
-                        )
+                    CREATE TEMP VIEW dados AS
+                    SELECT *
+                    FROM read_csv(
+                        '{caminho_csv}',
+                        delim=';',
+                        header=true,
+                        all_varchar=true
+                    )
                 """)
 
                 quantidade = conexao.execute("SELECT COUNT(*) FROM dados").fetchone()[0]
@@ -176,10 +194,8 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
 
             destino.parent.mkdir(parents=True, exist_ok=True)
             temporario = None
-            # Sem sobrescrita de arquivos existentes; testes usam período isolado.
 
             try:
-                # 1. Grava em arquivo temporário no mesmo diretório.
                 with tempfile.NamedTemporaryFile(
                     mode="wb",
                     suffix=".parquet.part",
@@ -192,14 +208,12 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     with arquivo_parquet.open("rb") as origem:
                         shutil.copyfileobj(origem, saida)
 
-                # 2. Valida o Parquet antes da publicação.
                 with duckdb.connect(":memory:") as conexao:
                     conexao.execute(
                         "SELECT COUNT(*) FROM read_parquet(?)",
                         [str(temporario)],
                     ).fetchone()
 
-                # 3. Publica sem sobrescrever arquivos existentes.
                 try:
                     os.link(temporario, destino)
                 except FileExistsError:
@@ -209,7 +223,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     )
                     return "existente"
 
-                # //---- 6. Registra no manifesto após a persistencia fisica confirmada ----//
+                # //---- 7. Registra no manifesto apos a persistencia fisica confirmada ----//
                 registrar_entrada(
                     pipeline="comprasgov_pncp",
                     tipo=tipo,
@@ -217,7 +231,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     mes=mes,
                     etag=etag_remoto,
                     last_modified=last_modified_str,
-                    hash_sha256=None,  # O calculo de hash entraremos na proxima etapa
+                    hash_sha256=None,
                 )
 
                 LOGGER.info(
@@ -233,7 +247,6 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     temporario.unlink(missing_ok=True)
 
         except (OSError, ValueError, csv.Error, zipfile.BadZipFile, duckdb.Error) as erro:
-            # Não deixa um arquivo incompleto ser confundido com saída válida.
             if destino.exists() and destino.stat().st_size == 0:
                 destino.unlink()
             LOGGER.error("Falha ao processar %s: %s", nome_zip, erro)
@@ -241,30 +254,24 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
 
 
 def consultar_metadados(sessao: requests.Session, url: str) -> dict | None:
-    """Consulta metadados HTTP sem baixar o arquivo."""
+    """Consulta metadados HTTP sem baixar o arquivo. Levanta RequestException em caso de falha."""
+    resposta = sessao.head(
+        url,
+        allow_redirects=True,
+        timeout=(15, 30),
+    )
 
-    try:
-        resposta = sessao.head(
-            url,
-            allow_redirects=True,
-            timeout=(15, 30),
-        )
-
-        if resposta.status_code == 404:
-            LOGGER.warning("Arquivo não disponível: %s", url)
-            return None
-
-        resposta.raise_for_status()
-
-        return {
-            "etag": resposta.headers.get("ETag"),
-            "last_modified": resposta.headers.get("Last-Modified"),
-            "content_length": resposta.headers.get("Content-Length"),
-        }
-
-    except requests.RequestException as erro:
-        LOGGER.error("Falha ao consultar metadados de %s: %s", url, erro)
+    if resposta.status_code == 404:
+        LOGGER.warning("Arquivo não disponível: %s", url)
         return None
+
+    resposta.raise_for_status()
+
+    return {
+        "etag": resposta.headers.get("ETag"),
+        "last_modified": resposta.headers.get("Last-Modified"),
+        "content_length": resposta.headers.get("Content-Length"),
+    }
 
 
 def precisa_atualizar(
@@ -272,7 +279,6 @@ def precisa_atualizar(
     entrada_manifesto: dict | None,
 ) -> bool:
     """Determina se uma versão remota precisa ser processada."""
-
     if entrada_manifesto is None:
         return True
 

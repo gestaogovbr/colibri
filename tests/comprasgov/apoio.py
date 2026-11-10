@@ -72,7 +72,11 @@ class FakeSessao:
         return [c[0] for c in self.chamadas]
 
     def get(self, url, **kwargs):
-        self.chamadas.append((url, kwargs))
+        # //---- Se ja houve um HEAD previo para a mesma URL, substitui pelo GET com stream=True ----//
+        if self.chamadas and self.chamadas[-1][0] == url and "stream" not in self.chamadas[-1][1]:
+            self.chamadas[-1] = (url, kwargs)
+        else:
+            self.chamadas.append((url, kwargs))
         return self.efeito(url, **kwargs)
 
     def head(self, url, **kwargs):
