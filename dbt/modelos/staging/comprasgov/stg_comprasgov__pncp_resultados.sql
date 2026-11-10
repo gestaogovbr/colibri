@@ -1,5 +1,6 @@
 {{ config(
     materialized='view',
+    database='lake',
     tags=['staging', 'pncp', 'comprasgov']
 ) }}
 

@@ -13,10 +13,14 @@ import os
 import shutil
 import tempfile
 import zipfile
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import duckdb
 import requests
+
+from utils.manifesto_duckdb import consultar_entrada, inicializar_manifesto, registrar_entrada
 
 URL_BASE = "https://repositorio.dados.gov.br/seges/comprasgov/pncp"
 TIPOS = {
@@ -53,15 +57,34 @@ def validar_csv(caminho):
 
 
 def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> str:
-    """Baixa um ZIP e converte o CSV interno em Parquet, sem sobrescrever dados."""
+    """Baixa um ZIP e converte o CSV interno em Parquet, versionando por data de atualização."""
     if not 1 <= mes <= 12:
         raise ValueError("O mês deve estar entre 1 e 12")
 
     prefixo = TIPOS[tipo]
     nome_zip = f"{prefixo}_{ano}_{mes:02d}.csv.zip"
     url = f"{URL_BASE}/{ano}/{mes:02d}/{nome_zip}"
-    destino = DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}" / f"{tipo}_{ano}_{mes:02d}.parquet"
 
+    # //---- 1. Consulta metadados remotos ANTES de definir o nome do arquivo ----//
+    metadados_http = consultar_metadados(sessao, url)
+    if metadados_http is None:
+        return "indisponivel"
+
+    etag_remoto = metadados_http.get("etag")
+    last_modified_str = metadados_http.get("last_modified")
+
+    # //---- 2. Converte a data do servidor para o sufixo do arquivo (YYYY-MM-DD) ----//
+    if last_modified_str:
+        data_arquivo = parsedate_to_datetime(last_modified_str).strftime("%Y-%m-%d")
+    else:
+        # Fallback caso o servidor não envie o Last-Modified
+        data_arquivo = datetime.now(UTC).strftime("%Y-%m-%d")
+
+    # //---- 3. Novo padrao de nomenclatura: compras_2025_08__2026-10-06.parquet ----//
+    nome_parquet_versionado = f"{tipo}_{ano}_{mes:02d}__{data_arquivo}.parquet"
+    destino = DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}" / nome_parquet_versionado
+
+    # //---- 4. Verifica se ESTA versao especifica ja foi baixada ----//
     if destino.exists():
         try:
             with duckdb.connect(":memory:") as conexao:
@@ -70,7 +93,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     [str(destino)],
                 ).fetchone()
 
-            LOGGER.info("Parquet existente e válido: %s", destino)
+            LOGGER.info("Versão %s já existente e válida: %s", data_arquivo, destino)
             return "existente"
 
         except (duckdb.Error, OSError) as erro:
@@ -80,6 +103,16 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                 erro,
             )
             destino.unlink()
+
+    # //---- 5. Consulta o manifesto local para comparar com os metadados remotos ----//
+    # Garante que a tabela do manifesto existe no banco DuckDB
+    inicializar_manifesto(pipeline="comprasgov_pncp")
+
+    entrada_manifesto = consultar_entrada(pipeline="comprasgov_pncp", tipo=tipo, ano=ano, mes=mes)
+
+    if not precisa_atualizar(metadados_http, entrada_manifesto):
+        LOGGER.info("Sem alterações na fonte (ETag idêntico) para %s %s/%s. Download ignorado.", tipo, mes, ano)
+        return "existente"
 
     # Todos os temporários são apagados automaticamente, inclusive após erros.
     with tempfile.TemporaryDirectory(prefix="colibri_comprasgov_") as pasta:
@@ -169,13 +202,23 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                 # 3. Publica sem sobrescrever arquivos existentes.
                 try:
                     os.link(temporario, destino)
-
                 except FileExistsError:
                     LOGGER.info(
                         "Arquivo já criado por outra execução: %s",
                         destino,
                     )
                     return "existente"
+
+                # //---- 6. Registra no manifesto após a persistencia fisica confirmada ----//
+                registrar_entrada(
+                    pipeline="comprasgov_pncp",
+                    tipo=tipo,
+                    ano=ano,
+                    mes=mes,
+                    etag=etag_remoto,
+                    last_modified=last_modified_str,
+                    hash_sha256=None,  # O calculo de hash entraremos na proxima etapa
+                )
 
                 LOGGER.info(
                     "%s: %s linhas -> %s",
@@ -195,6 +238,51 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                 destino.unlink()
             LOGGER.error("Falha ao processar %s: %s", nome_zip, erro)
             return "erro"
+
+
+def consultar_metadados(sessao: requests.Session, url: str) -> dict | None:
+    """Consulta metadados HTTP sem baixar o arquivo."""
+
+    try:
+        resposta = sessao.head(
+            url,
+            allow_redirects=True,
+            timeout=(15, 30),
+        )
+
+        if resposta.status_code == 404:
+            LOGGER.warning("Arquivo não disponível: %s", url)
+            return None
+
+        resposta.raise_for_status()
+
+        return {
+            "etag": resposta.headers.get("ETag"),
+            "last_modified": resposta.headers.get("Last-Modified"),
+            "content_length": resposta.headers.get("Content-Length"),
+        }
+
+    except requests.RequestException as erro:
+        LOGGER.error("Falha ao consultar metadados de %s: %s", url, erro)
+        return None
+
+
+def precisa_atualizar(
+    metadados_remotos: dict,
+    entrada_manifesto: dict | None,
+) -> bool:
+    """Determina se uma versão remota precisa ser processada."""
+
+    if entrada_manifesto is None:
+        return True
+
+    etag_remoto = metadados_remotos.get("etag")
+    etag_processado = entrada_manifesto.get("etag")
+
+    if not etag_remoto or not etag_processado:
+        return True
+
+    return etag_remoto != etag_processado
 
 
 def main() -> None:

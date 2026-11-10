@@ -28,10 +28,17 @@ CSV_PADRAO = (
 class FakeResposta:
     """Imita requests.Response em modo stream (context manager + iter_content)."""
 
-    def __init__(self, status_code=200, conteudo=b"", erro_no_stream=None):
+    def __init__(
+        self,
+        status_code=200,
+        conteudo=b"",
+        erro_no_stream=None,
+        headers=None,
+    ):
         self.status_code = status_code
         self.conteudo = conteudo
         self.erro_no_stream = erro_no_stream
+        self.headers = headers if headers is not None else {}
 
     def __enter__(self):
         return self
@@ -65,6 +72,10 @@ class FakeSessao:
         return [c[0] for c in self.chamadas]
 
     def get(self, url, **kwargs):
+        self.chamadas.append((url, kwargs))
+        return self.efeito(url, **kwargs)
+
+    def head(self, url, **kwargs):
         self.chamadas.append((url, kwargs))
         return self.efeito(url, **kwargs)
 
