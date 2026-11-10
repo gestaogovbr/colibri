@@ -1,0 +1,71 @@
+---
+version: 2
+models:
+  - name: stg_comprasgov__pncp_compras
+    description: >
+      Compras do PNCP disponibilizadas pelo ComprasGOV em arquivos mensais.
+      Harmoniza campos com sufixo _pncp e converte valores monetários.
+      Preserva os registros de origem para posterior versionamento.
+    columns:
+      - name: cod_compra
+        description: Código identificador da compra.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização do registro, utilizada no histórico.
+        data_tests: [not_null]
+      - name: valor_total_estimado
+        description: Valor total estimado, convertido para DECIMAL(28,8).
+      - name: granularidade
+        description: Granularidade do arquivo de origem, sempre mensal.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [mensal]
+      - name: periodo
+        description: Período mensal de origem no formato AAAA-MM.
+        data_tests: [not_null]
+  - name: stg_comprasgov__pncp_itens
+    description: >
+      Itens de compras do PNCP disponibilizados pelo ComprasGOV.
+      Harmoniza identificadores e converte campos quantitativos e monetários.
+    columns:
+      - name: id_compra_item
+        description: Identificador do item da compra.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização do registro.
+        data_tests: [not_null]
+      - name: numero_item
+        description: Número sequencial do item na compra.
+      - name: granularidade
+        description: Granularidade mensal dos arquivos.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [mensal]
+      - name: periodo
+        description: Período mensal de origem.
+        data_tests: [not_null]
+  - name: stg_comprasgov__pncp_resultados
+    description: >
+      Resultados dos itens de compras do PNCP disponibilizados pelo ComprasGOV.
+      Harmoniza a data de atualização e converte valores homologados.
+    columns:
+      - name: id_compra_item
+        description: Identificador do item ao qual o resultado pertence.
+        data_tests: [not_null]
+      - name: sequencial_resultado
+        description: Sequencial do resultado dentro do item.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização do resultado.
+        data_tests: [not_null]
+      - name: granularidade
+        description: Granularidade mensal dos arquivos.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [mensal]
+      - name: periodo
+        description: Período mensal de origem.
+        data_tests: [not_null]
