@@ -1,6 +1,7 @@
 {{ config(
     materialized='incremental',
     incremental_strategy='append',
+    on_schema_change='fail',
     database='lake',
     tags=['staging', 'nfe_cgu']
 ) }}
