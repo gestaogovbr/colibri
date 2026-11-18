@@ -25,13 +25,17 @@ def main(bucket: str | None = None):
     cliente = criar_cliente(config)
 
     baixar_catalogo(cliente, bucket, CATALOGO_LOCAL)
-    houve_mudanca = executar_ingestao(bucket=bucket)
+    resultado = executar_ingestao(bucket=bucket)
 
-    if houve_mudanca:
+    if resultado.houve_mudanca:
+        # Append sobre tabela com tipos antigos duplicaria os períodos e, sem o
+        # on_schema_change='fail', converteria a chave de volta para DOUBLE (#98).
+        refazer = ["--full-refresh"] if resultado.refazer_staging else []
         subprocess.run(
             [
                 "dbt",
                 "run",
+                *refazer,
                 "--select",
                 "stg_nfe_cgu__itens stg_nfe_cgu__nf stg_nfe_cgu__eventos",
                 "--vars",
