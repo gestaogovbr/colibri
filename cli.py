@@ -160,10 +160,11 @@ def _cliente(nome_segredo: str, max_conexoes: int = 10):
 
 
 def _tamanho(bytes: int) -> str:
+    """Tamanho em unidades decimais (1 KB = 1000 B), como o painel do Cloudflare"""
     for unit in ["B", "KB", "MB", "GB"]:
-        if bytes < 1024:
+        if bytes < 1000:
             return f"{bytes:.1f} {unit}"
-        bytes /= 1024
+        bytes /= 1000
     return f"{bytes:.1f} TB"
 
 
