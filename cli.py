@@ -1,20 +1,37 @@
 import os
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import boto3
 import click
+import yaml
+from boto3.s3.transfer import TransferConfig
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from rich import box
 from rich.console import Console
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 from rich.text import Text
 
 from utils.carregar_segredo import carregar_segredo
 from utils.constantes import (
+    BUCKET_ARQUIVOS,
+    BUCKET_DESENVOLVIMENTO,
+    BUCKET_PRODUCAO,
+    CAMINHO_SEGREDOS,
     CATALOGO_LOCAL,
     NOME_SEGREDO_DESENVOLVEDOR,
     NOME_SEGREDO_VISUALIZADOR,
@@ -130,7 +147,7 @@ class ColibriGroup(click.Group):
         console.print(Padding(dica, (0, 0, 0, dica_pad)))
 
 
-def _cliente(nome_segredo: str):
+def _cliente(nome_segredo: str, max_conexoes: int = 10):
     c = carregar_segredo(nome_segredo)
     return boto3.client(
         "s3",
@@ -138,6 +155,7 @@ def _cliente(nome_segredo: str):
         aws_access_key_id=c["access_key"],
         aws_secret_access_key=c["secret_key"],
         region_name="auto",
+        config=Config(max_pool_connections=max_conexoes),
     )
 
 
@@ -147,6 +165,11 @@ def _tamanho(bytes: int) -> str:
             return f"{bytes:.1f} {unit}"
         bytes /= 1024
     return f"{bytes:.1f} TB"
+
+
+def _duracao(segundos: float) -> str:
+    minutos, segundos = divmod(int(segundos), 60)
+    return f"{minutos}min {segundos}s" if minutos else f"{segundos}s"
 
 
 def _cor_tamanho(bytes: int) -> str:
@@ -348,6 +371,318 @@ def upload(caminho_arquivo: str, bucket_name: str, segredo: str, chave: str | No
             s3.upload_fileobj(f, bucket_name, chave)
 
     console.print(f"[{VERDE}]+[/] Enviado: [bold]{chave}[/bold] [dim]({_tamanho(tamanho)})[/dim]")
+
+
+# Limite do CopyObject no S3/R2; acima disso a cópia precisa ser multipart.
+LIMITE_COPY_OBJECT = 5 * 1024**3
+# Metadado gravado no destino quando o ETag da cópia não bate com o da origem
+# (origem multipart ou cópia multipart), para reconhecer o arquivo como já copiado.
+META_ETAG_ORIGEM = "colibri-etag-origem"
+CABECALHOS_COPIADOS = ("ContentType", "CacheControl", "ContentDisposition", "ContentEncoding", "ContentLanguage")
+
+
+def _interativo() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _listar_segredos() -> list[str]:
+    """Nomes dos segredos (chaves de primeiro nível) do .segredos.yml"""
+    try:
+        with open(CAMINHO_SEGREDOS, encoding="utf-8") as f:
+            return list(yaml.safe_load(f) or {})
+    except OSError:
+        return []
+
+
+def _listar_buckets(s3) -> list[str]:
+    """Buckets visíveis pela credencial; tokens restritos a buckets não podem
+    listar, então nesse caso caímos nos buckets conhecidos do projeto"""
+    try:
+        nomes = sorted(b["Name"] for b in s3.list_buckets().get("Buckets", []))
+    except ClientError:
+        nomes = []
+    return nomes or [BUCKET_PRODUCAO, BUCKET_DESENVOLVIMENTO, BUCKET_ARQUIVOS]
+
+
+def _escolher(titulo: str, opcoes: list[str], padrao: str, livre: bool = False) -> str:
+    """Mostra uma lista numerada e devolve a opção escolhida (por número ou
+    nome). Com `livre`, aceita também um nome fora da lista."""
+    console.print(f"\n[bold]{titulo}[/bold]")
+    for i, opcao in enumerate(opcoes, 1):
+        marca = " [dim](padrão)[/dim]" if opcao == padrao else ""
+        console.print(f"  [{AZUL}]{i}[/] {opcao}{marca}")
+    dica = "Número ou nome" if livre else "Número"
+    padrao_prompt = str(opcoes.index(padrao) + 1) if padrao in opcoes else None
+    while True:
+        resposta = click.prompt(dica, default=padrao_prompt).strip()
+        if resposta.isdigit() and 1 <= int(resposta) <= len(opcoes):
+            return opcoes[int(resposta) - 1]
+        if resposta in opcoes or (livre and resposta and not resposta.isdigit()):
+            return resposta
+        console.print("[red]x[/red] Opção inválida.")
+
+
+def _etag(obj: dict) -> str:
+    return obj["ETag"].strip('"')
+
+
+def _ja_copiado(s3, bucket_destino: str, origem: dict, destino: dict) -> bool:
+    """O objeto do destino é igual ao da origem? Compara tamanho e ETag; se o
+    ETag divergir, procura o ETag da origem gravado nos metadados do destino"""
+    if origem["Size"] != destino["Size"]:
+        return False
+    if _etag(origem) == _etag(destino):
+        return True
+    try:
+        meta = s3.head_object(Bucket=bucket_destino, Key=destino["Key"]).get("Metadata", {})
+    except Exception:
+        # Na dúvida, trata como diferente: o arquivo é copiado de novo
+        return False
+    return meta.get(META_ETAG_ORIGEM) == _etag(origem)
+
+
+def _copiar_objeto(s3, bucket_origem: str, bucket_destino: str, obj: dict, config_multipart) -> None:
+    chave = obj["Key"]
+    fonte = {"Bucket": bucket_origem, "Key": chave}
+    etag = _etag(obj)
+
+    # Caso comum: uma única requisição server-side, e o destino herda o ETag da origem
+    if obj["Size"] <= LIMITE_COPY_OBJECT and "-" not in etag:
+        s3.copy_object(Bucket=bucket_destino, Key=chave, CopySource=fonte)
+        return
+
+    # Origem multipart ou acima de 5GB: o ETag do destino vai diferir do da
+    # origem. Regravamos os metadados com o ETag original para que a próxima
+    # execução reconheça o arquivo como já copiado.
+    cabecalho = s3.head_object(**fonte)
+    extra = {c: cabecalho[c] for c in CABECALHOS_COPIADOS if c in cabecalho}
+    extra["Metadata"] = {**cabecalho.get("Metadata", {}), META_ETAG_ORIGEM: etag}
+
+    if obj["Size"] <= LIMITE_COPY_OBJECT:
+        s3.copy_object(Bucket=bucket_destino, Key=chave, CopySource=fonte, MetadataDirective="REPLACE", **extra)
+    else:
+        # Acima do limite do CopyObject: cópia multipart (UploadPartCopy), ainda server-side
+        s3.copy(fonte, bucket_destino, chave, ExtraArgs=extra, Config=config_multipart)
+
+
+@bucket.command("clone")
+@click.argument("bucket_origem", required=False)
+@click.argument("bucket_destino", required=False)
+@click.option("--segredo", default=None, help=f"Segredo do .segredos.yml  [padrão: {NOME_SEGREDO_DESENVOLVEDOR}]")
+@click.option(
+    "--prefixo",
+    default="",
+    help="Só considera objetos cuja chave comece com esse prefixo (ex.: lake/); vazio = bucket inteiro",
+)
+@click.option("--paralelismo", default=16, show_default=True, help="Cópias simultâneas")
+@click.option("--dry-run", is_flag=True, help="Mostra o que seria copiado, pulado e apagado, sem alterar nada")
+@click.option("--yes", is_flag=True, help="Não pedir confirmação nem perguntar origem/destino/segredo")
+def clonar(
+    bucket_origem: str | None,
+    bucket_destino: str | None,
+    segredo: str | None,
+    prefixo: str,
+    paralelismo: int,
+    dry_run: bool,
+    yes: bool,
+):
+    """
+    Deixa o bucket de destino igual ao de origem.
+
+    Arquivos que já existem no destino com o mesmo conteúdo (mesmo tamanho e
+    ETag) são pulados, então rodar o comando de novo só copia o que mudou e
+    retoma uma clonagem interrompida. Arquivos que existem no destino mas não
+    na origem são apagados, só depois que a cópia termina: o destino nunca
+    fica vazio no meio do processo.
+
+    A cópia é feita no servidor, sem baixar nem subir dados. Cada arquivo de
+    até 5GB é copiado com uma única requisição (copy_object); só os maiores
+    que 5GB usam cópia multipart (s3.copy). Quando o ETag do destino não puder
+    ser igual ao da origem (origem enviada em partes ou arquivo acima de 5GB),
+    o ETag original é gravado no metadado colibri-etag-origem do destino.
+
+    Sem ORIGEM, DESTINO ou --segredo, o comando pergunta em uma lista
+    numerada. Fora de um terminal interativo, ou com --yes, usa os padrões:
+    colibri-prod -> colibri-dev com o segredo de desenvolvedor.
+
+    --prefixo restringe a cópia e a exclusão às chaves que começam com esse
+    valor (ex.: --prefixo lake/tabela sincroniza só aquela subpasta, sem tocar
+    no resto do bucket).
+
+    Se o destino for colibri-prod, é preciso digitar o nome do bucket para
+    confirmar, mesmo com --yes.
+    """
+    interativo = _interativo() and not yes
+
+    if segredo is None:
+        segredo = NOME_SEGREDO_DESENVOLVEDOR
+        if interativo:
+            segredo = _escolher("Segredo", _listar_segredos() or [segredo], segredo)
+
+    s3 = _cliente(segredo, max_conexoes=paralelismo + 10)
+
+    buckets = []
+    if interativo and (bucket_origem is None or bucket_destino is None):
+        buckets = _listar_buckets(s3)
+    if bucket_origem is None:
+        bucket_origem = BUCKET_PRODUCAO
+        if interativo:
+            bucket_origem = _escolher("Bucket de origem", buckets, BUCKET_PRODUCAO, livre=True)
+    if bucket_destino is None:
+        bucket_destino = BUCKET_DESENVOLVIMENTO
+        if interativo:
+            opcoes = [b for b in buckets if b != bucket_origem]
+            bucket_destino = _escolher("Bucket de destino", opcoes, BUCKET_DESENVOLVIMENTO, livre=True)
+
+    if bucket_origem == bucket_destino:
+        console.print("[red]x[/red] Origem e destino não podem ser o mesmo bucket.")
+        return
+
+    paginator = s3.get_paginator("list_objects_v2")
+
+    with Progress(
+        SpinnerColumn(style=AZUL),
+        TextColumn(f"[{AZUL}]Comparando arquivos..."),
+        transient=True,
+    ) as p:
+        p.add_task("")
+        objetos_origem = [
+            obj
+            for page in paginator.paginate(Bucket=bucket_origem, Prefix=prefixo)
+            for obj in page.get("Contents", [])
+        ]
+        objetos_destino = {
+            obj["Key"]: obj
+            for page in paginator.paginate(Bucket=bucket_destino, Prefix=prefixo)
+            for obj in page.get("Contents", [])
+        }
+
+        if not objetos_origem:
+            p.stop()
+            console.print(f"[yellow]Bucket [bold]{bucket_origem}[/bold] vazio. Nada para clonar.[/yellow]")
+            return
+
+        # Só precisa de HEAD quando o tamanho bate mas o ETag não; fazemos em paralelo
+        em_ambos = [obj for obj in objetos_origem if obj["Key"] in objetos_destino]
+        with ThreadPoolExecutor(max_workers=paralelismo) as executor:
+            iguais = executor.map(
+                lambda obj: _ja_copiado(s3, bucket_destino, obj, objetos_destino[obj["Key"]]), em_ambos
+            )
+            chaves_iguais = {obj["Key"] for obj, igual in zip(em_ambos, iguais, strict=True) if igual}
+
+    chaves_origem = {obj["Key"] for obj in objetos_origem}
+    a_copiar = [obj for obj in objetos_origem if obj["Key"] not in chaves_iguais]
+    a_apagar = [{"Key": chave} for chave in objetos_destino if chave not in chaves_origem]
+    bytes_copiar = sum(obj["Size"] for obj in a_copiar)
+    bytes_pulados = sum(obj["Size"] for obj in objetos_origem) - bytes_copiar
+    grandes = sum(1 for obj in a_copiar if obj["Size"] > LIMITE_COPY_OBJECT)
+
+    resumo = (
+        f"De [{AZUL}]{bucket_origem}[/] para [{AZUL}]{bucket_destino}[/]"
+        + (f" [dim](prefixo {prefixo})[/dim]" if prefixo else "")
+        + f"\n[{VERDE}]{len(a_copiar)}[/] arquivo(s) serão copiados [dim]({_tamanho(bytes_copiar)})[/dim]"
+        + (f"[dim], {grandes} acima de 5GB via cópia multipart[/dim]" if grandes else "")
+        + f"\n[bold]{len(chaves_iguais)}[/bold] arquivo(s) iguais serão pulados "
+        f"[dim]({_tamanho(bytes_pulados)})[/dim]"
+        + f"\n[red]{len(a_apagar)}[/red] arquivo(s) que não existem na origem serão apagados de "
+        f"[bold]{bucket_destino}[/bold] depois da cópia"
+    )
+    console.print(Panel(resumo, title="Resumo da clonagem", border_style="yellow"))
+
+    if not a_copiar and not a_apagar:
+        console.print(f"[{VERDE}]+[/] [bold]{bucket_destino}[/bold] já está igual a [bold]{bucket_origem}[/bold].")
+        return
+
+    if dry_run:
+        console.print("[dim]--dry-run: nada foi alterado.[/dim]")
+        return
+
+    if bucket_destino == BUCKET_PRODUCAO:
+        console.print("[red]![/red] O destino é o bucket de [bold]produção[/bold].")
+        resposta = click.prompt(f"Digite '{bucket_destino}' para confirmar", default="", show_default=False)
+        if resposta.strip() != bucket_destino:
+            console.print("[yellow]Operação cancelada.[/yellow]")
+            return
+    elif not yes and not click.confirm("Continuar?", default=False):
+        console.print("[yellow]Operação cancelada.[/yellow]")
+        return
+
+    inicio = time.monotonic()
+    config_multipart = TransferConfig(
+        multipart_threshold=LIMITE_COPY_OBJECT,
+        multipart_chunksize=256 * 1024**2,
+        max_concurrency=4,
+    )
+
+    falhas = []
+    if a_copiar:
+        with Progress(
+            SpinnerColumn(style=VERDE),
+            TextColumn(f"[{AZUL}]Copiando arquivos..."),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+        ) as p:
+            task = p.add_task("", total=len(a_copiar))
+            with ThreadPoolExecutor(max_workers=paralelismo) as executor:
+                futuros = {
+                    executor.submit(_copiar_objeto, s3, bucket_origem, bucket_destino, obj, config_multipart): obj
+                    for obj in a_copiar
+                }
+                for futuro in as_completed(futuros):
+                    obj = futuros[futuro]
+                    try:
+                        futuro.result()
+                    except Exception as e:
+                        falhas.append(obj)
+                        p.console.print(f"[red]x[/red] Falha ao copiar [bold]{obj['Key']}[/bold]: {e}")
+                    p.advance(task)
+
+    falhas_exclusao = []
+    if a_apagar:
+        with Progress(
+            SpinnerColumn(style="red"),
+            TextColumn(f"[red]Apagando {len(a_apagar)} arquivo(s) de {bucket_destino}..."),
+            TimeElapsedColumn(),
+            transient=True,
+        ) as p:
+            p.add_task("")
+            for i in range(0, len(a_apagar), 1000):
+                lote = a_apagar[i : i + 1000]
+                try:
+                    resposta = s3.delete_objects(Bucket=bucket_destino, Delete={"Objects": lote})
+                except Exception as e:
+                    # A requisição do lote inteiro falhou: registra cada arquivo e segue para o próximo lote
+                    falhas_exclusao.extend({"Key": obj["Key"], "Message": str(e)} for obj in lote)
+                    continue
+                falhas_exclusao.extend(resposta.get("Errors", []))
+
+    duracao = time.monotonic() - inicio
+    copiados = len(a_copiar) - len(falhas)
+    bytes_copiados = bytes_copiar - sum(obj["Size"] for obj in falhas)
+    console.print(
+        f"[{VERDE}]+[/] [bold]{copiados}[/bold] arquivo(s) copiado(s) ([bold]{_tamanho(bytes_copiados)}[/bold]), "
+        f"[bold]{len(chaves_iguais)}[/bold] pulado(s), "
+        f"[bold]{len(a_apagar) - len(falhas_exclusao)}[/bold] apagado(s) "
+        f"de [{AZUL}]{bucket_origem}[/] para [{AZUL}]{bucket_destino}[/] "
+        f"em [bold]{_duracao(duracao)}[/bold]"
+    )
+    if falhas:
+        console.print(
+            f"[red]![/red] {len(falhas)} arquivo(s) falharam ao copiar. Rode o comando de novo para tentar só esses."
+        )
+    for erro in falhas_exclusao:
+        console.print(f"[red]x[/red] Falha ao apagar [bold]{erro.get('Key')}[/bold]: {erro.get('Message')}")
+
+    console.print(
+        Panel(
+            "O armazenamento é faturado por espaço usado e tempo armazenado. Quando os dados "
+            f"copiados para [bold]{bucket_destino}[/bold] não forem mais necessários, apague-os "
+            "(colibri bucket purge) para evitar pagar em dobro pelo mesmo dado.",
+            title="👀 De olho no faturamento... 💸",
+            border_style="dim",
+        )
+    )
 
 
 def _conectar_lake(bucket: str, segredo: str):
