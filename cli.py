@@ -1,8 +1,11 @@
+import getpass
+import json
 import os
 import sys
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import boto3
@@ -379,6 +382,9 @@ LIMITE_COPY_OBJECT = 5 * 1024**3
 # Metadado gravado no destino quando o ETag da cópia não bate com o da origem
 # (origem multipart ou cópia multipart), para reconhecer o arquivo como já copiado.
 META_ETAG_ORIGEM = "colibri-etag-origem"
+# Histórico de clonagens, gravado no bucket de destino: um arquivo por clonagem,
+# em _colibri_clones/<origem>/<data-hora UTC>-<id>.json (ex.: 2026-11-24T14-35-11.123456Z-a1b2c3.json)
+PREFIXO_REGISTRO_CLONES = "_colibri_clones/"
 CABECALHOS_COPIADOS = ("ContentType", "CacheControl", "ContentDisposition", "ContentEncoding", "ContentLanguage")
 
 
@@ -466,6 +472,46 @@ def _copiar_objeto(s3, bucket_origem: str, bucket_destino: str, obj: dict, confi
         s3.copy(fonte, bucket_destino, chave, ExtraArgs=extra, Config=config_multipart)
 
 
+def _usuario() -> str:
+    try:
+        return getpass.getuser()
+    except Exception:
+        return "desconhecido"
+
+
+def _chave_registro_clone(origem: str) -> str:
+    # Data e hora UTC, com microssegundos, no nome: a ordem alfabética das chaves é
+    # a ordem cronológica. O sufixo aleatório evita que duas clonagens se sobrescrevam.
+    momento = datetime.now(UTC)
+    return f"{PREFIXO_REGISTRO_CLONES}{origem}/{momento:%Y-%m-%dT%H-%M-%S.%fZ}-{uuid.uuid4().hex[:6]}.json"
+
+
+def _gravar_registro_clone(s3, bucket_destino: str, registro: dict) -> None:
+    """Acrescenta a clonagem ao histórico do destino. Uma falha aqui só gera um
+    aviso: a cópia já terminou e não deve ser dada como falha por causa do registro"""
+    try:
+        s3.put_object(
+            Bucket=bucket_destino,
+            Key=_chave_registro_clone(registro["origem"]),
+            Body=json.dumps(registro, ensure_ascii=False, indent=2).encode("utf-8"),
+            ContentType="application/json",
+        )
+    except Exception as e:
+        console.print(f"[yellow]![/yellow] Não foi possível gravar o registro da clonagem: {e}")
+
+
+def _ha_quanto_tempo(momento: datetime) -> str:
+    segundos = max(int((datetime.now(FUSO) - momento).total_seconds()), 0)
+    dias, resto = divmod(segundos, 86400)
+    horas, resto = divmod(resto, 3600)
+    minutos = resto // 60
+    if dias:
+        return f"há {dias} dia(s) e {horas}h"
+    if horas:
+        return f"há {horas}h {minutos}min"
+    return f"há {minutos}min"
+
+
 @bucket.command("clone")
 @click.argument("bucket_origem", required=False)
 @click.argument("bucket_destino", required=False)
@@ -512,6 +558,12 @@ def clonar(
 
     Se o destino for colibri-prod, é preciso digitar o nome do bucket para
     confirmar, mesmo com --yes.
+
+    Cada clonagem é acrescentada ao histórico do destino, em
+    _colibri_clones/<origem>/, com data e hora, quem rodou, prefixo e o
+    resultado. Veja com: colibri bucket clone-status DESTINO. O histórico
+    nunca é copiado nem apagado pelo clone. Execuções que não alteram nada
+    (destino já igual, --dry-run ou cancelamento) não entram no histórico.
     """
     interativo = _interativo() and not yes
 
@@ -547,15 +599,18 @@ def clonar(
         transient=True,
     ) as p:
         p.add_task("")
+        # O histórico de clonagens é de cada bucket: nunca é copiado nem apagado como sobra
         objetos_origem = [
             obj
             for page in paginator.paginate(Bucket=bucket_origem, Prefix=prefixo)
             for obj in page.get("Contents", [])
+            if not obj["Key"].startswith(PREFIXO_REGISTRO_CLONES)
         ]
         objetos_destino = {
             obj["Key"]: obj
             for page in paginator.paginate(Bucket=bucket_destino, Prefix=prefixo)
             for obj in page.get("Contents", [])
+            if not obj["Key"].startswith(PREFIXO_REGISTRO_CLONES)
         }
 
         if not objetos_origem:
@@ -609,6 +664,7 @@ def clonar(
         return
 
     inicio = time.monotonic()
+    iniciado_em = datetime.now(FUSO)
     config_multipart = TransferConfig(
         multipart_threshold=LIMITE_COPY_OBJECT,
         multipart_chunksize=256 * 1024**2,
@@ -661,10 +717,32 @@ def clonar(
     duracao = time.monotonic() - inicio
     copiados = len(a_copiar) - len(falhas)
     bytes_copiados = bytes_copiar - sum(obj["Size"] for obj in falhas)
+    apagados = len(a_apagar) - len(falhas_exclusao)
+
+    _gravar_registro_clone(
+        s3,
+        bucket_destino,
+        {
+            "iniciado_em": iniciado_em.isoformat(timespec="seconds"),
+            "concluido_em": datetime.now(FUSO).isoformat(timespec="seconds"),
+            "duracao_segundos": round(duracao, 1),
+            "usuario": _usuario(),
+            "origem": bucket_origem,
+            "destino": bucket_destino,
+            "prefixo": prefixo,
+            "copiados": copiados,
+            "bytes_copiados": bytes_copiados,
+            "pulados": len(chaves_iguais),
+            "apagados": apagados,
+            "falhas_copia": [obj["Key"] for obj in falhas],
+            "falhas_exclusao": [erro.get("Key") for erro in falhas_exclusao],
+        },
+    )
+
     console.print(
         f"[{VERDE}]+[/] [bold]{copiados}[/bold] arquivo(s) copiado(s) ([bold]{_tamanho(bytes_copiados)}[/bold]), "
         f"[bold]{len(chaves_iguais)}[/bold] pulado(s), "
-        f"[bold]{len(a_apagar) - len(falhas_exclusao)}[/bold] apagado(s) "
+        f"[bold]{apagados}[/bold] apagado(s) "
         f"de [{AZUL}]{bucket_origem}[/] para [{AZUL}]{bucket_destino}[/] "
         f"em [bold]{_duracao(duracao)}[/bold]"
     )
@@ -684,6 +762,63 @@ def clonar(
             border_style="dim",
         )
     )
+
+
+@bucket.command("clone-status")
+@click.argument("bucket_destino", default=BUCKET_DESENVOLVIMENTO)
+@click.option("--origem", default=None, help="Mostra só as clonagens vindas desse bucket")
+@click.option("--limite", default=10, show_default=True, help="Quantas clonagens mostrar por origem, da mais recente")
+@click.option("--segredo", default=NOME_SEGREDO_DESENVOLVEDOR, show_default=True)
+def status_clone(bucket_destino: str, origem: str | None, limite: int, segredo: str):
+    """Mostra o histórico de clonagens para o bucket, separado por bucket de origem"""
+    s3 = _cliente(segredo)
+    prefixo = PREFIXO_REGISTRO_CLONES + (f"{origem}/" if origem else "")
+    chaves_por_origem: dict[str, list[str]] = {}
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket_destino, Prefix=prefixo):
+        for obj in page.get("Contents", []):
+            nome_origem = obj["Key"][len(PREFIXO_REGISTRO_CLONES) :].split("/", 1)[0]
+            chaves_por_origem.setdefault(nome_origem, []).append(obj["Key"])
+
+    if not chaves_por_origem:
+        vinda_de = f" vinda de [bold]{origem}[/bold]" if origem else ""
+        console.print(f"[yellow]Nenhuma clonagem{vinda_de} registrada em [bold]{bucket_destino}[/bold].[/yellow]")
+        return
+
+    for nome_origem, chaves in sorted(chaves_por_origem.items()):
+        recentes = sorted(chaves, reverse=True)[:limite]
+        tabela = _tabela_dados(
+            "Concluída em",
+            ("Há", {"style": "dim"}),
+            "Prefixo",
+            "Usuário",
+            ("Copiados", {"justify": "right"}),
+            ("Pulados", {"justify": "right"}),
+            ("Apagados", {"justify": "right"}),
+            ("Falhas", {"justify": "right"}),
+            ("Duração", {"justify": "right"}),
+        )
+        tabela.title = f"Clonagens de {nome_origem} para {bucket_destino}"
+        tabela.caption = f"{len(recentes)} de {len(chaves)} clonagem(ns)"
+        for chave in recentes:
+            try:
+                registro = json.loads(s3.get_object(Bucket=bucket_destino, Key=chave)["Body"].read())
+                concluido_em = datetime.fromisoformat(registro["concluido_em"])
+            except Exception as e:
+                console.print(f"[yellow]![/yellow] Registro ilegível [bold]{chave}[/bold]: {e}")
+                continue
+            falhas = len(registro.get("falhas_copia", [])) + len(registro.get("falhas_exclusao", []))
+            tabela.add_row(
+                f"{concluido_em.astimezone(FUSO):%Y-%m-%d %H:%M:%S}",
+                _ha_quanto_tempo(concluido_em).removeprefix("há "),
+                registro.get("prefixo") or "[dim]bucket inteiro[/dim]",
+                str(registro.get("usuario", "")),
+                f"{registro.get('copiados', 0)} [dim]({_tamanho(registro.get('bytes_copiados', 0))})[/dim]",
+                str(registro.get("pulados", 0)),
+                str(registro.get("apagados", 0)),
+                f"[red]{falhas}[/red]" if falhas else "0",
+                _duracao(registro.get("duracao_segundos", 0)),
+            )
+        console.print(tabela)
 
 
 def _conectar_lake(bucket: str, segredo: str):

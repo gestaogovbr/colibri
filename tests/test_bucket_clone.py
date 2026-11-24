@@ -5,11 +5,15 @@ os objetos num dicionário e registra cada chamada, para os testes verificarem o
 que foi copiado, apagado e em que ordem.
 """
 
+import json
+import re
 import threading
+from datetime import datetime
 
 import pytest
 from botocore.exceptions import ClientError
 from click.testing import CliRunner
+from rich.console import Console
 
 import cli
 
@@ -29,8 +33,9 @@ class FakeS3:
     def _registrar(self, operacao, chave, **detalhes):
         with self._lock:
             self.chamadas.append((operacao, chave, detalhes))
-        if (operacao, chave) in self.falhas:
-            raise self.falhas[(operacao, chave)]
+        for alvo in ((operacao, chave), (operacao, "*")):
+            if alvo in self.falhas:
+                raise self.falhas[alvo]
 
     def list_buckets(self):
         if not self.pode_listar:
@@ -79,6 +84,29 @@ class FakeS3:
             del self.buckets[Bucket][chave]
         return {}
 
+    def put_object(self, Bucket, Key, Body, ContentType):
+        self._registrar("put", Key)
+        self.buckets[Bucket][Key] = {"Size": len(Body), "ETag": '"registro"', "Metadata": {}, "Body": Body}
+
+    def get_object(self, Bucket, Key):
+        if Key not in self.buckets[Bucket]:
+            raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+        corpo = self.buckets[Bucket][Key]["Body"]
+
+        class Corpo:
+            def read(self):
+                return corpo
+
+        return {"Body": Corpo()}
+
+    def chaves_historico(self, bucket, origem=""):
+        prefixo = f"{cli.PREFIXO_REGISTRO_CLONES}{origem}"
+        return sorted(k for k in self.buckets[bucket] if k.startswith(prefixo))
+
+    def historico(self, bucket, origem=""):
+        """Registros de clonagem do bucket, do mais antigo para o mais recente"""
+        return [json.loads(self.buckets[bucket][k]["Body"]) for k in self.chaves_historico(bucket, origem)]
+
     def operacoes(self, *tipos):
         return [(op, chave) for op, chave, _ in self.chamadas if op in tipos]
 
@@ -118,7 +146,8 @@ def test_apaga_sobras_so_depois_de_todas_as_copias(rodar):
     assert resultado.exit_code == 0, resultado.output
     ops = [op for op, _ in fake.operacoes("copy", "delete")]
     assert ops == ["copy", "copy", "delete"]
-    assert fake.buckets["colibri-dev"].keys() == fake.buckets["colibri-prod"].keys()
+    dados_destino = {k for k in fake.buckets["colibri-dev"] if not k.startswith(cli.PREFIXO_REGISTRO_CLONES)}
+    assert dados_destino == fake.buckets["colibri-prod"].keys()
 
 
 def test_destino_producao_exige_nome_mesmo_com_yes(rodar):
@@ -359,3 +388,170 @@ def test_opcao_invalida_pergunta_de_novo(rodar, monkeypatch):
     resultado = rodar(fake, ["colibri-prod", "colibri-dev"], input="9\n1\n", interativo=True)
 
     assert "Opção inválida" in resultado.output
+
+
+# --- Histórico de clonagens ---
+
+
+def test_grava_registro_no_historico_ao_terminar(rodar):
+    fake = FakeS3(_buckets_padrao())
+    rodar(fake, ["--yes"])
+
+    [chave] = fake.chaves_historico("colibri-dev")
+    assert re.fullmatch(
+        r"_colibri_clones/colibri-prod/\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d\.\d{6}Z-[0-9a-f]{6}\.json", chave
+    )
+    [registro] = fake.historico("colibri-dev")
+    assert registro["origem"] == "colibri-prod"
+    assert registro["destino"] == "colibri-dev"
+    assert registro["prefixo"] == ""
+    assert (registro["copiados"], registro["pulados"], registro["apagados"]) == (2, 1, 1)
+    assert registro["bytes_copiados"] == 50
+    assert registro["falhas_copia"] == registro["falhas_exclusao"] == []
+    assert registro["usuario"]
+    assert datetime.fromisoformat(registro["iniciado_em"]) <= datetime.fromisoformat(registro["concluido_em"])
+    # O registro é gravado depois de todas as cópias e exclusões
+    assert fake.operacoes("copy", "delete", "put")[-1] == ("put", chave)
+
+
+def test_historico_acumula_clonagens_sem_sobrescrever(rodar):
+    fake = FakeS3(_buckets_padrao())
+    rodar(fake, ["--yes"])
+    fake.buckets["colibri-prod"]["outro.txt"] = {"Size": 7, "ETag": '"o"', "Metadata": {}}
+    rodar(fake, ["--yes"])
+
+    historico = fake.historico("colibri-dev", "colibri-prod")
+    assert [r["copiados"] for r in historico] == [2, 1]
+
+
+def test_historico_separado_por_origem(rodar):
+    buckets = _buckets_padrao()
+    buckets["colibri-arquivos"] = {"a.txt": {"Size": 1, "ETag": '"a"'}}
+    fake = FakeS3(buckets)
+    rodar(fake, ["colibri-prod", "colibri-dev", "--yes"])
+    rodar(fake, ["colibri-arquivos", "colibri-dev", "--yes"])
+
+    assert [r["origem"] for r in fake.historico("colibri-dev", "colibri-prod/")] == ["colibri-prod"]
+    assert [r["origem"] for r in fake.historico("colibri-dev", "colibri-arquivos/")] == ["colibri-arquivos"]
+
+
+def test_registro_lista_as_falhas(rodar):
+    fake = FakeS3(
+        _buckets_padrao(),
+        falhas={("copy", "novo.txt"): ConnectionError("x"), ("delete", "sobra.txt"): ConnectionError("y")},
+    )
+    rodar(fake, ["--yes"])
+
+    [registro] = fake.historico("colibri-dev")
+    assert registro["falhas_copia"] == ["novo.txt"]
+    assert registro["falhas_exclusao"] == ["sobra.txt"]
+    assert (registro["copiados"], registro["apagados"]) == (1, 0)
+
+
+def test_historico_nunca_e_copiado_nem_apagado(rodar):
+    da_origem = f"{cli.PREFIXO_REGISTRO_CLONES}outro-bucket/2026-01-01T00-00-00Z-aaaaaa.json"
+    do_destino = f"{cli.PREFIXO_REGISTRO_CLONES}colibri-prod/2026-01-01T00-00-00Z-bbbbbb.json"
+    buckets = _buckets_padrao()
+    buckets["colibri-prod"][da_origem] = {"Size": 2, "ETag": '"r"', "Body": b"{}"}
+    buckets["colibri-dev"][do_destino] = {"Size": 2, "ETag": '"r"', "Body": b"{}"}
+    fake = FakeS3(buckets)
+    resultado = rodar(fake, ["--yes"])
+
+    assert resultado.exit_code == 0, resultado.output
+    chaves = {chave for _, chave in fake.operacoes("copy", "delete")}
+    assert not any(c.startswith(cli.PREFIXO_REGISTRO_CLONES) for c in chaves)
+    assert "2 arquivo(s) serão copiados" in resultado.output
+    assert do_destino in fake.buckets["colibri-dev"]
+    assert da_origem not in fake.buckets["colibri-dev"]
+    assert len(fake.chaves_historico("colibri-dev", "colibri-prod/")) == 2
+
+
+@pytest.mark.parametrize(
+    ("args", "entrada"),
+    [(["--dry-run"], None), ([], "n\n"), (["colibri-dev", "colibri-prod", "--yes"], "errado\n")],
+    ids=["dry-run", "cancelado", "producao-cancelado"],
+)
+def test_nao_grava_registro_sem_alteracao(rodar, args, entrada):
+    fake = FakeS3(_buckets_padrao())
+    rodar(fake, args, input=entrada)
+
+    assert fake.operacoes("put") == []
+
+
+def test_nao_grava_registro_quando_destino_ja_esta_igual(rodar):
+    fake = FakeS3(_buckets_padrao())
+    rodar(fake, ["--yes"])
+    fake.chamadas.clear()
+
+    rodar(fake, ["--yes"])
+
+    assert fake.operacoes("put") == []
+
+
+def test_falha_ao_gravar_registro_nao_falha_o_clone(rodar):
+    fake = FakeS3(_buckets_padrao(), falhas={("put", "*"): ConnectionError("rede caiu")})
+    resultado = rodar(fake, ["--yes"])
+
+    assert resultado.exit_code == 0, resultado.output
+    assert "Não foi possível gravar o registro" in resultado.output
+    assert "2 arquivo(s) copiado(s)" in resultado.output
+
+
+# --- clone-status ---
+
+
+def _status(monkeypatch, fake, args):
+    monkeypatch.setattr(cli, "_cliente", lambda *a, **k: fake)
+    # Terminal largo o bastante para a tabela não cortar as colunas
+    monkeypatch.setattr(cli, "console", Console(width=200))
+    return CliRunner().invoke(cli.cli, ["bucket", "clone-status", *args])
+
+
+def _fake_com_duas_origens(rodar):
+    buckets = _buckets_padrao()
+    buckets["colibri-arquivos"] = {"a.txt": {"Size": 1, "ETag": '"a"'}}
+    fake = FakeS3(buckets, falhas={("copy", "novo.txt"): ConnectionError("x")})
+    rodar(fake, ["--yes"])
+    fake.falhas.clear()
+    rodar(fake, ["--yes"])
+    rodar(fake, ["colibri-arquivos", "colibri-dev", "--yes"])
+    return fake
+
+
+def test_clone_status_mostra_historico_por_origem(rodar, monkeypatch):
+    fake = _fake_com_duas_origens(rodar)
+    resultado = _status(monkeypatch, fake, [])
+
+    assert resultado.exit_code == 0, resultado.output
+    assert "Clonagens de colibri-arquivos para colibri-dev" in resultado.output
+    assert "Clonagens de colibri-prod para colibri-dev" in resultado.output
+    assert "2 de 2 clonagem(ns)" in resultado.output
+    assert "1 de 1 clonagem(ns)" in resultado.output
+    assert "bucket inteiro" in resultado.output
+
+
+def test_clone_status_filtra_origem_e_limita(rodar, monkeypatch):
+    fake = _fake_com_duas_origens(rodar)
+    resultado = _status(monkeypatch, fake, ["colibri-dev", "--origem", "colibri-prod", "--limite", "1"])
+
+    assert resultado.exit_code == 0, resultado.output
+    assert "Clonagens de colibri-prod para colibri-dev" in resultado.output
+    assert "colibri-arquivos" not in resultado.output
+    assert "1 de 2 clonagem(ns)" in resultado.output
+
+
+def test_clone_status_sem_registro(monkeypatch):
+    fake = FakeS3({"colibri-dev": {}})
+    resultado = _status(monkeypatch, fake, ["colibri-dev"])
+
+    assert resultado.exit_code == 0, resultado.output
+    assert "Nenhuma clonagem registrada em colibri-dev" in resultado.output
+
+
+def test_clone_status_avisa_registro_ilegivel(monkeypatch):
+    chave = f"{cli.PREFIXO_REGISTRO_CLONES}colibri-prod/2026-01-01T00-00-00Z-aaaaaa.json"
+    fake = FakeS3({"colibri-dev": {chave: {"Size": 3, "ETag": '"x"', "Body": b"???"}}})
+    resultado = _status(monkeypatch, fake, [])
+
+    assert resultado.exit_code == 0, resultado.output
+    assert "Registro ilegível" in resultado.output
