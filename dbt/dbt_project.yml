@@ -6,7 +6,7 @@ vars:
   timezone: America/Sao_Paulo
   bucket_lake: colibri-prod
   bucket_arquivos: colibri-arquivos
-  margem_arquivo_resolucoes: 2026-07-14 Resoluções CICS e CIIA-PAC.xlsx
+  margem_arquivo_resolucoes: Resolucoes_CICS_CIIAPAC_revisado.xlsx
 model-paths: [modelos]
 models:
   colibri:
