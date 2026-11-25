@@ -56,3 +56,40 @@ colibri:
           alias: lake
           options:
             data_path: s3://<R2_BUCKET>/lake/
+    # Target para testes numa cópia do lake (ex.: um bucket com a cópia do colibri-prod).
+    # - override_data_path: o catálogo copiado guarda o data_path original
+    #   (s3://colibri-prod/lake/); sem essa opção, os parquets novos iriam pra produção.
+    # - Use um token R2 com escrita SOMENTE no bucket de teste: um erro de configuração
+    #   vira 403 em vez de gravação em produção.
+    # - http_retries baixo: com o token restrito, um acesso indevido ao bucket de
+    #   produção falha logo, em vez de parecer travado durante os retries.
+    # Uso (a partir da raiz do repositório):
+    #   colibri bucket download meta.ducklake <BUCKET_DE_TESTE> --destino meta.ducklake
+    #   cd dbt && dbt run --target teste --vars '{bucket_lake: <BUCKET_DE_TESTE>}' ...
+    teste:
+      type: duckdb
+      path: ../dados/lakehouse_teste.duckdb
+      threads: 4
+      extensions: [httpfs, ducklake]
+      secrets:
+        - type: s3
+          provider: config
+          key_id: <R2_KEY_SOMENTE_BUCKET_DE_TESTE>
+          secret: <R2_SECRET_SOMENTE_BUCKET_DE_TESTE>
+          endpoint: <R2_ACCOUNT_ID>.r2.cloudflarestorage.com
+          region: auto
+          url_style: path
+          use_ssl: true
+      config_options:
+        temp_directory: ../dados/duckdb_tmp
+      settings:
+        http_timeout: 3600000
+        http_retries: 1
+        http_retry_wait_ms: 1000
+        preserve_insertion_order: false
+      attach:
+        - path: ducklake:../meta.ducklake
+          alias: lake
+          options:
+            data_path: s3://<BUCKET_DE_TESTE>/lake/
+            override_data_path: true
