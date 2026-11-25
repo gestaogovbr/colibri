@@ -7,9 +7,9 @@ version: 2
 models:
   - name: stg_margem__resolucoes
     description: >
-      Datas de vigência das resoluções CICS e CIIA-PAC que instituem margens de
-      preferência, lidas das abas 'resolucoes_cics' e 'resolucoes_ciia_pac' da
-      planilha de resoluções.
+      Cadastro das resoluções CICS e CIIA-PAC, incluindo identificação, datas,
+      prazo de vacatio legio, sumários e URLs, lido das abas 'resolucoes_cics'
+      e 'resolucoes_ciia_pac' da planilha de resoluções.
     columns:
       - name: id
         data_type: varchar
@@ -21,6 +21,24 @@ models:
         description: Data de início de vigência da resolução, já contabilizado o vacatio
           legis, se houver (ex. 01/09/2024).
         data_tests: [not_null]
+      - name: nome
+        data_type: varchar
+        description: Nome completo da resolução.
+      - name: data
+        data_type: date
+        description: Data do ato.
+      - name: publicacao
+        data_type: date
+        description: Data de publicação da resolução.
+      - name: vacatio_legis_dias
+        data_type: integer
+        description: Prazo em dias entre a publicação e o início da vigência.
+      - name: sumario
+        data_type: varchar
+        description: Resumo do conteúdo da resolução.
+      - name: url
+        data_type: varchar
+        description: URL completa do documento, armazenada como texto.
   - name: stg_margem__eventos
     description: >
       Eventos de habilitação/desabilitação de margens de preferência por prefixo NCM,
