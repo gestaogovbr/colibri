@@ -1,7 +1,7 @@
 ---
 version: 2
 # Marts de margem de preferência: expandem os prefixos NCM vigentes para os
-# códigos NCM completos, via ncm_prefixos.csv no bucket do lake. Um NCM aparece
+# códigos NCM completos, via int_ncm_prefixos. Um NCM aparece
 # uma vez por tipo de margem — os dois tipos podem valer para o mesmo código.
 models:
   - name: mrt_margem__ncms_cics
