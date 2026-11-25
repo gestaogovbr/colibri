@@ -156,10 +156,12 @@ Views em `lake.main_marts`:
 | `mrt_pncp_comprasgov_resultados` | resultados dos itens — versão atual |
 | `mrt_margem__ncms_cics`, `mrt_margem__ncms_ciiapac` | NCMs com margem de preferência em vigor, por resolução (CICS / CIIAPAC) |
 | `mrt_tradutor_catmat_ncm__mapeamento_ia` | tradutor CATMAT → NCM (classificação humana com apoio de IA) |
+| `mrt_uasg__uasgs` | cadastro de UASGs do Compras.gov.br — versão atual, com uso do SISG e esfera/poder/tipo de administração do órgão |
+| `mrt_uasg__orgaos` | cadastro de órgãos do Compras.gov.br — versão atual |
 
 A lista completa e atual é a do `colibri lake tables`. O histórico de cada
 registro (todas as versões, não só a atual) está nas tabelas
-`int_pncp_comprasgov__*` em `main_intermediate`.
+`int_pncp_comprasgov__*` e `int_uasg__*` em `main_intermediate`.
 
 ## DuckDB UI
 
@@ -194,7 +196,7 @@ Rodar pipelines, escrever no bucket e manter o lake exigem o
 e, para não tocar a produção, um ambiente próprio. Os comandos:
 
 ```bash
-colibri pipeline run --apenas <fonte>   # ncm, pncp-comprasgov, catmats, nfe-cgu, margem-preferencia, tradutor-catmat-ncm
+colibri pipeline run --apenas <fonte>   # ncm, pncp-comprasgov, catmats, nfe-cgu, margem-preferencia, tradutor-catmat-ncm, uasg
 colibri bucket <comando>                # list, download, upload, delete, purge
 colibri sincronizar                     # baixa manifestos e catálogo do bucket
 colibri lake drop-table <tabela>        # exclusão lógica (recuperável via time travel)

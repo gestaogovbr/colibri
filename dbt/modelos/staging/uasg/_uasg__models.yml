@@ -1,0 +1,318 @@
+---
+version: 2
+# Cadastro de UASGs e órgãos do Compras.gov.br (API de dados abertos, módulo UASG).
+# A extração (ingestion/uasg/extract.py) baixa o cadastro completo a cada execução e só grava
+# um snapshot novo quando o conteúdo muda. O histórico de alterações (SCD2) é montado nos
+# modelos int_* pela macro scd2_por_snapshot, comparando snapshots sucessivos.
+models:
+  - name: stg_uasg__uasgs
+    description: >
+      Snapshots do cadastro de UASGs (/modulo-uasg/1_consultarUasg), ativas e inativas,
+      acumulados por append. Uma linha por (UASG, snapshot).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [codigo_uasg, extraido_em]
+    columns:
+      - name: codigo_uasg
+        description: Código da UASG (Unidade Administrativa de Serviços Gerais). Corresponde
+          a unidade_orgao_codigo_unidade em mrt_pncp_comprasgov_compras.
+        data_tests: [not_null]
+      - name: nome_uasg
+        description: Nome da UASG.
+      - name: uso_sisg
+        description: >
+          Indica se a UASG é usuária do SISG (Sistema de Serviços Gerais), que
+          reúne os órgãos da administração federal direta, autárquica e
+          fundacional do Poder Executivo. As demais UASGs (estados, municípios,
+          outros poderes, estatais etc.) usam o Compras.gov.br por adesão.
+      - name: adesao_siasg
+        description: Indica se a UASG aderiu ao SIASG.
+      - name: sigla_uf
+        description: UF da UASG.
+      - name: codigo_municipio
+        description: Código do município no SIASG.
+      - name: codigo_municipio_ibge
+        description: Código IBGE do município.
+      - name: nome_municipio_ibge
+        description: Nome do município (IBGE).
+      - name: codigo_unidade_polo
+        description: Código da UASG polo à qual esta está vinculada (nulo se não houver;
+          a API devolve 0).
+      - name: nome_unidade_polo
+        description: Nome da UASG polo.
+      - name: codigo_unidade_espelho
+        description: Código da UASG espelho (nulo se não houver; a API devolve 0).
+      - name: nome_unidade_espelho
+        description: Nome da UASG espelho.
+      - name: uasg_cadastradora
+        description: Indica se a UASG é cadastradora (pode cadastrar fornecedores
+          no SICAF).
+      - name: cnpj_cpf_uasg
+        description: CNPJ da UASG (nulo se não houver; a API devolve "0").
+      - name: codigo_orgao
+        description: Código SIASG do órgão ao qual a UASG pertence (liga a stg_uasg__orgaos).
+      - name: cnpj_cpf_orgao
+        description: CNPJ do órgão.
+      - name: cnpj_cpf_orgao_vinculado
+        description: CNPJ do órgão vinculado.
+      - name: cnpj_cpf_orgao_superior
+        description: CNPJ do órgão superior.
+      - name: codigo_siorg
+        description: Código da unidade no SIORG.
+      - name: status_uasg
+        description: Indica se a UASG está ativa.
+        data_tests: [not_null]
+      - name: data_implantacao_sidec
+        description: Data de implantação no SIDEC.
+      - name: data_hora_movimento
+        description: Data e hora da última movimentação do cadastro na origem.
+      - name: extraido_em
+        description: Momento da extração do snapshot.
+        data_tests: [not_null]
+      - name: _source_file
+        description: Caminho do CSV de origem (inclui o timestamp do snapshot).
+        data_tests: [not_null]
+  - name: stg_uasg__orgaos
+    description: >
+      Snapshots do cadastro de órgãos (/modulo-uasg/2_consultarOrgao), ativos e inativos,
+      acumulados por append. Uma linha por (órgão, snapshot).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [codigo_orgao, extraido_em]
+    columns:
+      - name: codigo_orgao
+        description: Código SIASG do órgão.
+        data_tests: [not_null]
+      - name: nome_orgao
+        description: Nome do órgão.
+      - name: nome_mnemonico_orgao
+        description: Sigla ou nome curto do órgão.
+      - name: cnpj_cpf_orgao
+        description: CNPJ do órgão.
+      - name: codigo_orgao_vinculado
+        description: Código do órgão vinculado.
+      - name: nome_orgao_vinculado
+        description: Nome do órgão vinculado.
+      - name: codigo_orgao_superior
+        description: Código do órgão superior.
+      - name: nome_orgao_superior
+        description: Nome do órgão superior.
+      - name: codigo_tipo_administracao
+        description: Código do tipo de administração.
+      - name: nome_tipo_administracao
+        description: Tipo de administração (direta, autárquica, fundacional, empresa
+          pública, sociedade de economia mista etc.).
+      - name: poder
+        description: Poder (E = Executivo, L = Legislativo, J = Judiciário…).
+      - name: esfera
+        description: Esfera (F = Federal, E = Estadual, M = Municipal…).
+      - name: uso_sisg
+        description: Indica se o órgão é usuário do SISG.
+      - name: status_orgao
+        description: Indica se o órgão está ativo.
+        data_tests: [not_null]
+      - name: data_hora_movimento
+        description: Data e hora da última movimentação do cadastro na origem.
+      - name: extraido_em
+        description: Momento da extração do snapshot.
+        data_tests: [not_null]
+      - name: _source_file
+        description: Caminho do CSV de origem (inclui o timestamp do snapshot).
+        data_tests: [not_null]
+  - name: int_uasg__uasgs
+    description: >
+      Histórico de alterações (SCD2) do cadastro de UASGs, montado a partir dos snapshots
+      de stg_uasg__uasgs pela macro scd2_por_snapshot. Uma versão nova é aberta quando
+      o
+      conteúdo da UASG muda entre snapshots ou quando ela reaparece após sumir do
+      cadastro;
+      snapshots idênticos não geram versão nova.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [codigo_uasg, valido_de]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
+    columns:
+      - name: codigo_uasg
+        description: Código da UASG.
+        data_tests:
+          - not_null
+          - unique:
+              config:
+                where: is_current
+      - name: valido_de
+        description: Momento do primeiro snapshot em que esta versão apareceu.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: >
+          Momento até o qual esta versão é válida, inclusive: 1 microssegundo antes
+          do
+          snapshot em que o conteúdo mudou ou em que a UASG sumiu do cadastro (nulo
+          se vigente).
+      - name: is_current
+        description: Indica se esta versão está presente no snapshot mais recente.
+        data_tests: [not_null]
+      - name: ultimo_snapshot
+        description: Momento do último snapshot em que esta versão apareceu.
+        data_tests: [not_null]
+  - name: int_uasg__orgaos
+    description: >
+      Histórico de alterações (SCD2) do cadastro de órgãos, montado a partir dos snapshots
+      de stg_uasg__orgaos pela macro scd2_por_snapshot.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [codigo_orgao, valido_de]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
+    columns:
+      - name: codigo_orgao
+        description: Código SIASG do órgão.
+        data_tests:
+          - not_null
+          - unique:
+              config:
+                where: is_current
+      - name: valido_de
+        description: Momento do primeiro snapshot em que esta versão apareceu.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: >
+          Momento até o qual esta versão é válida, inclusive: 1 microssegundo antes
+          do
+          snapshot em que o conteúdo mudou ou em que o órgão sumiu do cadastro (nulo
+          se vigente).
+      - name: is_current
+        description: Indica se esta versão está presente no snapshot mais recente.
+        data_tests: [not_null]
+      - name: ultimo_snapshot
+        description: Momento do último snapshot em que esta versão apareceu.
+        data_tests: [not_null]
+  - name: mrt_uasg__uasgs
+    description: >
+      Versão vigente de cada UASG do cadastro do Compras.gov.br, com os atributos
+      do órgão
+      ao qual pertence (esfera, poder, tipo de administração). Use uso_sisg para separar
+      órgãos SISG e não SISG. Liga-se a mrt_pncp_comprasgov_compras por
+      codigo_uasg = unidade_orgao_codigo_unidade.
+    columns:
+      - name: codigo_uasg
+        description: Código da UASG.
+        data_tests: [not_null, unique]
+      - name: uso_sisg
+        description: Indica se a UASG é usuária do SISG.
+      - name: uso_sisg_orgao
+        description: Indica se o órgão da UASG é usuário do SISG.
+      - name: esfera
+        description: Esfera do órgão da UASG (F, E, M…).
+      - name: poder
+        description: Poder do órgão da UASG (E, L, J…).
+      - name: nome_tipo_administracao
+        description: Tipo de administração do órgão da UASG.
+  - name: mrt_uasg__orgaos
+    description: Versão vigente de cada órgão do cadastro do Compras.gov.br.
+    columns:
+      - name: codigo_orgao
+        description: Código SIASG do órgão.
+        data_tests: [not_null, unique]
+unit_tests:
+  - name: int_uasg__uasgs_historico_por_snapshot
+    description: >
+      Quatro snapshots mensais. UASG 1 é igual nos dois primeiros (uma versão só),
+      muda no terceiro (a versão anterior fecha 1 microssegundo antes) e segue igual
+      no quarto (vigente). UASG 2 some no terceiro snapshot (versão fechada, sem
+      vigente) e reaparece no quarto (nova versão vigente). UASG 3 existe só no
+      primeiro (fechada no segundo).
+    model: int_uasg__uasgs
+    given:
+      - input: ref('stg_uasg__uasgs')
+        rows:
+          - codigo_uasg: '1'
+            nome_uasg: A
+            uso_sisg: true
+            extraido_em: '2026-01-01 10:00:00'
+            _source_file: s1.csv
+            _dbt_loaded_at: '2026-01-01 10:05:00'
+          - codigo_uasg: '2'
+            nome_uasg: B
+            uso_sisg: false
+            extraido_em: '2026-01-01 10:00:00'
+            _source_file: s1.csv
+            _dbt_loaded_at: '2026-01-01 10:05:00'
+          - codigo_uasg: '3'
+            nome_uasg: C
+            uso_sisg: true
+            extraido_em: '2026-01-01 10:00:00'
+            _source_file: s1.csv
+            _dbt_loaded_at: '2026-01-01 10:05:00'
+          - codigo_uasg: '1'
+            nome_uasg: A
+            uso_sisg: true
+            extraido_em: '2026-02-01 10:00:00'
+            _source_file: s2.csv
+            _dbt_loaded_at: '2026-02-01 10:05:00'
+          - codigo_uasg: '2'
+            nome_uasg: B
+            uso_sisg: false
+            extraido_em: '2026-02-01 10:00:00'
+            _source_file: s2.csv
+            _dbt_loaded_at: '2026-02-01 10:05:00'
+          - codigo_uasg: '1'
+            nome_uasg: A
+            uso_sisg: false
+            extraido_em: '2026-03-01 10:00:00'
+            _source_file: s3.csv
+            _dbt_loaded_at: '2026-03-01 10:05:00'
+          - codigo_uasg: '1'
+            nome_uasg: A
+            uso_sisg: false
+            extraido_em: '2026-04-01 10:00:00'
+            _source_file: s4.csv
+            _dbt_loaded_at: '2026-04-01 10:05:00'
+          - codigo_uasg: '2'
+            nome_uasg: B
+            uso_sisg: false
+            extraido_em: '2026-04-01 10:00:00'
+            _source_file: s4.csv
+            _dbt_loaded_at: '2026-04-01 10:05:00'
+    expect:
+      rows:
+        - codigo_uasg: '1'
+          uso_sisg: true
+          valido_de: '2026-01-01 10:00:00'
+          valido_ate: '2026-03-01 09:59:59.999999'
+          is_current: false
+          ultimo_snapshot: '2026-02-01 10:00:00'
+        - codigo_uasg: '1'
+          uso_sisg: false
+          valido_de: '2026-03-01 10:00:00'
+          valido_ate:
+          is_current: true
+          ultimo_snapshot: '2026-04-01 10:00:00'
+        - codigo_uasg: '2'
+          uso_sisg: false
+          valido_de: '2026-01-01 10:00:00'
+          valido_ate: '2026-03-01 09:59:59.999999'
+          is_current: false
+          ultimo_snapshot: '2026-02-01 10:00:00'
+        - codigo_uasg: '2'
+          uso_sisg: false
+          valido_de: '2026-04-01 10:00:00'
+          valido_ate:
+          is_current: true
+          ultimo_snapshot: '2026-04-01 10:00:00'
+        - codigo_uasg: '3'
+          uso_sisg: true
+          valido_de: '2026-01-01 10:00:00'
+          valido_ate: '2026-02-01 09:59:59.999999'
+          is_current: false
+          ultimo_snapshot: '2026-01-01 10:00:00'
