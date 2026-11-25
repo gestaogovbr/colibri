@@ -4,8 +4,10 @@
     primário da conexão (lakehouse_prod/lakehouse_dev), nunca pro catálogo DuckLake anexado
     (lake), onde os models de fato moram (config `database='lake'`). Resultado: a query roda
     sem erro mas nunca bate nenhuma linha, e o catalog.json do `dbt docs generate` fica vazio.
-    Aqui filtramos por schema, não por database, o que cobre o caso real do projeto (um único
-    catálogo `lake` anexado).
+    Aqui filtramos pelo catálogo `lake` (onde moram os models) e pelos schemas pedidos, e
+    juntamos as colunas por banco + schema + tabela: sem o banco no join, relações homônimas
+    de outros catálogos anexados (banco primário, __ducklake_metadata_lake, temp) se misturam
+    e geram colunas duplicadas ou com o tipo errado.
 #}
 {% macro duckdb__get_catalog(information_schema, schemas) -%}
   {%- call statement('catalog', fetch_result=True) -%}
@@ -36,8 +38,11 @@
         c.data_type as column_type,
         c.comment as column_comment,
         NULL as table_owner
-    FROM relations r JOIN duckdb_columns() c ON r.schema_name = c.schema_name AND r.table_name = c.table_name
-    WHERE (
+    FROM relations r JOIN duckdb_columns() c
+        ON r.database_name = c.database_name
+        AND r.schema_name = c.schema_name
+        AND r.table_name = c.table_name
+    WHERE r.database_name = 'lake' AND (
         {%- for schema in schemas -%}
           upper(r.schema_name) = upper('{{ schema }}'){%- if not loop.last %} or {% endif -%}
         {%- endfor -%}
