@@ -199,7 +199,7 @@ colibri bucket <comando>                # list, download, upload, delete, purge
 colibri sincronizar                     # baixa manifestos e catálogo do bucket
 colibri lake drop-table <tabela>        # exclusão lógica (recuperável via time travel)
 colibri lake maintenance                # expira snapshots antigos e apaga parquets órfãos
-colibri docs                            # documentação dos modelos dbt (exige o dbt configurado)
+colibri docs [--target prod]            # documentação dos modelos dbt (exige o dbt configurado)
 ```
 
 `colibri <comando> --help` mostra as opções. O passo a passo — instalação do dbt,

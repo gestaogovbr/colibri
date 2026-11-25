@@ -861,29 +861,32 @@ def sincronizar(segredo: str):
 
 @cli.command("docs")
 @click.option("--sem-servidor", is_flag=True, help="Gera a documentação sem abrir o servidor")
-def docs(sem_servidor: bool):
+@click.option(
+    "--target",
+    default=None,
+    help="Target do dbt/profiles.yml (padrão: o target padrão do profile)",
+)
+def docs(sem_servidor: bool, target: str | None):
     """Gera e exibe a documentação automática do dbt"""
     import subprocess
     from pathlib import Path
 
     dbt_dir = Path(__file__).resolve().parent / "dbt"
 
+    comando = [
+        "dbt",
+        "docs",
+        "generate",
+        "--project-dir",
+        str(dbt_dir),
+        "--profiles-dir",
+        str(dbt_dir),
+    ]
+    if target:
+        comando += ["--target", target]
+
     console.print("[cyan]>>> Gerando documentação...[/cyan]")
-    subprocess.run(
-        [
-            "dbt",
-            "docs",
-            "generate",
-            "--project-dir",
-            str(dbt_dir),
-            "--profiles-dir",
-            str(dbt_dir),
-            "--target",
-            "prod",
-        ],
-        cwd=str(dbt_dir),
-        check=True,
-    )
+    subprocess.run(comando, cwd=str(dbt_dir), check=True)
 
     if not sem_servidor:
         console.print("[cyan]>>> Servindo documentação em http://localhost:8080[/cyan]")
