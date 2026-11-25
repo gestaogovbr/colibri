@@ -13,7 +13,11 @@ models:
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [prefixo_ncm, resolucao, data_inicio]
+            combination_of_columns:
+              - prefixo_ncm
+              - resolucao
+              - tipo_margem
+              - data_inicio
       - dbt_utils.expression_is_true:
           arguments:
             expression: data_fim >= data_inicio
@@ -92,7 +96,7 @@ models:
       - name: ultima
         data_type: boolean
         description: Indica se este é o intervalo mais recente (por data_inicio) para
-          o prefixo_ncm.
+          o prefixo_ncm e o tipo_margem.
         data_tests: [not_null]
       - name: ativa
         data_type: boolean
