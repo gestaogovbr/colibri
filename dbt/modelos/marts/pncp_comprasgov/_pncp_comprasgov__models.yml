@@ -55,16 +55,12 @@ models:
       (id_compra_item, sequencial_resultado), filtrando is_current sobre
       int_pncp_comprasgov__resultados.
     data_tests:
-      # `warn` enquanto a issue 95 estiver aberta: com data_atualizacao nula o
-      # SCD2 marca mais de uma versão como vigente e o mart duplica a chave.
-      # Medido em produção em 2026-09-05: 1.456.673 chaves com mais de uma linha.
-      # O PR 96 zera isso; depois dele (e de um run --full-refresh) este teste
-      # vira `error`.
+      # Issue 95: era `warn` enquanto data_atualizacao nula fazia o SCD2 marcar
+      # mais de uma versão como vigente (1.456.673 chaves duplicadas em produção
+      # em 2026-09-05). Resolvido pelo PR 96 com --full-refresh.
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [id_compra_item, sequencial_resultado]
-          config:
-            severity: warn
     columns:
       - name: id_compra_item
         data_type: varchar

@@ -84,15 +84,9 @@ models:
       - name: data_atualizacao
         description: Data da última atualização do registro (usada para versionamento
           SCD2).
-        # `warn` enquanto a issue 95 estiver aberta: hoje a produção tem 5.729.922
-        # linhas com esta coluna nula, porque o modelo não harmoniza as variantes
-        # _pncp. O PR 96 zera essa contagem; depois dele (e de um run
-        # --full-refresh) este teste deve passar a `error`, como os equivalentes
-        # de compras e itens.
-        data_tests:
-          - not_null:
-              config:
-                severity: warn
+        # Issue 95: era `warn` enquanto a coluna vinha nula nas linhas com schema
+        # _pncp. A harmonização do PR 96 (com --full-refresh) zerou os nulos.
+        data_tests: [not_null]
       - name: data_resultado
         description: Data em que o resultado foi registrado.
       - name: granularidade
@@ -179,13 +173,9 @@ models:
         data_tests: [not_null]
       - name: valido_de
         description: Data a partir da qual esta versão do registro é válida.
-        # `warn` enquanto a issue 95 estiver aberta: valido_de é copiado de
-        # data_atualizacao, que hoje vem nula para as linhas com schema _pncp.
-        # São 3.139.083 linhas em produção. Vira `error` depois do PR 96.
-        data_tests:
-          - not_null:
-              config:
-                severity: warn
+        # Issue 95: era `warn` enquanto data_atualizacao (de onde vem valido_de)
+        # vinha nula nas linhas com schema _pncp. Resolvido pelo PR 96.
+        data_tests: [not_null]
       - name: valido_ate
         description: Data até a qual esta versão do registro é válida (nula se vigente).
       - name: is_current
