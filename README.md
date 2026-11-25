@@ -110,7 +110,6 @@ Pronto. Não há mais nada a baixar: os comandos `lake` buscam o catálogo do la
 colibri lake tables                     # tabelas e views do catálogo, com contagem de linhas
 colibri lake query "<sql>"              # consulta SQL livre
 colibri lake download <tabela>          # exporta uma tabela para parquet local
-colibri lake years <tabela>             # contagem de linhas por ano
 colibri lake ui                         # abre a DuckDB UI no navegador, conectada ao lake
 ```
 
@@ -120,6 +119,8 @@ Numa consulta SQL a tabela precisa do caminho completo, `lake.<schema>.<tabela>`
 
 ```bash
 colibri lake query "SELECT count(*) FROM lake.main_marts.mrt_pncp_comprasgov_compras"
+# contagem de linhas por ano
+colibri lake query "SELECT ano_compra, count(*) FROM lake.main_marts.mrt_pncp_comprasgov_compras GROUP BY ALL ORDER BY 1"
 ```
 
 Se faltar o caminho, o erro já traz o nome certo:
@@ -129,8 +130,7 @@ x Catalog Error: Table with name mrt_pncp_comprasgov_compras does not exist!
 Did you mean "lake.main_marts.mrt_pncp_comprasgov_compras"?
 ```
 
-Nos demais comandos (`download`, `years`) basta o nome da tabela — o colibri
-descobre o schema:
+No `download` basta o nome da tabela — o colibri descobre o schema:
 
 ```bash
 colibri lake download mrt_pncp_comprasgov_compras                                  # salva ./mrt_pncp_comprasgov_compras.parquet
