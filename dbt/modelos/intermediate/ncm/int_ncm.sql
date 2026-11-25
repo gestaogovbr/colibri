@@ -21,7 +21,10 @@ scd2 AS (
         LEAD(_dbt_loaded_at::TIMESTAMP) OVER (
             PARTITION BY codigo
             ORDER BY _dbt_loaded_at
-        ) - INTERVAL '1 day'                        AS valido_ate,
+        -- valido_de é TIMESTAMP (momento da carga): subtrair 1 dia, como nos modelos com
+        -- data_atualizacao DATE, faria valido_ate < valido_de quando duas cargas ocorrem
+        -- a menos de 24h. 1 microssegundo (a precisão do TIMESTAMP) mantém o fim inclusivo.
+        ) - INTERVAL '1 microsecond'                AS valido_ate,
         LEAD(_dbt_loaded_at::TIMESTAMP) OVER (
             PARTITION BY codigo
             ORDER BY _dbt_loaded_at

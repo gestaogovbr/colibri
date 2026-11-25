@@ -49,10 +49,13 @@ models:
       - name: capitulo_codigo
         description: Código do capítulo ancestral do item.
       - name: valido_de
-        description: Data a partir da qual esta versão do registro é válida.
+        description: Momento (carga do NCM) a partir do qual esta versão do registro
+          é válida.
         data_tests: [not_null]
       - name: valido_ate
-        description: Data até a qual esta versão do registro é válida (nula se vigente).
+        description: >
+          Momento até o qual esta versão do registro é válida, inclusive: 1 microssegundo
+          antes da carga seguinte (nulo se vigente).
       - name: is_current
         description: Indica se esta é a versão mais recente do registro.
         data_tests: [not_null]
