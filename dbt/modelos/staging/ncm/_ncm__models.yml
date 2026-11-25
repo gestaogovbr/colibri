@@ -83,3 +83,33 @@ models:
         description: Nível do subitem (sempre "Subitem").
       - name: capitulo_codigo
         description: Código do capítulo ancestral do subitem.
+unit_tests:
+  - name: int_ncm_duas_cargas_no_mesmo_dia
+    description: >
+      Duas cargas do NCM com 6h de diferença: a versão anterior deve fechar 1
+      microssegundo antes da carga seguinte (valido_ate >= valido_de), e não 1 dia
+      antes, o que deixaria valido_ate < valido_de.
+    model: int_ncm
+    given:
+      - input: ref('stg_ncm')
+        rows:
+          - codigo: '01.01'
+            descricao: Cavalos
+            _source_file: ncm_1.csv
+            _dbt_loaded_at: '2026-11-25 09:00:00'
+          - codigo: '01.01'
+            descricao: Cavalos vivos
+            _source_file: ncm_2.csv
+            _dbt_loaded_at: '2026-11-25 15:00:00'
+    expect:
+      rows:
+        - codigo: '01.01'
+          descricao: Cavalos
+          valido_de: '2026-11-25 09:00:00'
+          valido_ate: '2026-11-25 14:59:59.999999'
+          is_current: false
+        - codigo: '01.01'
+          descricao: Cavalos vivos
+          valido_de: '2026-11-25 15:00:00'
+          valido_ate:
+          is_current: true
