@@ -690,6 +690,7 @@ def manutencao(dias: int, dry_run: bool, bucket: str, segredo: str):
             "nfe-cgu",
             "margem-preferencia",
             "tradutor-catmat-ncm",
+            "uasg",
         ]
     ),
     default=None,
@@ -704,6 +705,7 @@ def run(apenas: str | None, bucket: str | None):
     import ingestion.nfe_cgu.pipeline as nfe_cgu
     import ingestion.pncp_comprasgov.pipeline as pncp_comprasgov
     import ingestion.tradutor_catmat_ncm.pipeline as tradutor_catmat_ncm
+    import ingestion.uasg.pipeline as uasg
 
     pipelines = {
         "ncm": (ncm, "[cyan]>>> NCM[/cyan]"),
@@ -718,6 +720,7 @@ def run(apenas: str | None, bucket: str | None):
             tradutor_catmat_ncm,
             "[cyan]>>> Tradutor CATMAT -> NCM[/cyan]",
         ),
+        "uasg": (uasg, "[cyan]>>> UASGs e órgãos (Compras.gov.br)[/cyan]"),
     }
 
     ordem = list(pipelines.keys()) if apenas is None else [apenas]
@@ -735,6 +738,7 @@ _MANIFESTOS = [
     "pncp_comprasgov_manifesto.csv",
     "catmats_manifesto.csv",
     "nfe_cgu_manifesto.csv",
+    "uasg_manifesto.csv",
 ]
 
 
