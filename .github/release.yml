@@ -1,0 +1,21 @@
+---
+# Categorias das notas de release geradas pelo GitHub ("Generate release notes").
+# Cada PR entra na primeira categoria cujo label ele tiver; PRs sem label caem em "Outras mudanças".
+changelog:
+  exclude:
+    labels: [duplicada, inválida, não-será-feita]
+  categories:
+    - title: Fontes de dados
+      labels: [fonte-de-dados]
+    - title: Correções
+      labels: [bug]
+    - title: Melhorias
+      labels: [melhoria]
+    - title: Documentação
+      labels: [docs]
+    - title: Infraestrutura e manutenção
+      labels: [infra]
+    - title: Dependências
+      labels: [dependencies, github_actions]
+    - title: Outras mudanças
+      labels: ['*']
