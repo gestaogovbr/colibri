@@ -1,6 +1,7 @@
 ---
 name: Tarefa
 description: Melhoria, refatoração, documentação ou manutenção
+labels: [melhoria]
 body:
   - type: textarea
     id: contexto

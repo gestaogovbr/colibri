@@ -1,7 +1,7 @@
 ---
 name: Proposta de fonte de dados
 description: Sugerir uma base nova para entrar no lake
-labels: [enhancement]
+labels: [fonte-de-dados]
 body:
   - type: input
     id: fonte
