@@ -1,0 +1,26 @@
+---
+name: Tarefa
+description: Melhoria, refatoração, documentação ou manutenção
+body:
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Contexto
+      description: O que existe hoje e por que precisa mudar.
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      description: O que fazer. Se houver alternativas, liste e diga qual prefere.
+    validations:
+      required: true
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Critérios de aceitação
+      description: Como saber que a tarefa terminou.
+      placeholder: |-
+        - [ ] ...
+        - [ ] ...

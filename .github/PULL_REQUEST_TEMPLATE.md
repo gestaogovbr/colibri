@@ -1,4 +1,5 @@
-<!-- Indique o número da issue atendida por este PR e ela será fechada automaticamente quando este PR for mesclado na main -->
+<!-- PRs entram na `develop`. A passagem `develop` → `main` é feita em lote. -->
+<!-- Indique a issue atendida. Ela é fechada automaticamente quando a mudança chegar à `main`. -->
 Resolve #<Número da Issue>
 
 <!-- Busque preencher todas as seções abaixo. Se alguma não fizer sentido, informe que não se aplica (N/A) -->
@@ -6,10 +7,13 @@ Resolve #<Número da Issue>
 
 ## Como testar
 
+## Pontos de atenção
+<!-- Ex.: precisa de `--full-refresh` no deploy, muda colunas de um mart, depende de outro PR -->
 
 <!-- Apague os itens que não fizerem sentido -->
-## Checklist antes de mesclar na main
-- [ ] Formatar todos os arquivos python usando `ruff format .`
-- [ ] Formatar todos os arquivos yaml usando `yamlfix .`
-- [ ] Executar testes unitários usando `pytest`
-- [ ] Executar testes dbt usando `cd dbt && ../env/bin/dbt test --project-dir . --profiles-dir . --target prod && cd ..`
+## Checklist
+- [ ] PR aberto contra a `develop`
+- [ ] Lint e formatação com `pre-commit run --all-files` (ruff e yamlfix, os mesmos da CI)
+- [ ] Testes unitários com `pytest`
+- [ ] Testes dbt dos modelos alterados com `cd dbt && ../env/bin/dbt test --project-dir . --profiles-dir . --select <modelos>+ && cd ..`
+- [ ] Modelo incremental com mudança de colunas: `--full-refresh` indicado em "Pontos de atenção"
