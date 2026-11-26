@@ -1,0 +1,49 @@
+---
+name: Proposta de fonte de dados
+description: Sugerir uma base nova para entrar no lake
+labels: [fonte-de-dados]
+body:
+  - type: input
+    id: fonte
+    attributes:
+      label: Fonte
+      description: Nome da base e de quem publica.
+      placeholder: 'Ex.: PNCP, API de consulta de contratações (Ministério da Gestão)'
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Onde está
+      description: URL da página, da API ou do arquivo.
+    validations:
+      required: true
+  - type: textarea
+    id: pergunta
+    attributes:
+      label: Que pergunta essa base ajuda a responder
+      description: O que um analista consegue fazer com ela que hoje não consegue
+        com o lake.
+    validations:
+      required: true
+  - type: textarea
+    id: formato
+    attributes:
+      label: Formato e acesso
+      description: |
+        Formato (CSV, API JSON, planilha…), se precisa de autenticação, limites de requisição e licença de uso.
+    validations:
+      required: true
+  - type: textarea
+    id: cobertura
+    attributes:
+      label: Cobertura e atualização
+      description: |
+        Desde quando há dados, com que frequência a fonte atualiza e se ela guarda histórico
+        ou só publica o estado atual.
+  - type: textarea
+    id: ligacao
+    attributes:
+      label: Ligação com as tabelas do lake
+      description: Por quais chaves a base se junta ao que já existe (CATMAT, NCM,
+        UASG, id da compra…).

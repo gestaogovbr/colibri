@@ -1,0 +1,54 @@
+---
+name: Bug
+description: Algo no colibri não funciona como deveria (CLI, pipeline, modelo dbt
+  ou dado no lake)
+labels: [bug]
+body:
+  - type: textarea
+    id: o-que-aconteceu
+    attributes:
+      label: O que aconteceu
+      description: Descreva o problema. Se for um dado errado, diga a tabela, a coluna
+        e um exemplo.
+    validations:
+      required: true
+  - type: textarea
+    id: como-reproduzir
+    attributes:
+      label: Como reproduzir
+      description: Comandos ou consulta SQL que mostram o problema.
+      placeholder: |
+        colibri lake query "SELECT ..."
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que era esperado
+    validations:
+      required: true
+  - type: textarea
+    id: saida
+    attributes:
+      label: Mensagem de erro ou saída
+      description: Cole o trecho relevante do log. Não cole tokens nem o conteúdo
+        do `.segredos.yml`.
+      render: text
+  - type: dropdown
+    id: ambiente
+    attributes:
+      label: Onde aconteceu
+      options:
+        - Produção (colibri-prod)
+        - Bucket de desenvolvimento ou cópia do lake
+        - Ambiente local (MinIO)
+        - CI
+        - Não sei
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Branch ou commit
+      description: Saída de `git rev-parse --short HEAD`, se souber.
