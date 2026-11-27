@@ -5,7 +5,7 @@
 ) }}
 
 WITH origem AS (
-    SELECT *
+    SELECT  DISTINCT *
     FROM {{ ref('stg_comprasgov__pncp_itens') }}
 ),
 

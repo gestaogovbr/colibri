@@ -95,8 +95,14 @@ class FakeSessao:
         return cls(lambda url, **kw: FakeResposta(codigo))
 
     @classmethod
-    def com_zip(cls, conteudo_zip: bytes):
-        return cls(lambda url, **kw: FakeResposta(200, conteudo_zip))
+    def com_zip(cls, conteudo_zip: bytes, etag: str = "versao-1"):
+        return cls(
+            lambda url, **kw: FakeResposta(
+                200,
+                conteudo_zip,
+                headers={"ETag": etag},
+            )
+        )
 
     @classmethod
     def com_csv(cls, csv_bytes: bytes, nome="dados.csv"):
@@ -157,3 +163,27 @@ def criar_parquet_local(tipo="compras", ano=2025, mes=8, conteudo=None) -> Path:
     else:
         destino.write_bytes(conteudo)
     return destino
+
+
+def caminho_snapshot(tipo="compras", ano=2025, mes=8):
+    pasta = Path("dados/pncp_comprasgov_delog") / tipo / str(ano) / f"{mes:02d}" / "versoes"
+
+    arquivos = list(pasta.glob(f"{tipo}_{ano}_{mes:02d}_*.parquet"))
+
+    assert len(arquivos) == 1
+    return arquivos[0]
+
+
+def arquivos_resultado(modulo, tipo="compras", ano=2025, mes=8):
+    if modulo.__name__.endswith(".extract"):
+        pasta = caminho_saida(tipo, ano, mes).parent / "versoes"
+        return sorted(pasta.glob(f"{tipo}_{ano}_{mes:02d}_*.parquet"))
+
+    caminho = caminho_saida(tipo, ano, mes)
+    return [caminho] if caminho.is_file() else []
+
+
+def caminho_resultado(modulo, tipo="compras", ano=2025, mes=8):
+    arquivos = arquivos_resultado(modulo, tipo, ano, mes)
+    assert len(arquivos) == 1, f"Esperado um Parquet, encontrados {len(arquivos)}: {arquivos}"
+    return arquivos[0]

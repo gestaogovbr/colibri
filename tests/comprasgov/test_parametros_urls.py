@@ -6,6 +6,7 @@ from tests.comprasgov.apoio import (
     PREFIXOS,
     URL_BASE,
     FakeSessao,
+    caminho_resultado,
     caminho_saida,
     chave_r2,
     criar_parquet_local,
@@ -102,7 +103,7 @@ def test_arquivo_criado_no_caminho_esperado(modulo, tipo):
     from tests.comprasgov.apoio import CSV_PADRAO
 
     assert executar(modulo, FakeSessao.com_csv(CSV_PADRAO), tipo, 2025, 6) == "criado"
-    assert caminho_saida(tipo, 2025, 6).is_file()
+    assert caminho_resultado(modulo, tipo, 2025, 6).is_file()
 
 
 @pytest.mark.parametrize("tipo", PREFIXOS)

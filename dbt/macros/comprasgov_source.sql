@@ -18,7 +18,7 @@
         regexp_replace(
             regexp_extract(
                 filename,
-                '{{ tipo }}_(\d{4}_\d{2})\.parquet$',
+                '{{ tipo }}_(\d{4}_\d{2})(__\d{4}-\d{2}-\d{2})?\.parquet$',
                 1
             ),
             '_',

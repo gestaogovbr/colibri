@@ -27,7 +27,7 @@ for _p in (RAIZ, Path(__file__).parent):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from tests.comprasgov.apoio import FAKE_CONFIG  # noqa: E402
+from .apoio import FAKE_CONFIG  # noqa: E402
 
 MODULOS = ["ingestion.comprasgov.extract", "ingestion.comprasgov.extract_r2"]
 

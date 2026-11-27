@@ -10,6 +10,8 @@ import pytest
 from tests.comprasgov.apoio import (
     CSV_PADRAO,
     FakeSessao,
+    arquivos_resultado,
+    caminho_resultado,
     caminho_saida,
     criar_parquet_local,
     executar,
@@ -28,16 +30,37 @@ def arvore(raiz):
 
 def test_duas_execucoes_criado_depois_existente(modulo):
     assert executar(modulo, FakeSessao.com_csv(CSV_PADRAO)) == "criado"
+
     sessao2 = FakeSessao.com_csv(CSV_PADRAO)
-    assert executar(modulo, sessao2) == "existente"
-    assert sessao2.chamadas == []  # 2ª execução nem baixa
+    resultado = executar(modulo, sessao2)
+
+    if modulo.__name__.endswith(".extract"):
+        assert resultado == "criado"
+        assert len(sessao2.chamadas) == 1
+        assert sessao2.chamadas[0][1].get("stream") is True
+        assert len(arquivos_resultado(modulo)) == 1
+    else:
+        assert resultado == "existente"
+        assert sessao2.chamadas == []
 
 
 def test_arquivo_existente_preservado_byte_a_byte(modulo):
     executar(modulo, FakeSessao.com_csv(CSV_PADRAO))
-    antes = sha(caminho_saida())
-    executar(modulo, FakeSessao.com_csv(b"x;y\n9;9\n"))  # fonte "republicada"
-    assert sha(caminho_saida()) == antes
+
+    original = caminho_resultado(modulo)
+    antes = sha(original)
+
+    executar(
+        modulo,
+        FakeSessao.com_csv(b"x;y\n9;9\n"),
+    )
+
+    assert sha(original) == antes
+
+    if modulo.__name__.endswith(".extract"):
+        assert len(arquivos_resultado(modulo)) == 2
+    else:
+        assert len(arquivos_resultado(modulo)) == 1
 
 
 def test_caminhos_e_arvore_consistentes_entre_execucoes(modulo, raiz_exec):
@@ -62,7 +85,7 @@ def test_sem_temporarios_no_destino_nem_no_tmp_apos_sucesso(modulo, tmp_sistema,
 
 def test_falha_de_conversao_nao_deixa_arquivo_e_permite_nova_tentativa(modulo):
     assert executar(modulo, FakeSessao.com_csv(b"a;b;c\n1;2\n")) == "erro"
-    assert not caminho_saida().exists()
+    assert not arquivos_resultado(modulo)
     assert executar(modulo, FakeSessao.com_csv(CSV_PADRAO)) == "criado"  # nova tentativa recupera
 
 
@@ -105,7 +128,7 @@ def test_LIMITACAO_falha_parcial_nao_deveria_deixar_arquivo_incompleto(modulo, m
     ou via except BaseException interno."""
     _copia_que_falha_no_destino_final(monkeypatch)
     executar(modulo, FakeSessao.com_csv(CSV_PADRAO))
-    assert not caminho_saida().exists(), "arquivo parcial ficou no destino final"
+    assert not arquivos_resultado(modulo), "arquivo parcial ficou no destino final"
 
 
 @pytest.mark.limitacao
@@ -114,7 +137,7 @@ def test_LIMITACAO_nova_tentativa_recupera_apos_falha_parcial(modulo, monkeypatc
     executar(modulo, FakeSessao.com_csv(CSV_PADRAO))
     estado["falhar"] = False  # disco "liberado"
     assert executar(modulo, FakeSessao.com_csv(CSV_PADRAO)) == "criado"
-    _, _, linhas = ler_parquet(caminho_saida())
+    _, _, linhas = ler_parquet(caminho_resultado(modulo))
     assert len(linhas) == 3
 
 
@@ -124,7 +147,7 @@ def test_LIMITACAO_execucao_interrompida_deixa_arquivo_que_bloqueia_recuperacao(
     """Simula kill -9 durante a cópia: sobra arquivo inválido. Hoje: 'existente' para sempre."""
     criar_parquet_local(conteudo=conteudo)
     assert executar(modulo, FakeSessao.com_csv(CSV_PADRAO)) == "criado"
-    _, _, linhas = ler_parquet(caminho_saida())
+    _, _, linhas = ler_parquet(caminho_resultado(modulo))
     assert len(linhas) == 3
 
 
@@ -139,10 +162,28 @@ def test_LIMITACAO_upload_nao_deveria_enviar_parquet_invalido(r2, cliente_s3):
     cliente_s3.upload_fileobj.assert_not_called()
 
 
-def test_caracterizacao_republicacao_da_fonte_nao_e_detectada(modulo):
-    """Caracterização: sem hash/ETag/manifesto, dado atualizado na fonte
-    nunca substitui o local (ao contrário do legado)."""
-    executar(modulo, FakeSessao.com_csv(b"a;b\n1;1\n"))
-    executar(modulo, FakeSessao.com_zip(zip_bytes({"d.csv": b"a;b\n1;1\n2;2\n"})))
-    _, _, linhas = ler_parquet(caminho_saida())
-    assert len(linhas) == 1
+def test_republicacao_da_fonte(modulo):
+    executar(
+        modulo,
+        FakeSessao.com_csv(b"a;b\n1;1\n"),
+    )
+
+    original = caminho_resultado(modulo)
+    hash_original = sha(original)
+
+    executar(
+        modulo,
+        FakeSessao.com_zip(zip_bytes({"d.csv": b"a;b\n1;1\n2;2\n"})),
+    )
+
+    assert sha(original) == hash_original
+
+    if modulo.__name__.endswith(".extract"):
+        arquivos = arquivos_resultado(modulo)
+        assert len(arquivos) == 2
+
+        contagens = sorted(len(ler_parquet(arquivo)[2]) for arquivo in arquivos)
+        assert contagens == [1, 2]
+    else:
+        assert len(arquivos_resultado(modulo)) == 1
+        assert len(ler_parquet(original)[2]) == 1

@@ -8,18 +8,18 @@ Não acessa o R2, não executa dbt e não modifica o pipeline legado.
 
 import argparse
 import csv
+import hashlib
 import logging
 import os
 import shutil
 import tempfile
 import zipfile
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import duckdb
 import requests
 
-from utils.manifesto_duckdb import consultar_entrada, inicializar_manifesto, registrar_entrada
+from utils.manifesto_duckdb import consultar_entrada, inicializar_manifesto, registrar_versao
 
 URL_BASE = "https://repositorio.dados.gov.br/seges/comprasgov/pncp"
 TIPOS = {
@@ -54,8 +54,91 @@ def validar_csv(caminho):
                 )
 
 
+def identificar_snapshot(caminho: Path, tipo: str, ano: int, mes: int):
+    """Calcular o SHA-256 e definir o nome da versão imutável do arquivo Parquet."""
+
+    with caminho.open("rb") as arquivo:
+        hash_sha256 = hashlib.file_digest(
+            arquivo,
+            "sha256",
+        ).hexdigest()
+
+    nome = f"{tipo}_{ano}_{mes:02d}_{hash_sha256[:10]}.parquet"
+
+    destino = DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}" / "versoes" / nome
+
+    return destino, hash_sha256
+
+
+def publicar_snapshot(
+    arquivo_parquet: Path,
+    tipo: str,
+    ano: int,
+    mes: int,
+):
+    """Publica uma versão imutável, identificada pelo SHA-256."""
+
+    destino, hash_256 = identificar_snapshot(arquivo_parquet, tipo, ano, mes)
+
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    temporario = None
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            suffix=".parquet.part",
+            prefix=f".{destino.stem}_",
+            dir=destino.parent,
+            delete=False,
+        ) as saida:
+            temporario = Path(saida.name)
+
+            with arquivo_parquet.open("rb") as origem:
+                shutil.copyfileobj(origem, saida)
+
+        # Validar o Parquet
+        with duckdb.connect(":memory:") as conexao:
+            conexao.execute(
+                "SELECT COUNT(*) FROM read_parquet(?)",
+                [str(temporario)],
+            ).fetchone()
+
+        # Validar a integridade da cópia
+        with temporario.open("rb") as arquivo:
+            hash_temporario = hashlib.file_digest(
+                arquivo,
+                "sha256",
+            ).hexdigest()
+
+        if hash_temporario != hash_256:
+            raise ValueError(f"Falha de integridade na cópia: {temporario}")
+
+        # Publicar o snapshot sem sobrescrever
+        try:
+            os.link(temporario, destino)
+
+        except FileExistsError as err:
+            with destino.open("rb") as existente:
+                hash_existente = hashlib.file_digest(
+                    existente,
+                    "sha256",
+                ).hexdigest()
+
+            if hash_existente != hash_256:
+                raise ValueError(f"Colisão de hash ou snapshot corrompido: {destino}") from err
+
+            LOGGER.info("Snapshot já armazenado: %s", destino)
+
+        return destino, hash_256
+
+    finally:
+        if temporario is not None:
+            temporario.unlink(missing_ok=True)
+
+
 def _parquet_valido(caminho: Path) -> bool:
     """Verifica se o arquivo Parquet existe e pode ser lido pelo DuckDB."""
+
     try:
         with duckdb.connect(":memory:") as conexao:
             conexao.execute(
@@ -65,16 +148,20 @@ def _parquet_valido(caminho: Path) -> bool:
         return True
     except (duckdb.Error, OSError) as erro:
         LOGGER.warning(
-            "Parquet existente inválido, será recuperado: %s (%s)",
+            "Parquet inválido: %s (%s)",
             caminho,
             erro,
         )
-        caminho.unlink(missing_ok=True)
         return False
 
 
-def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> str:
-    """Baixa um ZIP e converte o CSV interno em Parquet, versionando por data de atualização."""
+def processar_tipo_detalhado(
+    sessao: requests.Session,
+    ano: int,
+    mes: int,
+    tipo: str,
+) -> dict:
+    """Baixa um ZIP, converte o CSV em Parquet e arquiva o snapshot por SHA-256."""
     if not 1 <= mes <= 12:
         raise ValueError("O mês deve estar entre 1 e 12")
 
@@ -82,58 +169,48 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
     nome_zip = f"{prefixo}_{ano}_{mes:02d}.csv.zip"
     url = f"{URL_BASE}/{ano}/{mes:02d}/{nome_zip}"
 
-    pasta_destino = DIRETORIO_SAIDA / tipo / str(ano) / f"{mes:02d}"
-    destino_padrao = pasta_destino / f"{tipo}_{ano}_{mes:02d}.parquet"
-
-    # //---- 1. Checagem rapida local antes da rede (garante idempotencia sem chamadas HTTP extras) ----//
-    if destino_padrao.exists():
-        if _parquet_valido(destino_padrao):
-            LOGGER.info("Arquivo já existente e válido: %s", destino_padrao)
-            return "existente"
-
-    # //---- 2. Consulta metadados remotos diferenciando 404 de erro de rede ----//
+    # //---- 1. Consulta metadados remotos ----//
     try:
         metadados_http = consultar_metadados(sessao, url)
     except requests.RequestException as erro:
         LOGGER.error("Falha ao consultar metadados de %s: %s", url, erro)
-        return "erro"
+        return {"status": "erro"}
 
     if metadados_http is None:
-        return "indisponivel"
+        return {"status": "indisponivel"}
 
-    etag_remoto = metadados_http.get("etag")
-    last_modified_str = metadados_http.get("last_modified")
-
-    # //---- 3. Define nomenclatura: se houver Last-Modified usa sufixo __YYYY-MM-DD, senao usa padrao ----//
-    if last_modified_str:
-        data_arquivo = parsedate_to_datetime(last_modified_str).strftime("%Y-%m-%d")
-        nome_parquet = f"{tipo}_{ano}_{mes:02d}__{data_arquivo}.parquet"
-    else:
-        data_arquivo = None
-        nome_parquet = f"{tipo}_{ano}_{mes:02d}.parquet"
-
-    destino = pasta_destino / nome_parquet
-
-    # //---- 4. Verifica se a versao datada especifica ja foi baixada ----//
-    if destino.exists():
-        if _parquet_valido(destino):
-            LOGGER.info("Versão %s já existente e válida: %s", data_arquivo or "padrão", destino)
-            return "existente"
-
-    # //---- 5. Consulta o manifesto local para comparar com os metadados remotos ----//
+    # //---- 3. Consulta o manifesto local para comparar com os metadados remotos ----//
     inicializar_manifesto(pipeline="comprasgov_pncp")
     entrada_manifesto = consultar_entrada(pipeline="comprasgov_pncp", tipo=tipo, ano=ano, mes=mes)
 
-    if not precisa_atualizar(metadados_http, entrada_manifesto):
-        LOGGER.info(
-            "Sem alterações na fonte (ETag idêntico) para %s %s/%s. Download ignorado.",
-            tipo,
-            mes,
-            ano,
-        )
-        return "existente"
+    caminho_baseline = entrada_manifesto.get("caminho_snapshot") if entrada_manifesto else None
 
-    # //---- 6. Download e conversao em diretorio temporario isolado ----//
+    hash_baseline = entrada_manifesto.get("hash_sha256") if entrada_manifesto else None
+
+    if caminho_baseline and hash_baseline and not precisa_atualizar(metadados_http, entrada_manifesto):
+        baseline = Path(caminho_baseline)
+
+        if baseline.is_file():
+            with baseline.open("rb") as arquivo:
+                hash_local = hashlib.file_digest(
+                    arquivo,
+                    "sha256",
+                ).hexdigest()
+
+            if hash_local == hash_baseline and _parquet_valido(baseline):
+                LOGGER.info(
+                    "Baseline confirmado e ETag inalterado: %s",
+                    baseline,
+                )
+                return {
+                    "status": "existente",
+                    "hash_sha256": hash_baseline,
+                    "caminho_snapshot": str(baseline),
+                    "etag": metadados_http.get("etag"),
+                    "last_modified": metadados_http.get("last_modified"),
+                }
+
+    # //---- 4. Download e conversao em diretorio temporario isolado ----//
     with tempfile.TemporaryDirectory(prefix="colibri_comprasgov_") as pasta:
         pasta_temp = Path(pasta)
         arquivo_zip = pasta_temp / nome_zip
@@ -144,7 +221,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
             with sessao.get(url, stream=True, timeout=(15, 120)) as resposta:
                 if resposta.status_code == 404:
                     LOGGER.warning("Não disponível (404): %s", url)
-                    return "indisponivel"
+                    return {"status": "indisponivel"}
                 resposta.raise_for_status()
                 with arquivo_zip.open("wb") as saida:
                     for bloco in resposta.iter_content(chunk_size=1024 * 1024):
@@ -152,7 +229,7 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                             saida.write(bloco)
         except requests.RequestException as erro:
             LOGGER.error("Falha no download de %s: %s", url, erro)
-            return "erro"
+            return {"status": "erro"}
 
         try:
             with zipfile.ZipFile(arquivo_zip) as compactado:
@@ -192,65 +269,56 @@ def processar_tipo(sessao: requests.Session, ano: int, mes: int, tipo: str) -> s
                     (FORMAT PARQUET, COMPRESSION ZSTD)
                 """)
 
-            destino.parent.mkdir(parents=True, exist_ok=True)
-            temporario = None
+            destino, hash_sha256 = publicar_snapshot(
+                arquivo_parquet,
+                tipo,
+                ano,
+                mes,
+            )
 
-            try:
-                with tempfile.NamedTemporaryFile(
-                    mode="wb",
-                    suffix=".parquet.part",
-                    prefix=f".{destino.stem}_",
-                    dir=destino.parent,
-                    delete=False,
-                ) as saida:
-                    temporario = Path(saida.name)
+            registrar_versao(
+                pipeline="comprasgov_pncp",
+                tipo=tipo,
+                ano=ano,
+                mes=mes,
+                hash_sha256=hash_sha256,
+                caminho_snapshot=str(destino),
+                etag=metadados_http.get("etag"),
+                last_modified=metadados_http.get("last_modified"),
+            )
 
-                    with arquivo_parquet.open("rb") as origem:
-                        shutil.copyfileobj(origem, saida)
+            LOGGER.info(
+                "%s: %s linhas -> %s (SHA_256: %s)",
+                tipo,
+                quantidade,
+                destino,
+                hash_sha256,
+            )
 
-                with duckdb.connect(":memory:") as conexao:
-                    conexao.execute(
-                        "SELECT COUNT(*) FROM read_parquet(?)",
-                        [str(temporario)],
-                    ).fetchone()
-
-                try:
-                    os.link(temporario, destino)
-                except FileExistsError:
-                    LOGGER.info(
-                        "Arquivo já criado por outra execução: %s",
-                        destino,
-                    )
-                    return "existente"
-
-                # //---- 7. Registra no manifesto apos a persistencia fisica confirmada ----//
-                registrar_entrada(
-                    pipeline="comprasgov_pncp",
-                    tipo=tipo,
-                    ano=ano,
-                    mes=mes,
-                    etag=etag_remoto,
-                    last_modified=last_modified_str,
-                    hash_sha256=None,
-                )
-
-                LOGGER.info(
-                    "%s: %s linhas -> %s",
-                    tipo,
-                    quantidade,
-                    destino,
-                )
-                return "criado"
-
-            finally:
-                if temporario is not None:
-                    temporario.unlink(missing_ok=True)
+            return {
+                "status": "criado",
+                "hash_sha256": hash_sha256,
+                "caminho_snapshot": str(destino),
+                "etag": metadados_http.get("etag"),
+                "last_modified": metadados_http.get("last_modified"),
+            }
 
         except (OSError, ValueError, csv.Error, zipfile.BadZipFile, duckdb.Error) as erro:
-            if destino.exists() and destino.stat().st_size == 0:
-                destino.unlink()
             LOGGER.error("Falha ao processar %s: %s", nome_zip, erro)
-            return "erro"
+            return {"status": "erro"}
+
+
+def processar_tipo(
+    sessao: requests.Session,
+    ano: int,
+    mes: int,
+    tipo: str,
+) -> str:
+    """Processa um arquivo e retorna seu status."""
+
+    resultado = processar_tipo_detalhado(sessao, ano, mes, tipo)
+
+    return resultado["status"]
 
 
 def consultar_metadados(sessao: requests.Session, url: str) -> dict | None:

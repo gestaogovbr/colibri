@@ -7,7 +7,15 @@ Sem DELOG e sem R2. Os testes `servico_real` ficam desativados por padrão
 import pytest
 from botocore.exceptions import ClientError
 
-from tests.comprasgov.apoio import FakeResposta, FakeSessao, caminho_saida, chave_r2, ler_parquet, zip_bytes
+from tests.comprasgov.apoio import (
+    FakeResposta,
+    FakeSessao,
+    arquivos_resultado,
+    caminho_resultado,
+    chave_r2,
+    ler_parquet,
+    zip_bytes,
+)
 
 pytestmark = pytest.mark.integracao
 
@@ -18,12 +26,21 @@ def sessao_tres_tipos():
         "compra_item_2025_08.csv.zip": b"cod_compra;num_item\n001;1\n001;2\n002;1\n",
         "item_resultado_2025_08.csv.zip": b"cod_compra;num_item;valor\n001;1;1,5\n",
     }
-    return FakeSessao(lambda url, **kw: FakeResposta(200, zip_bytes({"x.csv": corpos[url.rsplit("/", 1)[1]]})))
+    return FakeSessao(
+        lambda url, **kw: FakeResposta(
+            200,
+            zip_bytes({"x.csv": corpos[url.rsplit("/", 1)[1]]}),
+            headers={"ETag": "versao-1"},
+        )
+    )
 
 
 def test_fluxo_local_tres_tipos(local, rodar_main):
     rodar_main(local, "--ano", "2025", "--mes", "8", sessao=sessao_tres_tipos())
-    contagens = {t: len(ler_parquet(caminho_saida(t))[2]) for t in ("compras", "itens", "resultados")}
+    contagens = {
+        tipo: len(ler_parquet(caminho_resultado(local, tipo))[2]) for tipo in ("compras", "itens", "resultados")
+    }
+
     assert contagens == {"compras": 2, "itens": 3, "resultados": 1}
 
 
@@ -56,7 +73,10 @@ def test_reexecucao_do_fluxo_completo_e_idempotente(local, rodar_main):
     rodar_main(local, "--ano", "2025", "--mes", "8", sessao=sessao_tres_tipos())
     sessao2 = sessao_tres_tipos()
     rodar_main(local, "--ano", "2025", "--mes", "8", sessao=sessao2)
-    assert sessao2.chamadas == []
+    assert len(sessao2.chamadas) == 3
+    assert all(kwargs.get("stream") is True for _, kwargs in sessao2.chamadas)
+
+    assert all(len(arquivos_resultado(local, tipo)) == 1 for tipo in ("compras", "itens", "resultados"))
 
 
 def test_cli_retorna_1_se_algum_tipo_falha(local, rodar_main):
