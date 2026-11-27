@@ -1,7 +1,8 @@
 {{ config(
     materialized='table',
     database='lake',
-    tags=['intermediate', 'margem_preferencia']
+    tags=['intermediate', 'margem_preferencia'],
+    contract={'enforced': true}
 ) }}
 
 WITH eventos AS (
@@ -58,8 +59,10 @@ intervalos AS (
 numerados AS (
     SELECT
         *,
+        -- tipo_margem na partição: os dois tipos podem valer para o mesmo prefixo,
+        -- e cada um tem seu próprio intervalo mais recente/ativo
         ROW_NUMBER() OVER (
-            PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm
+            PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm, tipo_margem
             ORDER BY data_inicio DESC
         ) AS rn
     FROM intervalos
@@ -74,8 +77,15 @@ marcadores AS (
 
 enumerated AS (
     SELECT *, ROW_NUMBER() OVER (
-        PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm, data_inicio
-        ORDER BY (margem_normal_pct + margem_adicional_pct + margem_sustentabilidade_pct) DESC
+        PARTITION BY starts_with(resolucao, 'cics'), prefixo_ncm, tipo_margem, data_inicio
+        -- COALESCE: margem_sustentabilidade_pct é sempre NULL e margem_adicional_pct pode
+        -- ser; sem ele a soma vira NULL e a escolha fica arbitrária (como em stg_margem__eventos).
+        -- resolucao desempata de forma determinística.
+        ORDER BY (
+            COALESCE(margem_normal_pct, 0)
+            + COALESCE(margem_adicional_pct, 0)
+            + COALESCE(margem_sustentabilidade_pct, 0)
+        ) DESC, resolucao
     ) AS rn
     FROM marcadores
 ),

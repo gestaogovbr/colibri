@@ -358,6 +358,29 @@ def _conectar_lake(bucket: str, segredo: str):
     return dl.conectar(caminho_meta, data_path, segredo)
 
 
+def _resolver_tabela(con, tabela: str) -> str | None:
+    """Resolve o schema de uma tabela ou view consultando o catálogo DuckLake."""
+    row = con.execute(
+        """
+        SELECT s.schema_name
+        FROM __ducklake_metadata_lake.main.ducklake_schema s
+        JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
+        WHERE t.table_name = ? AND t.end_snapshot IS NULL
+
+        UNION ALL
+
+        SELECT s.schema_name
+        FROM __ducklake_metadata_lake.main.ducklake_schema s
+        JOIN __ducklake_metadata_lake.main.ducklake_view v USING (schema_id)
+        WHERE v.view_name = ? AND v.end_snapshot IS NULL
+
+        LIMIT 1
+    """,
+        [tabela, tabela],
+    ).fetchone()
+    return row[0] if row else None
+
+
 @lake.command("tables")
 @click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
 @click.option(
@@ -409,40 +432,6 @@ def tabelas(bucket: str, segredo: str):
     console.print(tabela)
 
 
-@lake.command("years")
-@click.argument("tabela")
-@click.option("--bucket", default="colibri-prod", show_default=True, help="Bucket do lake")
-@click.option(
-    "--segredo",
-    default=NOME_SEGREDO_VISUALIZADOR,
-    show_default=True,
-    help="Segredo com acesso ao bucket",
-)
-def anos(tabela: str, bucket: str, segredo: str):
-    """Mostra contagem de linhas por ano de uma tabela"""
-    con = _conectar_lake(bucket, segredo)
-    try:
-        rows = con.execute(f"""
-            SELECT ano, count(*) AS n
-            FROM lake.main.{tabela}
-            GROUP BY ano ORDER BY ano
-        """).fetchall()
-    except Exception as e:
-        console.print(f"[red]x[/red] {e}")
-        con.close()
-        return
-    con.close()
-
-    tb = _tabela_dados("Ano", ("Linhas", {"justify": "right"}))
-    total = 0
-    for row in rows:
-        tb.add_row(str(row[0]), f"{row[1]:,}")
-        total += row[1]
-    tb.add_section()
-    tb.add_row("[bold]Total[/bold]", f"[bold {AZUL}]{total:,}[/]")
-    console.print(tb)
-
-
 @lake.command("download")
 @click.argument("tabela")
 @click.option("--destino", default=None, help="Arquivo de saída (padrão: ./<tabela>.parquet)")
@@ -457,35 +446,17 @@ def lake_download(tabela: str, destino: str | None, bucket: str, segredo: str):
     """Baixa os parquets de uma tabela do catálogo para o disco"""
     con = _conectar_lake(bucket, segredo)
     try:
-        row = con.execute(
-            """
-            SELECT s.schema_name
-            FROM __ducklake_metadata_lake.main.ducklake_schema s
-            JOIN __ducklake_metadata_lake.main.ducklake_table t USING (schema_id)
-            WHERE t.table_name = ? AND t.end_snapshot IS NULL
-
-            UNION ALL
-
-            SELECT s.schema_name
-            FROM __ducklake_metadata_lake.main.ducklake_schema s
-            JOIN __ducklake_metadata_lake.main.ducklake_view v USING (schema_id)
-            WHERE v.view_name = ? AND v.end_snapshot IS NULL
-
-            LIMIT 1
-        """,
-            [tabela, tabela],
-        ).fetchone()
+        schema_name = _resolver_tabela(con, tabela)
     except Exception as e:
         console.print(f"[red]x[/red] Erro ao consultar catálogo: {e}")
         con.close()
         return
 
-    if not row:
+    if not schema_name:
         console.print(f"[red]x[/red] Tabela não encontrada: [bold]{tabela}[/bold]")
         con.close()
         return
 
-    schema_name = row[0]
     saida = destino or f"{tabela}.parquet"
 
     with Progress(SpinnerColumn(style=VERDE), TextColumn(f"[{AZUL}]Exportando..."), transient=True) as p:
@@ -811,27 +782,32 @@ def sincronizar(segredo: str):
 
 @cli.command("docs")
 @click.option("--sem-servidor", is_flag=True, help="Gera a documentação sem abrir o servidor")
-def docs(sem_servidor: bool):
+@click.option(
+    "--target",
+    default=None,
+    help="Target do dbt/profiles.yml (padrão: o target padrão do profile)",
+)
+def docs(sem_servidor: bool, target: str | None):
     """Gera e exibe a documentação automática do dbt"""
     import subprocess
     from pathlib import Path
 
     dbt_dir = Path(__file__).resolve().parent / "dbt"
 
+    comando = [
+        "dbt",
+        "docs",
+        "generate",
+        "--project-dir",
+        str(dbt_dir),
+        "--profiles-dir",
+        str(dbt_dir),
+    ]
+    if target:
+        comando += ["--target", target]
+
     console.print("[cyan]>>> Gerando documentação...[/cyan]")
-    subprocess.run(
-        [
-            "dbt",
-            "docs",
-            "generate",
-            "--project-dir",
-            str(dbt_dir),
-            "--profiles-dir",
-            str(dbt_dir),
-        ],
-        cwd=str(dbt_dir),
-        check=True,
-    )
+    subprocess.run(comando, cwd=str(dbt_dir), check=True)
 
     if not sem_servidor:
         console.print("[cyan]>>> Servindo documentação em http://localhost:8080[/cyan]")
