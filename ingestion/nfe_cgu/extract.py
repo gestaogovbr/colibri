@@ -8,7 +8,8 @@ converte latin-1 → UTF-8, converte para Parquet e salva no bucket em nfe_cgu/{
 Manifesto incremental (nfe_cgu_manifesto.csv):
   Registra hash SHA-256 por (tabela, período). Períodos cujo hash bate com o
   manifesto são pulados. O manifesto é sincronizado com o bucket para persistir
-  entre ambientes.
+  entre ambientes. A coluna `versao_conversao` força reconverter períodos
+  gravados por uma versão anterior de `csv_para_parquet`, mesmo com hash igual.
 
 Rastreamento de alterações (nfe_cgu_alteracoes.csv):
   Informa ao dbt quais (tabela, período) foram baixados ou atualizados nesta
@@ -29,6 +30,7 @@ import uuid
 import zipfile
 from datetime import date, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import boto3
 import botocore
@@ -62,6 +64,7 @@ COLUNAS_MANIFESTO = [
     "num_linhas",
     "tamanho_bytes",
     "extraido_em",
+    "versao_conversao",
 ]
 COLUNAS_ALTERACOES = ["tabela", "periodo"]
 
@@ -69,6 +72,14 @@ TIMEOUT_SEGUNDOS = 120
 MAX_TENTATIVAS = 3
 PAUSA_BASE_SEGUNDOS = 5
 SALVAR_MANIFESTO_A_CADA = 10
+
+# Identificadores que parecem número, mas não são: lidos como texto.
+# A chave de acesso tem 44 dígitos e, inferida como DOUBLE, perdia os 29 últimos (#98).
+COLUNAS_TEXTO = ("CHAVE DE ACESSO", "CÓDIGO NCM/SH")
+
+# Subir quando `csv_para_parquet` mudar o que grava: períodos de versão anterior são reconvertidos.
+# 2 = COLUNAS_TEXTO como VARCHAR (#98).
+VERSAO_CONVERSAO = "2"
 
 
 def _gerar_periodos() -> list[str]:
@@ -91,9 +102,13 @@ def _identificar_csvs(nomes: list[str]) -> tuple[str, str, str]:
 
 
 def csv_para_parquet(conteudo: bytes) -> bytes:
+    # As 3 tabelas têm layouts diferentes e o DuckDB recusa tipo para coluna ausente,
+    # então só as COLUNAS_TEXTO presentes no cabeçalho são fixadas.
+    cabecalho = next(csv.reader([conteudo.split(b"\n", 1)[0].decode("utf-8")], delimiter=";"))
+    tipos = {c: "VARCHAR" for c in COLUNAS_TEXTO if c in cabecalho}
     caminho_tmp = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.parquet"
     try:
-        duckdb.read_csv(io.BytesIO(conteudo)).write_parquet(str(caminho_tmp))
+        duckdb.read_csv(io.BytesIO(conteudo), dtype=tipos).write_parquet(str(caminho_tmp))
         return caminho_tmp.read_bytes()
     finally:
         caminho_tmp.unlink(missing_ok=True)
@@ -161,7 +176,28 @@ def registrar_entrada(manifesto: dict[str, dict], tabela: str, periodo: str, con
         "num_linhas": len(linhas) - 1,
         "tamanho_bytes": len(conteudo),
         "extraido_em": datetime.now().isoformat(timespec="seconds"),
+        "versao_conversao": VERSAO_CONVERSAO,
     }
+
+
+class ResultadoIngestao(NamedTuple):
+    houve_mudanca: bool
+    # Algum período estava gravado por VERSAO_CONVERSAO anterior: o staging append
+    # tem os tipos antigos e precisa ser reconstruído (dbt --full-refresh).
+    refazer_staging: bool
+
+
+def tem_versao_antiga(manifesto: dict[str, dict]) -> bool:
+    return any(e.get("versao_conversao") != VERSAO_CONVERSAO for e in manifesto.values())
+
+
+def esta_em_dia(entrada: dict | None, conteudo: bytes) -> bool:
+    """True se o manifesto já registra este conteúdo, convertido pela versão atual"""
+    return (
+        entrada is not None
+        and entrada["hash_sha256"] == hashlib.sha256(conteudo).hexdigest()
+        and entrada.get("versao_conversao") == VERSAO_CONVERSAO
+    )
 
 
 def resetar_dados_locais() -> None:
@@ -231,11 +267,7 @@ def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[s
                 except botocore.exceptions.ClientError:
                     existe_no_bucket = False
 
-                if (
-                    entrada
-                    and existe_no_bucket
-                    and entrada["hash_sha256"] == hashlib.sha256(conteudo_utf8).hexdigest()
-                ):
+                if existe_no_bucket and esta_em_dia(entrada, conteudo_utf8):
                     logger.info(f"[{tabela}] {periodo}: hash bate com manifesto, pulando")
                     continue
 
@@ -259,8 +291,8 @@ def processar_periodo(session: requests.Session, periodo: str, manifesto: dict[s
         return "indisponivel"
 
 
-def executar_ingestao(bucket: str | None = None) -> bool:
-    """Retorna True se algum dado novo foi extraído, False se nada mudou"""
+def executar_ingestao(bucket: str | None = None) -> ResultadoIngestao:
+    """Diz se algum dado novo foi extraído e se o staging precisa ser reconstruído"""
     for d in (DIRETORIO_MANIFESTOS, DIRETORIO_ALTERACOES):
         d.mkdir(parents=True, exist_ok=True)
     caminho_manifesto = DIRETORIO_MANIFESTOS / NOME_MANIFESTO
@@ -269,6 +301,9 @@ def executar_ingestao(bucket: str | None = None) -> bool:
 
     baixar_manifesto(caminho_manifesto, NOME_MANIFESTO, bucket, NOME_SEGREDO_DESENVOLVEDOR, logger)
     manifesto = carregar_manifesto(caminho_manifesto)
+    refazer_staging = tem_versao_antiga(manifesto)
+    if refazer_staging:
+        logger.warning(f"Manifesto com versão de conversão anterior à {VERSAO_CONVERSAO}: reconvertendo os períodos")
     session = criar_sessao()
 
     contadores = {"baixado": 0, "atualizado": 0, "ignorado": 0, "indisponivel": 0}
@@ -303,7 +338,12 @@ def executar_ingestao(bucket: str | None = None) -> bool:
         f"Ignorados: {contadores['ignorado']}  "
         f"Indisponíveis: {contadores['indisponivel']}"
     )
-    return manifesto_modificado
+    if refazer_staging and tem_versao_antiga(manifesto):
+        # Reconstruir agora misturaria Parquets velhos e novos; o append para no
+        # on_schema_change='fail' e a próxima rodada tenta de novo os que faltaram.
+        logger.error("Ainda há períodos com conversão antiga (ZIP indisponível?): staging não será reconstruído")
+        refazer_staging = False
+    return ResultadoIngestao(manifesto_modificado, refazer_staging and manifesto_modificado)
 
 
 if __name__ == "__main__":
