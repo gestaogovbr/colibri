@@ -1,0 +1,118 @@
+---
+version: 2
+models:
+  - name: int_comprasgov__pncp_compras
+    description: >
+      Histórico de versões das compras do PNCP disponibilizadas pelo ComprasGOV.
+      Calcula os intervalos de validade utilizando data_atualizacao,
+      particionando os registros por cod_compra.
+      A versão mais recente é identificada por is_current.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate > valido_de
+          config:
+            where: valido_ate IS NOT NULL
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cod_compra, valido_de]
+    columns:
+      - name: cod_compra
+        description: Código identificador da compra.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização utilizada para ordenar as versões.
+        data_tests: [not_null]
+      - name: valido_de
+        description: Data inicial de validade da versão.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: >
+          Data de início da próxima versão.
+          Nula quando não existe versão posterior.
+      - name: is_current
+        description: Indica se o registro não possui versão posterior.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+  - name: int_comprasgov__pncp_itens
+    description: >
+      Histórico dos itens de compras do PNCP disponibilizados pelo
+      ComprasGOV. Calcula os intervalos de validade de cada versão
+      utilizando id_compra_item como chave de identificação.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_compra_item, valido_de]
+    columns:
+      - name: id_compra_item
+        description: Identificador do item de compra.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização do registro.
+        data_tests: [not_null]
+      - name: ano_compra
+        description: Ano da compra normalizado para INTEGER.
+      - name: valido_de
+        description: Início da validade da versão.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: >
+          Fim exclusivo da validade da versão.
+          Nulo quando a versão é a mais recente.
+      - name: is_current
+        description: Indica se a versão é a mais recente do item.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+  - name: int_comprasgov__pncp_resultados
+    description: >
+      Histórico dos resultados de itens de compras do PNCP
+      disponibilizados pelo ComprasGOV. Utiliza a combinação
+      id_compra_item e sequencial_resultado para identificar
+      as versões de cada resultado.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: valido_ate >= valido_de
+          config:
+            where: valido_ate IS NOT NULL
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - id_compra_item
+              - sequencial_resultado
+              - valido_de
+    columns:
+      - name: id_compra_item
+        description: Identificador do item de compra.
+        data_tests: [not_null]
+      - name: sequencial_resultado
+        description: Identificador sequencial do resultado.
+        data_tests: [not_null]
+      - name: data_atualizacao
+        description: Data de atualização do registro.
+        data_tests: [not_null]
+      - name: valido_de
+        description: Início da validade da versão.
+        data_tests: [not_null]
+      - name: valido_ate
+        description: >
+          Fim exclusivo da validade da versão.
+          Nulo quando a versão é a mais recente.
+      - name: is_current
+        description: Indica se a versão é a mais recente do resultado.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]

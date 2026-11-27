@@ -5,9 +5,7 @@ renomeadas com sufixo _pncp (alteração de schema em 2025).
 */
 
 {{ config(
-    materialized='incremental',
-    incremental_strategy='append',
-    unique_key=['granularidade', 'periodo'],
+    materialized='view',
     database='lake',
     tags=['staging', 'pncp', 'comprasgov']
 ) }}
