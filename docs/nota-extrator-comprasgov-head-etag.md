@@ -42,7 +42,7 @@ Daí a tese alternativa: **a checagem não precisa ser opcional — precisa ser 
 
 *Fora da tabela, todas as rodadas fazem as mesmas 4.176 sondagens em períodos inexistentes (GET 404, ~0 bytes). Fonte parada desde 16/07 — cenário "nada mudou" natural. Os 420 s da r2 são 5.388 requisições sequenciais (~78 ms cada); o tempo da r1 inclui a conversão para parquet e o upload de 22,75 GB.*
 
-> 
+>
 > **As três hipóteses confirmaram — agora no escopo completo (20 de 20 checagens).**
 > **Custo:** 22.749,2 MB → 0 MB; 3.684 s → 420 s (8,8×).
 > **Fidelidade:** r1 baixou byte a byte o que o censo previu (1.212/1.212 arquivos) e aprendeu 1.212/1.212 ETags iguais aos do censo; r2 deixou o manifesto idêntico e `alteracoes.csv` vazio.

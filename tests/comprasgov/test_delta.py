@@ -31,9 +31,9 @@ def test_comparar_e_gerar_deltas(tmp_path: Path):
                 SELECT *
                 FROM (
                     VALUES
-                        ('001', 'Computadores', '1200'), 
-                        ('003', 'Mesas', '800'),         
-                        ('004', 'Monitores', '900')      
+                        ('001', 'Computadores', '1200'),
+                        ('003', 'Mesas', '800'),
+                        ('004', 'Monitores', '900')
                 ) AS t(cod_compra, descricao, valor)
             ) TO '{caminho_novo}' (FORMAT PARQUET)
         """)
