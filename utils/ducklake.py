@@ -84,22 +84,27 @@ def _nova_conexao(config: dict) -> duckdb.DuckDBPyConnection:
     return con
 
 
-def conectar(caminho_meta: str, data_path: str, nome_segredo: str) -> duckdb.DuckDBPyConnection:
+def conectar(
+    caminho_meta: str, data_path: str, nome_segredo: str, catalogo_local: str = CATALOGO_LOCAL
+) -> duckdb.DuckDBPyConnection:
     """
-    Baixa o catálogo remoto e retorna uma conexão duckdb com o lake já anexado, pronta para uso
+    Baixa o catálogo remoto e retorna uma conexão duckdb com o lake já anexado, pronta para uso.
+
+    `catalogo_local` é onde a cópia do catálogo fica na máquina. O padrão é o `meta.ducklake`
+    compartilhado com os pipelines e o dbt, que é o arquivo que `fechar()` sobe de volta.
     """
     config = carregar_segredo(nome_segredo)
     cliente = criar_cliente(config)
 
     # Obtém o nome do bucket e a chave, a partir da URL do objeto do catálogo no bucket
     bucket, chave = _parsear_s3(caminho_meta)
-    baixar_catalogo(cliente, bucket, chave)
+    baixar_catalogo(cliente, bucket, chave, catalogo_local)
 
     # Cria uma conexão com o SESSION_DB ("ducklake_session.duckdb")
     con = _nova_conexao(config)
 
     # Conecta o catálogo baixado do bucket com o caminho dos parquets no bucket
-    con.execute(f"ATTACH 'ducklake:{CATALOGO_LOCAL}' AS lake (DATA_PATH '{data_path}', OVERRIDE_DATA_PATH TRUE)")
+    con.execute(f"ATTACH 'ducklake:{catalogo_local}' AS lake (DATA_PATH '{data_path}', OVERRIDE_DATA_PATH TRUE)")
     return con
 
 
